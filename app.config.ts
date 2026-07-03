@@ -31,6 +31,12 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
+  owner: "sobierai",
+  extra: {
+    eas: {
+      projectId: "a1dfdf25-6741-4df3-b724-cabb3aab3174",
+    },
+  },
   version: "1.0.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
