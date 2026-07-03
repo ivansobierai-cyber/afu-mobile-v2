@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
+    "@radix-ui/react-slot": "^1.2.3",
     "@react-native-async-storage/async-storage": "^2.2.0",
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.9.2",
@@ -31,6 +32,7 @@
     "@trpc/react-query": "11.7.2",
     "@trpc/server": "11.7.2",
     "axios": "^1.13.2",
+    "babel-preset-expo": "~54.0.10",
     "clsx": "^2.1.1",
     "cookie": "^1.1.1",
     "dotenv": "^16.6.1",
