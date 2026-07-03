@@ -215,6 +215,7 @@ export const authRouter = router({
           message: "Login realizado com sucesso",
         };
       } catch (error) {
+        console.error("[Auth] Falha no login:", error instanceof Error ? error.message : error);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
       }
     }),
