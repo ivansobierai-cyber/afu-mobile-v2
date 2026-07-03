@@ -14,6 +14,11 @@ import { isAuthDisabled } from "@shared/dev-auth";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime } from "@/lib/_core/manus-runtime";
+import {
+  startTokenRefreshCheck,
+  stopTokenRefreshCheck,
+} from "@/lib/token-refresh-interceptor";
+import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -66,8 +71,8 @@ function AuthGuard() {
     }
 
     if (contaSuspensa) {
-      if (!inAuthGroup || authScreen !== "login-new") {
-        router.replace("/auth/login-new" as any);
+      if (!inAuthGroup || authScreen !== "login") {
+        router.replace("/auth/login" as any);
       }
       return;
     }
@@ -88,6 +93,37 @@ function AuthGuard() {
     // Evita redirecionar durante callback OAuth
     if (inOAuthGroup) return;
   }, [loading, isAuthenticated, onboardingPendente, contaSuspensa, segments, router]);
+
+  return null;
+}
+
+function TokenRefreshManager() {
+  const { isAuthenticated, loading } = useSession();
+
+  useEffect(() => {
+    if (isAuthDisabled() || loading) return;
+
+    if (isAuthenticated) {
+      startTokenRefreshCheck();
+    } else {
+      stopTokenRefreshCheck();
+    }
+
+    return () => stopTokenRefreshCheck();
+  }, [isAuthenticated, loading]);
+
+  return null;
+}
+
+/** Processa fila de mutações core ao reconectar. */
+function CoreOfflineSyncManager() {
+  const { isAuthenticated, loading } = useSession();
+  const { syncNow, isOnline } = useCoreOfflineSync();
+
+  useEffect(() => {
+    if (loading || !isAuthenticated || !isOnline) return;
+    void syncNow();
+  }, [isAuthenticated, isOnline, loading, syncNow]);
 
   return null;
 }
@@ -123,6 +159,8 @@ export default function RootLayout() {
               {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
               {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
               <AuthGuard />
+              <TokenRefreshManager />
+              <CoreOfflineSyncManager />
               <Stack screenOptions={{ headerShown: false }}>
                 <Stack.Screen name="(tabs)" />
                 <Stack.Screen name="oauth/callback" />

@@ -1,5 +1,7 @@
 # Revisão Completa das Etapas — Sistema de Autenticação AFU Mobile
 
+> **Nota (03/07/2026):** Este documento é histórico (checkpoint 26/06/2026). O estado atual do auth está em [PROJECT_REVIEW.md](PROJECT_REVIEW.md). Resumo: fonte única `useSession` + `useAuthAPI`; tokens em SecureStore/sessionStorage; refresh token ativo no nativo; rotas canônicas `/auth/login` e `/auth/cadastro`.
+
 **Data:** 26 de Junho de 2026  
 **Projeto:** AFU Mobile (Analisador Fitotécnico Universal)  
 **Checkpoints:** `3ace8eec` → `c7d10516`

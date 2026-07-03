@@ -1,0 +1,13 @@
+{
+  "plugins": {
+    "firebase": {
+      "enabled": true
+    },
+    "vercel": {
+      "enabled": true
+    },
+    "cursor-team-kit": {
+      "enabled": true
+    }
+  }
+}

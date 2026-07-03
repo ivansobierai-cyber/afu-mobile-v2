@@ -77,7 +77,7 @@
 - [x] Adicionar campo de prioridade: baixa, normal, alta, crítica
 - [x] Status: pendente, em_andamento, concluído, cancelado, adiado
 - [x] Vincular evento a cultivo específico
-- [ ] Filtro por prioridade e por cultivo
+- [x] Filtro por prioridade e por cultivo
 - [x] Indicador visual de prioridade nos cards
 
 ### Banco de Culturas Expandido
@@ -260,10 +260,10 @@
 - Total: 32 testes cobrindo CRUD offline completo
 
 ### Documentação
-- [ ] Atualizar ADMIN_OFFLINE_GUIDE.md com seção de conteúdos
-- [ ] Adicionar exemplos de uso do hook useConteudoSync
-- [ ] Documentar fluxo de upload de mídia offline
-- [ ] Adicionar guia de troubleshooting para sincronização de conteúdos
+- [x] Atualizar ADMIN_OFFLINE_GUIDE.md com seção de conteúdos
+- [x] Adicionar exemplos de uso do hook useConteudoSync
+- [x] Documentar fluxo de upload de mídia offline
+- [x] Adicionar guia de troubleshooting para sincronização de conteúdos
 
 ### Integração
 - [x] Adicionar rota /admin/conteudos-offline no app router
@@ -432,12 +432,13 @@
 - [x] TypeScript 0 erros (`npm run check`)
 - [x] 248 testes Vitest passando
 
-### Fora do escopo MVP (v2)
-- [ ] Filtro de calendário por prioridade e cultivo
-- [ ] Suporte técnico com backend real (tickets persistidos)
+### Fora do escopo MVP (v2) — concluído 03/07/2026 Sessão 4
+- [x] Filtro de calendário por prioridade e cultivo
+- [x] Suporte técnico com backend real (tickets + chat via tRPC)
 - [x] ~~Migração `mais/administracao.tsx` de lib/store para tRPC~~ (concluído 03/07)
-- [ ] Documentação ADMIN_OFFLINE_GUIDE (seção conteúdos)
-- [ ] Push notifications e sync offline de dados core
+- [x] Documentação ADMIN_OFFLINE_GUIDE (seção conteúdos + core sync)
+- [x] Push notifications locais (lembretes de calendário)
+- [x] Sync offline core (fila de mutações propriedades/cultivos/terrenos/eventos)
 
 ## Revisão Geral MVP — Auth + Limpeza (03/07/2026)
 
@@ -450,7 +451,17 @@
 6. [x] `use-auth.ts` marcado como deprecated
 
 ### Auth canônico (único fluxo)
-`welcome` → `login-new` / `cadastro-new` → `useAuthAPI` → `useSession` → `onboarding` (se sem perfil) → `(tabs)` → logout → `login-new`
+`welcome` → `login` / `cadastro` → `useAuthAPI` → `useSession` → `onboarding` (se sem perfil) → `(tabs)` → logout → `welcome`
+
+## Correções de Integridade Auth (03/07/2026 — Sessão 3)
+- [x] Race pós-login: `refetch` de `auth.session` + AuthGuard como único redirect
+- [x] Refresh token: interceptor corrigido (URL absoluta, JWT decode RN-safe) + `TokenRefreshManager`
+- [x] `apiCall` envia Bearer no web e nativo quando há token
+- [x] Rotas canônicas: `login.tsx` / `cadastro.tsx` (redirects `-new` mantidos)
+- [x] Logout unificado: `clearLocalAuth()` + destino `/auth/welcome`
+- [x] UX pós-login/cadastro: tela de loading até AuthGuard redirecionar
+- [x] Skill `.cursor/skills/afu-mvp-finalize/SKILL.md` para verificação MVP
+- [x] Docs: PROJECT_REVIEW e REVISAO_ETAPAS atualizados
 
 ### Dev sem login (opcional)
 ```bash
@@ -464,11 +475,22 @@ EXPO_PUBLIC_DEV_SKIP_AUTH=1 DEV_SKIP_AUTH=1 pnpm dev
 - [x] Removido `lib/store.ts` (zero consumidores; dados migrados para tRPC)
 - [x] `PROJECT_REVIEW.md` reescrito com stack real (MySQL/Drizzle), auth canônico, e status correto
 
-## Próximos passos — v2
-1. **Backend real para Suporte** — tickets, chat e agendamento de visitas via tRPC
-2. **Notificações push** — lembretes de calendário e alertas fitossanitários
-3. **Sync offline core** — fila de mutações para propriedades/cultivos quando sem rede
-4. **Marketplace rural** — fluxo completo comprador/parceiro
-5. **Administração de usuários** — migrar de AsyncStorage para banco
-6. **Geolocalização** — mapa de propriedades e talhões
-7. **Integração clima** — API meteorológica em tempo real por propriedade
+## v2 — Sessão 4 (03/07/2026)
+- [x] Calendário: filtros status + prioridade + cultivo; vínculo no formulário; badge de prioridade
+- [x] Suporte: tabelas `tickets_suporte` / `mensagens_suporte` + `secondaryData.suporte.*`
+- [x] Push local: `lib/notifications.ts` (expo-notifications) nos eventos do calendário
+- [x] Offline core: `lib/offline/core-mutation-queue.ts` + `useCoreOfflineSync` + `CoreOfflineSyncManager`
+- [x] Docs: ADMIN_OFFLINE_GUIDE (conteúdos, mídia, troubleshooting, core sync)
+- [x] Testes: `tests/core-mutation-queue.test.ts` (252 testes passando)
+
+### Aplicar schema de suporte no banco
+```bash
+npm run db:push
+```
+
+## Próximos passos — v3 / roadmap
+1. **Marketplace rural** — fluxo completo comprador/parceiro (pedido + pagamento)
+2. **Geolocalização** — mapa de propriedades e talhões
+3. **Integração clima** — API meteorológica em tempo real por propriedade
+4. **Push remoto** — FCM/APNs além de notificações locais
+5. **Integrar `queueMutation`** em todos os formulários CRUD core

@@ -1,56 +1,74 @@
 /**
  * token-refresh-interceptor.ts — Interceptor para renovar automaticamente tokens
- * 
- * Implementa:
- * - Detecção de tokens próximos de expirar
- * - Renovação automática usando refresh token
- * - Fila de requisições durante renovação (sem interrupção)
- * - Retry automático após renovação
  */
 import { Platform } from 'react-native';
+import { getApiBaseUrl } from '@/constants/oauth';
 import * as Auth from './_core/auth';
-import { trpc } from './trpc';
 
-const ACCESS_TOKEN_EXPIRY_MS = 15 * 60 * 1000; // 15 minutos
 const REFRESH_THRESHOLD_MS = 2 * 60 * 1000; // Renovar 2 minutos antes de expirar
 const REFRESH_CHECK_INTERVAL_MS = 1 * 60 * 1000; // Verificar a cada 1 minuto
 
 let refreshPromise: Promise<{ accessToken: string; refreshToken: string } | null> | null = null;
-let lastRefreshTime = 0;
 let tokenRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
-/**
- * Decodificar JWT e extrair tempo de expiração
- */
+function decodeBase64Url(value: string): string | null {
+  try {
+    const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
+    const padded = base64 + '='.repeat((4 - (base64.length % 4)) % 4);
+    if (typeof globalThis.atob === 'function') {
+      return globalThis.atob(padded);
+    }
+    const BufferImpl = (globalThis as Record<string, unknown>).Buffer as
+      | { from: (input: string, encoding: string) => { toString: (encoding: string) => string } }
+      | undefined;
+    if (BufferImpl) {
+      return BufferImpl.from(padded, 'base64').toString('utf-8');
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 function getTokenExpiry(token: string): number | null {
   try {
     const parts = token.split('.');
     if (parts.length !== 3) return null;
 
-    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-    return (payload.exp ?? 0) * 1000; // Converter para ms
+    const decoded = decodeBase64Url(parts[1]);
+    if (!decoded) return null;
+
+    const payload = JSON.parse(decoded) as { exp?: number };
+    return (payload.exp ?? 0) * 1000;
   } catch (error) {
     console.warn('[TokenRefresh] Failed to decode token:', error);
     return null;
   }
 }
 
-/**
- * Verificar se token está próximo de expirar
- */
 function isTokenExpiringSoon(token: string): boolean {
   const expiry = getTokenExpiry(token);
-  if (!expiry) return true; // Considerar como expirando se não conseguir ler
+  if (!expiry) return true;
 
-  const now = Date.now();
-  const timeUntilExpiry = expiry - now;
-
+  const timeUntilExpiry = expiry - Date.now();
   return timeUntilExpiry < REFRESH_THRESHOLD_MS;
 }
 
-/**
- * Renovar tokens usando refresh token
- */
+function parseRefreshResponse(data: unknown): { accessToken: string; refreshToken?: string } | null {
+  const root = data as Record<string, unknown>;
+  const result = root?.result as Record<string, unknown> | undefined;
+  const resultData = result?.data as Record<string, unknown> | undefined;
+  const payload = (resultData?.json ?? resultData) as Record<string, unknown> | undefined;
+
+  if (typeof payload?.accessToken === 'string') {
+    return {
+      accessToken: payload.accessToken,
+      refreshToken: typeof payload.refreshToken === 'string' ? payload.refreshToken : undefined,
+    };
+  }
+  return null;
+}
+
 async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken: string } | null> {
   try {
     const refreshToken = await Auth.getRefreshToken();
@@ -59,10 +77,10 @@ async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken
       return null;
     }
 
-    console.log('[TokenRefresh] Refreshing access token...');
+    const baseUrl = getApiBaseUrl().replace(/\/$/, '');
+    const url = `${baseUrl}/api/trpc/auth.refresh`;
 
-    // Chamar endpoint de refresh
-    const response = await fetch('/api/trpc/auth.refresh', {
+    const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -79,57 +97,43 @@ async function refreshAccessToken(): Promise<{ accessToken: string; refreshToken
     }
 
     const data = await response.json();
-    if (!data.result?.data?.accessToken) {
+    const tokens = parseRefreshResponse(data);
+    if (!tokens) {
       console.error('[TokenRefresh] Invalid refresh response');
       return null;
     }
 
-    const { accessToken, refreshToken: newRefreshToken } = data.result.data;
-
-    // Armazenar novos tokens
-    await Auth.setSessionToken(accessToken);
-    if (newRefreshToken) {
-      await Auth.setRefreshToken(newRefreshToken);
+    await Auth.setSessionToken(tokens.accessToken);
+    if (tokens.refreshToken) {
+      await Auth.setRefreshToken(tokens.refreshToken);
     }
 
-    console.log('[TokenRefresh] Tokens refreshed successfully');
-    return { accessToken, refreshToken: newRefreshToken || refreshToken };
+    return { accessToken: tokens.accessToken, refreshToken: tokens.refreshToken || refreshToken };
   } catch (error) {
     console.error('[TokenRefresh] Token refresh failed:', error);
     return null;
   }
 }
 
-/**
- * Obter access token válido, renovando se necessário
- */
 export async function getValidAccessToken(): Promise<string | null> {
   try {
     const currentToken = await Auth.getSessionToken();
     if (!currentToken) {
-      console.log('[TokenRefresh] No access token available');
       return null;
     }
 
-    // Se token não está expirando, retornar como está
     if (!isTokenExpiringSoon(currentToken)) {
       return currentToken;
     }
 
-    console.log('[TokenRefresh] Access token expiring soon, refreshing...');
-
-    // Se já há um refresh em andamento, aguardar
     if (refreshPromise) {
-      console.log('[TokenRefresh] Refresh already in progress, waiting...');
       const result = await refreshPromise;
       return result?.accessToken || null;
     }
 
-    // Iniciar novo refresh
     refreshPromise = refreshAccessToken();
     try {
       const result = await refreshPromise;
-      lastRefreshTime = Date.now();
       return result?.accessToken || null;
     } finally {
       refreshPromise = null;
@@ -140,21 +144,14 @@ export async function getValidAccessToken(): Promise<string | null> {
   }
 }
 
-/**
- * Iniciar verificação periódica de expiração de token
- */
 export function startTokenRefreshCheck(): void {
   if (Platform.OS === 'web') {
-    console.log('[TokenRefresh] Skipping token refresh check on web platform');
     return;
   }
 
   if (tokenRefreshInterval) {
-    console.log('[TokenRefresh] Token refresh check already running');
     return;
   }
-
-  console.log('[TokenRefresh] Starting token refresh check...');
 
   tokenRefreshInterval = setInterval(async () => {
     try {
@@ -162,7 +159,6 @@ export function startTokenRefreshCheck(): void {
       if (!token) return;
 
       if (isTokenExpiringSoon(token)) {
-        console.log('[TokenRefresh] Token expiring soon, initiating refresh...');
         await getValidAccessToken();
       }
     } catch (error) {
@@ -171,29 +167,18 @@ export function startTokenRefreshCheck(): void {
   }, REFRESH_CHECK_INTERVAL_MS);
 }
 
-/**
- * Parar verificação periódica de expiração de token
- */
 export function stopTokenRefreshCheck(): void {
   if (tokenRefreshInterval) {
-    console.log('[TokenRefresh] Stopping token refresh check...');
     clearInterval(tokenRefreshInterval);
     tokenRefreshInterval = null;
   }
 }
 
-/**
- * Limpar estado de refresh
- */
 export function clearTokenRefreshState(): void {
   stopTokenRefreshCheck();
   refreshPromise = null;
-  lastRefreshTime = 0;
 }
 
-/**
- * Obter tempo até expiração do token (em segundos)
- */
 export async function getTimeUntilTokenExpiry(): Promise<number | null> {
   try {
     const token = await Auth.getSessionToken();
@@ -202,19 +187,14 @@ export async function getTimeUntilTokenExpiry(): Promise<number | null> {
     const expiry = getTokenExpiry(token);
     if (!expiry) return null;
 
-    const now = Date.now();
-    const timeUntilExpiry = Math.max(0, expiry - now);
-
-    return Math.floor(timeUntilExpiry / 1000); // Retornar em segundos
+    const timeUntilExpiry = Math.max(0, expiry - Date.now());
+    return Math.floor(timeUntilExpiry / 1000);
   } catch (error) {
     console.error('[TokenRefresh] Error getting token expiry:', error);
     return null;
   }
 }
 
-/**
- * Verificar se token está válido
- */
 export async function isTokenValid(): Promise<boolean> {
   try {
     const token = await Auth.getSessionToken();
@@ -223,8 +203,7 @@ export async function isTokenValid(): Promise<boolean> {
     const expiry = getTokenExpiry(token);
     if (!expiry) return false;
 
-    const now = Date.now();
-    return expiry > now;
+    return expiry > Date.now();
   } catch (error) {
     console.error('[TokenRefresh] Error checking token validity:', error);
     return false;

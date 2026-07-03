@@ -71,7 +71,7 @@ export default function ForgotPasswordScreen() {
                   });
                 } else {
                   // Em produção, usuário clicará no link do e-mail
-                  router.push('/auth/login-new');
+                  router.push('/auth/login');
                 }
               },
             },
@@ -182,7 +182,7 @@ export default function ForgotPasswordScreen() {
               <RNText className="text-muted">Lembrou da senha? </RNText>
               <AuthButton
                 label="Faça login"
-                onPress={() => router.push('/auth/login-new')}
+                onPress={() => router.push('/auth/login')}
                 variant="outline"
                 size="small"
               />

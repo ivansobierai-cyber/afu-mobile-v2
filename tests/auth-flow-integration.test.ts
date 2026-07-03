@@ -175,7 +175,7 @@ describe('Fluxo Completo de Autenticação', () => {
 
     it('deve permitir acesso a rotas públicas sem autenticação', async () => {
       // Rotas públicas (welcome, login, cadastro) devem ser acessíveis
-      const publicRoutes = ['/auth/welcome', '/auth/login-new', '/auth/cadastro-new'];
+      const publicRoutes = ['/auth/welcome', '/auth/login', '/auth/cadastro'];
       expect(publicRoutes.length).toBeGreaterThan(0);
     });
 

@@ -35,6 +35,10 @@ import {
   InsertPragaDoenca,
   materiaisDidaticos,
   InsertMaterialDidatico,
+  ticketsSuporte,
+  InsertTicketSuporte,
+  mensagensSuporte,
+  InsertMensagemSuporte,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -411,6 +415,48 @@ export async function createMaterialDidatico(data: InsertMaterialDidatico) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   const result = await db.insert(materiaisDidaticos).values(data);
+  return result[0].insertId;
+}
+
+// ─── SUPORTE TÉCNICO ─────────────────────────────────────────────────────────
+
+export async function getTicketsSuporte(usuarioId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(ticketsSuporte)
+    .where(eq(ticketsSuporte.usuarioId, usuarioId))
+    .orderBy(desc(ticketsSuporte.createdAt));
+}
+
+export async function createTicketSuporte(data: InsertTicketSuporte) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(ticketsSuporte).values(data);
+  return result[0].insertId;
+}
+
+export async function updateTicketSuporte(id: number, data: Partial<InsertTicketSuporte>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(ticketsSuporte).set(data).where(eq(ticketsSuporte.id, id));
+}
+
+export async function getMensagensSuporte(usuarioId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(mensagensSuporte)
+    .where(eq(mensagensSuporte.usuarioId, usuarioId))
+    .orderBy(mensagensSuporte.createdAt);
+}
+
+export async function createMensagemSuporte(data: InsertMensagemSuporte) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(mensagensSuporte).values(data);
   return result[0].insertId;
 }
 

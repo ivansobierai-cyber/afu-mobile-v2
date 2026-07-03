@@ -52,14 +52,14 @@ export default function WelcomeScreen() {
       <View className="gap-3">
         <AuthButton
           label="Entrar"
-          onPress={() => router.push('/auth/login-new')}
+          onPress={() => router.push('/auth/login')}
           variant="primary"
           size="large"
           icon="👤"
         />
         <AuthButton
           label="Criar Conta"
-          onPress={() => router.push('/auth/cadastro-new')}
+          onPress={() => router.push('/auth/cadastro')}
           variant="outline"
           size="large"
           icon="✨"

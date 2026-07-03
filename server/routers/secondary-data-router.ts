@@ -15,6 +15,11 @@ import {
   updateProdutoMarketplace,
   getAnalises,
   createAnalise,
+  getTicketsSuporte,
+  createTicketSuporte,
+  updateTicketSuporte,
+  getMensagensSuporte,
+  createMensagemSuporte,
 } from "../db";
 import { getDb } from "../db";
 import { analisesFitotecnicas, relatorios, produtosMarketplace } from "../../drizzle/schema";
@@ -294,9 +299,111 @@ const marketplaceRouter = router({
   }),
 });
 
+// ─── Router de Suporte Técnico ────────────────────────────────────────────────
+const ticketInput = z.object({
+  tipo: z.enum(["chamado", "duvida", "visita", "chat"]),
+  titulo: z.string().min(1).max(200),
+  descricao: z.string().min(1),
+  prioridade: z.enum(["baixa", "normal", "alta"]).optional(),
+  culturaRelacionada: z.string().max(100).optional(),
+  dataVisita: z.string().max(30).optional(),
+});
+
+const suporteRouter = router({
+  listTickets: protectedProcedure
+    .input(z.object({ tipo: z.enum(["chamado", "duvida", "visita", "chat"]).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) return [];
+      const tickets = await getTicketsSuporte(perfil.id);
+      if (input?.tipo) return tickets.filter((t) => t.tipo === input.tipo);
+      return tickets;
+    }),
+
+  createTicket: protectedProcedure
+    .input(ticketInput)
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const id = await createTicketSuporte({
+        usuarioId: perfil.id,
+        tipo: input.tipo,
+        titulo: input.titulo,
+        descricao: input.descricao,
+        prioridade: input.prioridade ?? "normal",
+        culturaRelacionada: input.culturaRelacionada,
+        dataVisita: input.dataVisita,
+        status: "aberto",
+      });
+      return { id };
+    }),
+
+  updateTicket: protectedProcedure
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        data: z.object({
+          status: z.enum(["aberto", "em_andamento", "resolvido", "cancelado"]).optional(),
+          resposta: z.string().optional(),
+          prioridade: z.enum(["baixa", "normal", "alta"]).optional(),
+        }),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const tickets = await getTicketsSuporte(perfil.id);
+      if (!tickets.some((t) => t.id === input.id)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Ticket não encontrado" });
+      }
+      await updateTicketSuporte(input.id, input.data);
+      return { success: true };
+    }),
+
+  listMensagens: protectedProcedure.query(async ({ ctx }) => {
+    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+    if (!perfil) return [];
+    return getMensagensSuporte(perfil.id);
+  }),
+
+  enviarMensagem: protectedProcedure
+    .input(z.object({ texto: z.string().min(1).max(2000), ticketId: z.number().int().positive().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+
+      const existing = await getMensagensSuporte(perfil.id);
+      if (existing.length === 0) {
+        await createMensagemSuporte({
+          usuarioId: perfil.id,
+          autor: "sistema",
+          texto: "Olá! Sou o assistente técnico do AFU. Como posso ajudar você hoje?",
+        });
+      }
+
+      const userMsgId = await createMensagemSuporte({
+        usuarioId: perfil.id,
+        ticketId: input.ticketId,
+        autor: "usuario",
+        texto: input.texto.trim(),
+      });
+
+      await createMensagemSuporte({
+        usuarioId: perfil.id,
+        ticketId: input.ticketId,
+        autor: "sistema",
+        texto:
+          "Obrigado pela informação! Um técnico especializado irá analisar seu caso e responder em breve. Enquanto isso, você também pode abrir um chamado na aba Chamados.",
+      });
+
+      return { id: userMsgId };
+    }),
+});
+
 // ─── Export ───────────────────────────────────────────────────────────────────
 export const secondaryDataRouter = router({
   relatorios: relatoriosRouter,
   analises: analisesFitotecnicasRouter,
   marketplace: marketplaceRouter,
+  suporte: suporteRouter,
 });

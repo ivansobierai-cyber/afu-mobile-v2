@@ -68,7 +68,7 @@ export default function ResetPasswordScreen() {
         Alert.alert(
           'Sucesso',
           'Sua senha foi redefinida com sucesso! Redirecionando para login...',
-          [{ text: 'OK', onPress: () => router.replace('/auth/login-new') }],
+          [{ text: 'OK', onPress: () => router.replace('/auth/login') }],
         );
       } else {
         setError((result as any).message || 'Erro ao redefinir senha');
@@ -109,7 +109,7 @@ export default function ResetPasswordScreen() {
               <RNText className="text-muted">Lembrou da senha? </RNText>
               <AuthButton
                 label="Faça login"
-                onPress={() => router.push('/auth/login-new')}
+                onPress={() => router.push('/auth/login')}
                 variant="outline"
                 size="small"
               />
@@ -180,7 +180,7 @@ export default function ResetPasswordScreen() {
               <RNText className="text-muted">Lembrou da senha? </RNText>
               <AuthButton
                 label="Faça login"
-                onPress={() => router.push('/auth/login-new')}
+                onPress={() => router.push('/auth/login')}
                 variant="outline"
                 size="small"
               />

@@ -11,7 +11,7 @@ MVP 1.0 concluído e funcional. Stack: **Expo Router + React Native + tRPC + Dri
 | Métrica | Status |
 |---------|--------|
 | **TypeScript** | 0 erros (`npm run check`) |
-| **Testes** | 248 passando (Vitest) |
+| **Testes** | 252 passando (Vitest) |
 | **Auth** | Email/senha + OAuth, JWT + refresh token |
 | **Dados** | tRPC end-to-end (nenhum AsyncStorage para dados core) |
 | **Dev Server** | Metro :8081 + API :3000 |
@@ -34,24 +34,25 @@ MVP 1.0 concluído e funcional. Stack: **Expo Router + React Native + tRPC + Dri
 ## Autenticação — Fluxo Canônico
 
 ```
-welcome → login-new / cadastro-new → useAuthAPI (tRPC)
+welcome → login / cadastro → useAuthAPI (tRPC)
   → useSession (tRPC auth.session) → AuthGuard
   → onboarding (se sem perfil AFU) → (tabs)
-  → logout (useAuthAPI) → login-new
+  → logout (useAuthAPI) → welcome
 ```
 
 | Componente | Arquivo |
 |------------|---------|
 | Hook de login/signup/logout | `hooks/use-auth-api.ts` |
 | Hook de sessão | `hooks/use-session.ts` |
+| Refresh token (nativo) | `lib/token-refresh-interceptor.ts` + `TokenRefreshManager` em `_layout.tsx` |
 | Guard de rota (layout) | `app/_layout.tsx` → `AuthGuard` |
 | Guard de componente | `components/route-guard.tsx` |
-| Login | `app/auth/login-new.tsx` |
-| Cadastro | `app/auth/cadastro-new.tsx` |
+| Login | `app/auth/login.tsx` |
+| Cadastro | `app/auth/cadastro.tsx` |
 | Onboarding | `app/auth/onboarding.tsx` |
 | Recuperação | `app/auth/forgot-password.tsx` + `reset-password.tsx` |
 
-Telas legadas (`login.tsx`, `cadastro.tsx`) redirecionam para as novas.
+Rotas legadas (`login-new`, `cadastro-new`) redirecionam para `login` / `cadastro`.
 
 ### Dev sem login (opcional)
 ```bash
@@ -81,6 +82,7 @@ EXPO_PUBLIC_DEV_SKIP_AUTH=1 DEV_SKIP_AUTH=1 npm run dev
 | Relatórios/Laudos PDF | `secondaryData.relatorios` |
 | Análise Fitotécnica | `secondaryData.analises` |
 | Marketplace | `secondaryData.marketplace` |
+| Suporte Técnico | `secondaryData.suporte` (tickets + chat) |
 | Materiais Didáticos | `secondaryData.materiais` |
 | Culturas/Pragas/Doenças | `culturasPragas.*` + `materiaisParceiros.*` |
 
@@ -108,7 +110,7 @@ app/_layout.tsx (Root Stack + AuthGuard)
 │   ├── cultivos.tsx                Lista cultivos
 │   ├── diagnostico.tsx             Diagnóstico IA
 │   └── mais.tsx                    Menu + logout
-├── auth/_layout.tsx                welcome, login-new, cadastro-new, etc.
+├── auth/_layout.tsx                welcome, login, cadastro, etc.
 ├── oauth/callback.tsx              OAuth redirect
 ├── propriedades/[id].tsx           Detalhe propriedade
 ├── cultivos/[id].tsx               Detalhe cultivo
@@ -131,16 +133,21 @@ app/_layout.tsx (Root Stack + AuthGuard)
 
 ---
 
-## Pendente (v2)
+## v2 — Concluído (03/07/2026)
 
-- [ ] Filtro de calendário por prioridade e cultivo
-- [ ] Suporte técnico com backend real (tickets persistidos)
-- [ ] Push notifications
-- [ ] Sync offline para dados core
-- [ ] Marketplace rural — fluxo completo
+- [x] Filtro de calendário por prioridade e cultivo (`mais/calendario.tsx`)
+- [x] Suporte técnico com backend real (`secondaryData.suporte` + tabelas Drizzle)
+- [x] Push notifications locais (`lib/notifications.ts` — lembretes de calendário)
+- [x] Sync offline para dados core (`lib/offline/core-mutation-queue.ts`)
+- [x] ADMIN_OFFLINE_GUIDE.md atualizado (conteúdos + core sync)
+
+## Pendente (v3 / roadmap)
+
+- [ ] Marketplace rural — fluxo completo comprador/parceiro
 - [ ] Geolocalização — mapa de propriedades
 - [ ] Integração clima — API meteorológica por propriedade
-- [ ] Atualizar ADMIN_OFFLINE_GUIDE.md
+- [ ] Push remoto (FCM/APNs)
+- [ ] Integrar `queueMutation` em todos os formulários CRUD
 
 ---
 

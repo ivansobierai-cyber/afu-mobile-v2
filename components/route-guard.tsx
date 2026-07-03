@@ -58,7 +58,7 @@ export function RouteGuard({
           Você precisa estar autenticado para acessar esta área.
         </Text>
         <TouchableOpacity
-          onPress={() => router.push("/auth/login-new" as any)}
+          onPress={() => router.push("/auth/login" as any)}
           style={{ backgroundColor: colors.primary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12 }}
         >
           <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Fazer Login</Text>

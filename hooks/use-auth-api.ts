@@ -4,12 +4,10 @@
  */
 import { useState } from 'react';
 import { Platform } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { trpc } from '@/lib/trpc';
 import * as Auth from '@/lib/_core/auth';
 import * as Api from '@/lib/_core/api';
-
-const PERFIL_LOCAL_KEY = '@afu:perfil';
+import { clearTokenRefreshState } from '@/lib/token-refresh-interceptor';
 
 export interface AuthError {
   code: string;
@@ -91,7 +89,7 @@ export function useAuthAPI() {
     });
 
     // Sincronizar sessão tRPC (usada pelo AuthGuard via useSession)
-    await utils.auth.session.invalidate();
+    await utils.auth.session.refetch();
   };
 
   const login = async (input: LoginInput): Promise<{ success: boolean; user?: AuthUser; error?: AuthError }> => {
@@ -188,10 +186,8 @@ export function useAuthAPI() {
       console.warn('[useAuthAPI] Logout cookie clear failed:', err);
     }
 
-    await Auth.removeSessionToken();
-    await Auth.removeRefreshToken();
-    await Auth.clearUserInfo();
-    await AsyncStorage.removeItem(PERFIL_LOCAL_KEY);
+    clearTokenRefreshState();
+    await Auth.clearLocalAuth();
 
     await utils.auth.session.reset();
     utils.invalidate();
