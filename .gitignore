@@ -43,9 +43,10 @@ app-example
 /ios
 /android
 
-# IDE
+# IDE / editor
 .vscode/
 .idea/
+.cursor/
 *.swp
 *.swo
 *~

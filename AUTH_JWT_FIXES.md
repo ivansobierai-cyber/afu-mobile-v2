@@ -153,9 +153,9 @@ const openId = `email_${crypto.randomUUID()}`;
 ## Variáveis de Ambiente Necessárias
 
 ```bash
-JWT_SECRET=TYLxVRr2EaBE8jVoLDqKQX          # Chave secreta para assinar JWT
-VITE_APP_ID=RiSprfgpLu2V46urERiwsY        # ID da aplicação
-DATABASE_URL=mysql://...                   # Conexão com banco
+JWT_SECRET=trocar_por_chave_segura         # Chave secreta para assinar JWT
+VITE_APP_ID=seu_app_id                     # ID da aplicação
+DATABASE_URL=mysql://user:pass@host:3306/db # Conexão com banco
 ```
 
 ## Próximas Etapas

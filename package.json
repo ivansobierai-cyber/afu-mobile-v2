@@ -1,7 +1,8 @@
 {
-  "name": "app-template",
+  "name": "afu-mobile",
   "version": "1.0.0",
   "private": true,
+  "description": "AFU Agro — Planta Saudável (Expo + tRPC + MySQL)",
   "main": "expo-router/entry",
   "scripts": {
     "dev": "concurrently -k \"npm run dev:server\" \"npm run dev:metro\"",
