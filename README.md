@@ -104,11 +104,14 @@ Projeto EAS: `@sobierai/afu-mobile`.
 
 ```bash
 npm run eas:android:dev      # dev client (internal)
-npm run eas:android:preview  # APK interno (staging)
+npm run eas:android:preview  # APK interno (staging — HTTPS, funciona fora da LAN)
+npm run eas:android:apk      # APK LAN (IP local 192.168.1.5)
 npm run eas:android:prod     # build produção (AAB)
 ```
 
 Ajuste `EXPO_PUBLIC_API_BASE_URL` em `eas.json` (profiles `preview` / `production`) para a URL real da API.
+
+Guia completo de staging: [docs/STAGING.md](docs/STAGING.md).
 
 No celular, a API **não** usa `localhost`. Defina no `.env` o IP da máquina:
 

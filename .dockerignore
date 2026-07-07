@@ -1,0 +1,17 @@
+node_modules
+.expo
+dist
+.git
+.github
+android
+ios
+app
+components
+assets
+tests
+*.md
+.env
+.env.*
+!.env.example
+terminals
+.cursor
