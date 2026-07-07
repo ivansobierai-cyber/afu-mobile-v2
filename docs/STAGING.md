@@ -2,8 +2,8 @@
 
 ## Status atual
 
-- **APK staging:** profile `preview` no EAS → `https://api-staging.afuagro.com.br`
-- **API staging:** deve responder em `GET /api/health` com `{ "ok": true }`
+- **APK staging:** profile `preview` no EAS → `https://afu-mobile-v2-production.up.railway.app`
+- **API staging:** `GET /api/health` em `https://afu-mobile-v2-production.up.railway.app/api/health`
 
 Se `/api/health` retornar 503, a API ainda não está no ar — siga o deploy abaixo.
 
@@ -53,7 +53,8 @@ O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_
 | Profile | API | Uso |
 |---------|-----|-----|
 | `apk` | `http://192.168.1.5:3000` | LAN / dev em casa |
-| `preview` | `https://api-staging.afuagro.com.br` | Testadores externos |
+| `preview` | `https://afu-mobile-v2-production.up.railway.app` | Testadores externos (4G) |
+| `preview-custom` | `https://api-staging.afuagro.com.br` | Após configurar CNAME no DNS |
 | `production` | `https://api.afuagro.com.br` | Loja / produção |
 
 ## Erros comuns (Railway)
