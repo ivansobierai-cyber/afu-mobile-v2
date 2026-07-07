@@ -60,6 +60,15 @@ async function startServer() {
   registerOAuthRoutes(app);
   registerScheduledRoutes(app);
 
+  app.get("/", (_req, res) => {
+    res.json({
+      service: "AFU Agro API",
+      status: "ok",
+      health: "/api/health",
+      trpc: "/api/trpc",
+    });
+  });
+
   app.get("/api/health", (_req, res) => {
     res.json({ ok: true, timestamp: Date.now() });
   });
