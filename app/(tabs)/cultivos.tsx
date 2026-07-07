@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, Modal, TextInput,
   ScrollView, StyleSheet, Alert, ActivityIndicator, RefreshControl,
@@ -10,6 +10,7 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { AreaValidationAlert } from "@/components/area-validation-alert";
 import { useAreaValidation } from "@/hooks/use-area-validation";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#38A169", planejado: "#D97706", colhido: "#6B7C6E", perdido: "#E53E3E",
@@ -47,19 +48,10 @@ const EMPTY_FORM: FormState = {
 export default function CultivosScreen() {
   const colors = useColors();
   const router = useRouter();
-  const utils = trpc.useUtils();
+  const { runMutation } = useRunCoreMutation();
 
   const { data: cultivos = [], isLoading, refetch } = trpc.coreData.cultivos.list.useQuery();
   const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
-  const createMutation = trpc.coreData.cultivos.create.useMutation({
-    onSuccess: () => utils.coreData.cultivos.list.invalidate(),
-  });
-  const updateMutation = trpc.coreData.cultivos.update.useMutation({
-    onSuccess: () => utils.coreData.cultivos.list.invalidate(),
-  });
-  const deleteMutation = trpc.coreData.cultivos.delete.useMutation({
-    onSuccess: () => utils.coreData.cultivos.list.invalidate(),
-  });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -68,7 +60,6 @@ export default function CultivosScreen() {
   const [showCulturasPicker, setShowCulturasPicker] = useState(false);
   const [isAreaValid, setIsAreaValid] = useState(true);
   const [selectedTerreno, setSelectedTerreno] = useState<any>(null);
-  const [pendingTerrenoId, setPendingTerrenoId] = useState<number | null>(null);
 
   const { data: terrenos = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
     { propriedadeId: parseInt(form.propriedadeId) || 0 },
@@ -87,22 +78,10 @@ export default function CultivosScreen() {
     onValidationChange: (result) => {
       setIsAreaValid(result.isValid);
     },
-  });
-
-  useEffect(() => {
-    if (pendingTerrenoId != null && terrenos.length > 0) {
-      const t = terrenos.find((tr) => tr.id === pendingTerrenoId);
-      if (t) {
-        setSelectedTerreno(t);
-        setPendingTerrenoId(null);
-      }
-    }
-  }, [pendingTerrenoId, terrenos]);
+  })
 
   const openNew = () => {
     setEditingId(null);
-    setSelectedTerreno(null);
-    setIsAreaValid(true);
     setForm({ ...EMPTY_FORM, propriedadeId: propriedades[0]?.id ? String(propriedades[0].id) : "" });
     setModalVisible(true);
   };
@@ -120,22 +99,16 @@ export default function CultivosScreen() {
       status: (item.status as any) ?? "em_andamento",
       observacoes: item.observacoes ?? "",
     });
-    const terreno = terrenos.find((t) => t.id === item.terrenoId);
-    setSelectedTerreno(terreno ?? null);
-    if (!terreno && item.terrenoId) setPendingTerrenoId(item.terrenoId);
     setModalVisible(true);
   };
 
   const handleSave = async () => {
     if (!form.nomeCultura.trim()) { Alert.alert("Atenção", "Informe o nome da cultura."); return; }
     if (!form.propriedadeId) { Alert.alert("Atenção", "Selecione uma propriedade."); return; }
-    if (!selectedTerreno) { Alert.alert("Atenção", "Selecione um terreno para o cultivo."); return; }
-    if (!isAreaValid) { Alert.alert("Atenção", "A área plantada excede a disponível no terreno."); return; }
     setSaving(true);
     try {
       const payload = {
         propriedadeId: parseInt(form.propriedadeId),
-        terrenoId: selectedTerreno.id,
         nomeCultura: form.nomeCultura.trim(),
         variedade: form.variedade.trim() || undefined,
         dataPlantio: form.dataPlantio || undefined,
@@ -146,9 +119,9 @@ export default function CultivosScreen() {
         observacoes: form.observacoes.trim() || undefined,
       };
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, data: payload });
+        await runMutation("cultivo", "update", { id: editingId, data: payload });
       } else {
-        await createMutation.mutateAsync(payload);
+        await runMutation("cultivo", "create", payload);
       }
       setModalVisible(false);
     } catch (e: any) {
@@ -162,7 +135,7 @@ export default function CultivosScreen() {
     Alert.alert("Excluir Cultivo", `Deseja excluir "${nome}"?`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: async () => {
-        try { await deleteMutation.mutateAsync({ id }); }
+        try { await runMutation("cultivo", "delete", { id }); }
         catch (e: any) { Alert.alert("Erro", e.message ?? "Não foi possível excluir."); }
       }},
     ]);

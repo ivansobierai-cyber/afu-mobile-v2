@@ -6,7 +6,6 @@ import { AuthCard } from '@/components/auth-card';
 import { AuthTextInput } from '@/components/auth-text-input';
 import { AuthButton } from '@/components/auth-button';
 import { useAuthAPI } from '@/hooks/use-auth-api';
-import { useSession } from '@/hooks/use-session';
 
 const PROFILE_TYPES = [
   { id: 'produtor', label: 'Produtor Rural', icon: '🚜', description: 'Gerencio propriedades e cultivos' },
@@ -16,8 +15,6 @@ const PROFILE_TYPES = [
 
 export default function CadastroScreen() {
   const router = useRouter();
-  const { isAuthenticated, loading: sessionLoading } = useSession();
-  const { signup: signupAPI, isLoading: apiLoading, error: apiError, clearError } = useAuthAPI();
   const [step, setStep] = useState<'profile' | 'form'>('profile');
   const [selectedProfile, setSelectedProfile] = useState<string | null>(null);
   const [name, setName] = useState('');
@@ -26,8 +23,9 @@ export default function CadastroScreen() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [agreeTerms, setAgreeTerms] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const { signup: signupAPI, isLoading: apiLoading, error: apiError, clearError } = useAuthAPI();
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -94,9 +92,9 @@ export default function CadastroScreen() {
       profile: selectedProfile as 'produtor' | 'tecnico' | 'administrador',
     });
 
-    if (result.success && result.user) {
+    if (result.success) {
       Alert.alert('Sucesso', 'Conta criada com sucesso!');
-      // AuthGuard redireciona após sessão estabilizar (onboarding ou tabs)
+      router.replace('/(tabs)');
     } else {
       Alert.alert(
         'Erro ao criar conta',
@@ -105,23 +103,10 @@ export default function CadastroScreen() {
     }
   };
 
-  if (sessionLoading || isAuthenticated || apiLoading) {
-    return (
-      <ScreenContainer className="items-center justify-center">
-        <RNText className="text-lg text-muted">
-          {apiLoading ? 'Criando conta...' : 'Verificando autenticação...'}
-        </RNText>
-      </ScreenContainer>
-    );
-  }
-
   if (step === 'profile') {
     return (
       <ScreenContainer>
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-        >
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
           <AuthCard
             title="Qual é seu perfil?"
             subtitle="Escolha o tipo de usuário que melhor descreve você"
@@ -151,12 +136,7 @@ export default function CadastroScreen() {
             </View>
 
             <View className="mt-8">
-              <AuthButton
-                label="Próximo"
-                onPress={handleNextStep}
-                size="large"
-                icon="➜"
-              />
+              <AuthButton label="Próximo" onPress={handleNextStep} size="large" icon="➜" />
             </View>
 
             <View className="flex-row justify-center gap-1 mt-6">
@@ -176,14 +156,8 @@ export default function CadastroScreen() {
 
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
-          showsVerticalScrollIndicator={false}
-        >
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
           <AuthCard
             title="Crie sua conta"
             subtitle={`Perfil selecionado: ${PROFILE_TYPES.find((p) => p.id === selectedProfile)?.label}`}
@@ -265,6 +239,10 @@ export default function CadastroScreen() {
               />
             </View>
 
+            {apiError && (
+              <RNText className="text-xs text-error mb-4">{apiError.message}</RNText>
+            )}
+
             <TouchableOpacity
               onPress={() => setAgreeTerms(!agreeTerms)}
               className="flex-row items-center gap-2 mb-6 p-3 bg-surface rounded-lg"
@@ -280,16 +258,12 @@ export default function CadastroScreen() {
             </TouchableOpacity>
             {errors.terms && <RNText className="text-xs text-error mb-4">{errors.terms}</RNText>}
 
-            {apiError && (
-              <RNText className="text-xs text-error mb-4">{apiError.message}</RNText>
-            )}
-
             <View className="gap-3">
               <AuthButton
                 label="Criar Conta"
                 onPress={handleSignUp}
-                loading={loading || apiLoading}
-                disabled={loading || apiLoading}
+                loading={apiLoading}
+                disabled={apiLoading}
                 size="large"
                 icon="✨"
               />

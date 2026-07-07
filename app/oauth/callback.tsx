@@ -1,4 +1,3 @@
-import { ScreenContainer } from "@/components/screen-container";
 import { ThemedView } from "@/components/themed-view";
 import * as Api from "@/lib/_core/api";
 import * as Auth from "@/lib/_core/auth";
@@ -6,6 +5,7 @@ import * as Linking from "expo-linking";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Text } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { trpc } from "@/lib/trpc";
 
 export default function OAuthCallback() {
@@ -247,7 +247,7 @@ export default function OAuthCallback() {
   }, [params.code, params.state, params.error, params.sessionToken, params.user, router]);
 
   return (
-    <ScreenContainer edges={["top", "bottom", "left", "right"]}>
+    <SafeAreaView className="flex-1" edges={["top", "bottom", "left", "right"]}>
       <ThemedView className="flex-1 items-center justify-center gap-4 p-5">
         {status === "processing" && (
           <>
@@ -279,6 +279,6 @@ export default function OAuthCallback() {
           </>
         )}
       </ThemedView>
-    </ScreenContainer>
+    </SafeAreaView>
   );
 }

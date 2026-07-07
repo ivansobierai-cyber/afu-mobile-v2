@@ -1,47 +1,44 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, AppState } from 'react-native';
+import { View, Text, TouchableOpacity, AppState, Platform } from 'react-native';
 
 interface OfflineSyncIndicatorProps {
+  isOnline?: boolean;
   isSyncing?: boolean;
   itemsPendentes?: number;
   onSyncPress?: () => void;
 }
 
 export function OfflineSyncIndicator({
+  isOnline: isOnlineProp,
   isSyncing = false,
   itemsPendentes = 0,
   onSyncPress,
 }: OfflineSyncIndicatorProps) {
-  const [isOnline, setIsOnline] = useState(true);
-  const [appState, setAppState] = useState(AppState.currentState);
+  const [isOnlineLocal, setIsOnlineLocal] = useState(true);
+  const isOnline = isOnlineProp ?? isOnlineLocal;
 
   useEffect(() => {
-    // Simular detecção de conectividade
-    // Em produção, use @react-native-community/netinfo
-    const checkOnline = () => {
-      setIsOnline(navigator.onLine);
-    };
+    if (isOnlineProp !== undefined || Platform.OS !== "web" || typeof window === "undefined") {
+      return;
+    }
 
-    window.addEventListener('online', checkOnline);
-    window.addEventListener('offline', checkOnline);
-
+    const checkOnline = () => setIsOnlineLocal(navigator.onLine);
+    checkOnline();
+    window.addEventListener("online", checkOnline);
+    window.addEventListener("offline", checkOnline);
     return () => {
-      window.removeEventListener('online', checkOnline);
-      window.removeEventListener('offline', checkOnline);
+      window.removeEventListener("online", checkOnline);
+      window.removeEventListener("offline", checkOnline);
     };
-  }, []);
+  }, [isOnlineProp]);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    const subscription = AppState.addEventListener("change", () => {});
     return () => subscription.remove();
   }, []);
 
-  const handleAppStateChange = (nextAppState: any) => {
-    setAppState(nextAppState);
-  };
-
   if (isOnline && !isSyncing && itemsPendentes === 0) {
-    return null; // Não mostrar se online e sem pendências
+    return null;
   }
 
   const getStatusColor = () => {

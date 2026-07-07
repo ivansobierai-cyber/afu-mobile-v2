@@ -1,10 +1,9 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { usePermission } from "@/components/route-guard";
-import { useAuthAPI } from "@/hooks/use-auth-api";
 
 type MenuItem = {
   title: string;
@@ -238,8 +237,15 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Clima Agrícola",
-        subtitle: "Necessidades climáticas por cultura",
+        subtitle: "Tempo real por propriedade e necessidades por cultura",
         icon: "sun.max.fill",
+        route: "/mais/tempo",
+        color: "#0288D1",
+      },
+      {
+        title: "Clima por Cultura",
+        subtitle: "Necessidades climáticas de cada cultura",
+        icon: "leaf.fill",
         route: "/mais/clima",
         color: "#F59E0B",
       },
@@ -724,22 +730,7 @@ const MENU_SECTIONS: MenuSection[] = [
 export default function MaisScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { logout, isLoading: loggingOut } = useAuthAPI();
   const { canAccess: isAdmin } = usePermission({ requireAdmin: true });
-
-  const handleLogout = () => {
-    Alert.alert("Sair da conta", "Deseja encerrar sua sessão?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sair",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/auth/welcome" as any);
-        },
-      },
-    ]);
-  };
 
   // Filtra seções e itens com base na permissão do usuário
   const visibleSections = MENU_SECTIONS
@@ -849,22 +840,6 @@ export default function MaisScreen() {
             <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Dados pessoais e profissionais</Text>
           </View>
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.menuCard, { borderColor: colors.error + "40", backgroundColor: colors.error + "08" }]}
-          onPress={handleLogout}
-          disabled={loggingOut}
-        >
-          <View style={[styles.iconContainer, { backgroundColor: colors.error + "20" }]}>
-            <IconSymbol name="arrow.right" size={22} color={colors.error} />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.error }}>
-              {loggingOut ? "Saindo..." : "Sair da conta"}
-            </Text>
-            <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Encerrar sessão e trocar de usuário</Text>
-          </View>
         </TouchableOpacity>
 
         {/* App info */}

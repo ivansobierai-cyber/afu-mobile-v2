@@ -3,11 +3,12 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { WeatherCard } from "@/components/weather-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useSession } from "@/hooks/use-session";
+import { hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
-import { mapDiagnosticoFromDb } from "@/lib/diagnostico-mapper";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#38A169", planejado: "#D97706", colhido: "#6B7C6E", perdido: "#E53E3E",
@@ -16,69 +17,67 @@ const STATUS_LABELS: Record<string, string> = {
   em_andamento: "Em andamento", planejado: "Planejado", colhido: "Colhido", perdido: "Perdido",
 };
 
-const QUICK_ACTIONS = [
-  { label: "Analisar Planta", icon: "camera.fill", color: "#2D6A4F", route: "/(tabs)/diagnostico" },
-  { label: "Propriedades", icon: "house.fill", color: "#38A169", route: "/(tabs)/propriedades" },
-  { label: "Histórico", icon: "clock.fill", color: "#8B5CF6", route: "/(tabs)/diagnostico?historico=1" },
-  { label: "Calendário", icon: "calendar", color: "#D97706", route: "/mais/calendario" },
-  { label: "Materiais", icon: "book.fill", color: "#2563EB", route: "/mais/materiais" },
-  { label: "Suporte", icon: "message.fill", color: "#0891B2", route: "/mais/suporte" },
-  { label: "Análise Solo", icon: "leaf.fill", color: "#92400E", route: "/mais/analise-fitotecnica" },
-  { label: "Relatórios", icon: "doc.fill", color: "#2D6A4F", route: "/mais/relatorios" },
-] as const;
+type QuickAction = {
+  label: string;
+  icon: string;
+  color: string;
+  route: string;
+};
 
-const STAT_CARDS = [
-  { key: "propriedades", label: "Propriedades", icon: "house.fill", colorKey: "primary", route: "/(tabs)/propriedades" },
-  { key: "cultivosAtivos", label: "Cultivos Ativos", icon: "leaf.fill", color: "#38A169", route: "/(tabs)/cultivos" },
-  { key: "diagnosticos", label: "Diagnósticos", icon: "camera.fill", colorKey: "primary", route: "/(tabs)/diagnostico?historico=1" },
-  { key: "analises", label: "Análises Solo", icon: "scalemass.fill", color: "#92400E", route: "/mais/analise-fitotecnica" },
-  { key: "relatorios", label: "Laudos", icon: "doc.fill", color: "#2D6A4F", route: "/mais/relatorios" },
-  { key: "eventos", label: "Eventos", icon: "calendar", color: "#D97706", route: "/mais/calendario" },
-] as const;
+const QUICK_ACTIONS: QuickAction[] = [
+  { label: "Diagnóstico IA", icon: "camera.fill", color: "#2D6A4F", route: "/(tabs)/diagnostico" },
+  { label: "Propriedades", icon: "house.fill", color: "#38A169", route: "/(tabs)/propriedades" },
+  { label: "Histórico", icon: "clock.fill", color: "#6B7C6E", route: "/(tabs)/diagnostico?historico=1" },
+  { label: "Calendário", icon: "calendar", color: "#D97706", route: "/mais/calendario" },
+  { label: "Clima", icon: "cloud.fill", color: "#0288D1", route: "/mais/tempo" },
+  { label: "Materiais", icon: "books.vertical.fill", color: "#7B1FA2", route: "/mais/materiais" },
+  { label: "Suporte", icon: "wrench.fill", color: "#1565C0", route: "/mais/suporte" },
+  { label: "Análise Solo", icon: "flask.fill", color: "#E65100", route: "/mais/analise-fitotecnica" },
+  { label: "Relatórios", icon: "doc.fill", color: "#2D6A4F", route: "/mais/relatorios" },
+];
 
 export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
   const utils = trpc.useUtils();
-  const { isAuthenticated, user, perfil, loading: sessionLoading } = useSession();
+  const { isAuthenticated, perfil } = useSession();
 
   const { data: propriedades = [], isLoading: loadingProp } = trpc.coreData.propriedades.list.useQuery();
   const { data: cultivos = [], isLoading: loadingCult } = trpc.coreData.cultivos.list.useQuery();
-  const { data: eventos = [], isLoading: loadingEv } = trpc.coreData.calendario.list.useQuery();
-  const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery();
-  const { data: analises = [], isLoading: loadingAn } = trpc.secondaryData.analises.list.useQuery();
   const { data: diagnosticos = [], isLoading: loadingDiag } = trpc.diagnostico.historico.useQuery();
+  const { data: analises = [], isLoading: loadingAn } = trpc.secondaryData.analises.list.useQuery();
+  const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery();
+  const { data: eventos = [], isLoading: loadingEv } = trpc.coreData.calendario.list.useQuery();
 
-  const isLoading = loadingProp || loadingCult || loadingEv || loadingRel || loadingAn || loadingDiag;
+  const isLoading = loadingProp || loadingCult || loadingDiag || loadingAn || loadingRel || loadingEv;
 
   const refresh = async () => {
     await Promise.all([
       utils.coreData.propriedades.list.invalidate(),
       utils.coreData.cultivos.list.invalidate(),
-      utils.coreData.calendario.list.invalidate(),
-      utils.secondaryData.relatorios.list.invalidate(),
-      utils.secondaryData.analises.list.invalidate(),
       utils.diagnostico.historico.invalidate(),
+      utils.secondaryData.analises.list.invalidate(),
+      utils.secondaryData.relatorios.list.invalidate(),
+      utils.coreData.calendario.list.invalidate(),
     ]);
   };
 
   const cultivosAtivos = cultivos.filter((c) => c.status === "em_andamento");
+  const propriedadeComGps = propriedades.find((p) =>
+    hasValidCoordinates(parseCoordinate(p.latitude), parseCoordinate(p.longitude)),
+  );
   const proximosEventos = eventos
     .filter((e) => e.status === "pendente" || e.status === "em_andamento")
     .slice(0, 3);
 
-  const ultimosDiagnosticos = diagnosticos
-    .slice(0, 3)
-    .map((row) => mapDiagnosticoFromDb(row as any));
-
-  const statValues: Record<string, number> = {
-    propriedades: propriedades.length,
-    cultivosAtivos: cultivosAtivos.length,
-    diagnosticos: diagnosticos.length,
-    analises: analises.length,
-    relatorios: relatorios.length,
-    eventos: proximosEventos.length,
-  };
+  const statCards = [
+    { label: "Propriedades", value: propriedades.length, icon: "house.fill", color: colors.primary, route: "/(tabs)/propriedades" },
+    { label: "Cultivos", value: cultivos.length, icon: "leaf.fill", color: colors.success, route: "/(tabs)/cultivos" },
+    { label: "Diagnósticos", value: diagnosticos.length, icon: "camera.fill", color: colors.primary, route: "/(tabs)/diagnostico?historico=1" },
+    { label: "Análises", value: analises.length, icon: "flask.fill", color: "#E65100", route: "/mais/analise-fitotecnica" },
+    { label: "Laudos", value: relatorios.length, icon: "doc.fill", color: "#2D6A4F", route: "/mais/relatorios" },
+    { label: "Eventos", value: eventos.length, icon: "calendar", color: "#D97706", route: "/mais/calendario" },
+  ];
 
   const styles = StyleSheet.create({
     statCard: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 16, alignItems: "center", borderWidth: 1, borderColor: colors.border, shadowColor: "#000", shadowOpacity: 0.08, shadowRadius: 8, elevation: 3 },
@@ -87,8 +86,10 @@ export default function DashboardScreen() {
     sectionTitle: { fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 12 },
     cultivoCard: { backgroundColor: colors.surface, borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
     eventoCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 12, marginBottom: 8, flexDirection: "row", alignItems: "center", borderWidth: 1, borderColor: colors.border },
-    quickActionBtn: { flex: 1, backgroundColor: colors.surface, borderRadius: 16, padding: 16, alignItems: "center", borderWidth: 1, borderColor: colors.border },
+    quickActionBtn: { width: "23%", backgroundColor: colors.surface, borderRadius: 16, padding: 12, alignItems: "center", borderWidth: 1, borderColor: colors.border, marginBottom: 10 },
   });
+
+  const primeiroNome = perfil?.nome?.split(" ")[0];
 
   return (
     <ScreenContainer>
@@ -103,13 +104,13 @@ export default function DashboardScreen() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>AFU Agro</Text>
               <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>
-                {isAuthenticated
-                  ? `Olá, ${perfil?.nome ?? user?.name ?? "produtor"} · MVP 1.0`
+                {isAuthenticated && primeiroNome
+                  ? `Olá, ${primeiroNome} · Planta Saudável`
                   : "Planta Saudável · MVP 1.0"}
               </Text>
             </View>
             <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
-              {!isAuthenticated && !sessionLoading && (
+              {!isAuthenticated && (
                 <TouchableOpacity
                   style={{ backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: "rgba(255,255,255,0.3)" }}
                   onPress={() => router.push("/auth/welcome" as any)}
@@ -119,7 +120,7 @@ export default function DashboardScreen() {
               )}
               <TouchableOpacity
                 style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 24, padding: 10 }}
-                onPress={() => router.push("/mais/perfil" as any)}
+                onPress={() => router.push(isAuthenticated ? "/mais/perfil" : "/auth/welcome" as any)}
               >
                 <IconSymbol name="person.fill" size={22} color="#FFFFFF" />
               </TouchableOpacity>
@@ -128,71 +129,51 @@ export default function DashboardScreen() {
         </View>
 
         <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
-          {/* Stats */}
+          {/* Stats — 6 cards clicáveis */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
-            {STAT_CARDS.map((card) => {
-              const color =
-                "color" in card
-                  ? card.color
-                  : colors[card.colorKey as keyof typeof colors] ?? colors.primary;
-              return (
-                <TouchableOpacity
-                  key={card.key}
-                  style={[styles.statCard, { width: "31%", minWidth: 100 }]}
-                  onPress={() => router.push(card.route as any)}
-                >
-                  <IconSymbol name={card.icon as any} size={22} color={color as string} />
-                  <Text style={[styles.statNumber, { color: color as string }]}>{statValues[card.key]}</Text>
-                  <Text style={styles.statLabel}>{card.label}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          {/* Ações Rápidas */}
-          <Text style={styles.sectionTitle}>Ações Rápidas</Text>
-          <View style={{ gap: 10, marginBottom: 24 }}>
-            {[0, 1].map((row) => (
-              <View key={row} style={{ flexDirection: "row", gap: 10 }}>
-                {QUICK_ACTIONS.slice(row * 4, row * 4 + 4).map((action) => (
-                  <TouchableOpacity
-                    key={action.label}
-                    style={[styles.quickActionBtn, { flex: 1 }]}
-                    onPress={() => router.push(action.route as any)}
-                  >
-                    <IconSymbol name={action.icon as any} size={26} color={action.color} />
-                    <Text style={{ fontSize: 11, color: colors.foreground, marginTop: 8, fontWeight: "600", textAlign: "center" }}>
-                      {action.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
+            {statCards.map((card) => (
+              <TouchableOpacity
+                key={card.label}
+                style={[styles.statCard, { minWidth: "30%", flexGrow: 1 }]}
+                onPress={() => router.push(card.route as any)}
+                activeOpacity={0.7}
+              >
+                <IconSymbol name={card.icon as any} size={22} color={card.color} />
+                <Text style={[styles.statNumber, { color: card.color }]}>{card.value}</Text>
+                <Text style={styles.statLabel}>{card.label}</Text>
+              </TouchableOpacity>
             ))}
           </View>
 
-          {/* Últimos Diagnósticos */}
-          {ultimosDiagnosticos.length > 0 && (
+          {isAuthenticated && propriedadeComGps && (
             <>
               <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-                <Text style={styles.sectionTitle}>Últimos Diagnósticos</Text>
-                <TouchableOpacity onPress={() => router.push("/(tabs)/diagnostico?historico=1" as any)}>
-                  <Text style={{ fontSize: 14, color: colors.primary, fontWeight: "600" }}>Ver histórico</Text>
+                <Text style={styles.sectionTitle}>Clima na Fazenda</Text>
+                <TouchableOpacity onPress={() => router.push("/mais/tempo" as any)}>
+                  <Text style={{ fontSize: 14, color: colors.primary, fontWeight: "600" }}>Todas</Text>
                 </TouchableOpacity>
               </View>
-              {ultimosDiagnosticos.map((diag) => (
-                <TouchableOpacity
-                  key={diag.id}
-                  style={styles.cultivoCard}
-                  onPress={() => router.push("/(tabs)/diagnostico?historico=1" as any)}
-                >
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>{diag.resultado.problema}</Text>
-                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4 }}>
-                    {diag.culturaNome} · {new Date(diag.createdAt).toLocaleDateString("pt-BR")}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+              <WeatherCard propriedadeId={propriedadeComGps.id} compact showForecast />
             </>
           )}
+
+          {/* Ações Rápidas — 8 ações */}
+          <Text style={styles.sectionTitle}>Ações Rápidas</Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 24 }}>
+            {QUICK_ACTIONS.map((action) => (
+              <TouchableOpacity
+                key={action.label}
+                style={styles.quickActionBtn}
+                onPress={() => router.push(action.route as any)}
+                activeOpacity={0.7}
+              >
+                <IconSymbol name={action.icon as any} size={24} color={action.color} />
+                <Text style={{ fontSize: 11, color: colors.foreground, marginTop: 6, fontWeight: "600", textAlign: "center" }}>
+                  {action.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
 
           {/* Cultivos Ativos */}
           {cultivosAtivos.length > 0 && (

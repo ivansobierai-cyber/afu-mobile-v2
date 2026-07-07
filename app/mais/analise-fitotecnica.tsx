@@ -8,6 +8,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
+import { openLaudoHtml } from "@/lib/laudo-html";
 
 const TIPOS = [
   { value: "solo", label: "Solo", color: "#92400E" },
@@ -27,6 +28,7 @@ function interpretarPH(ph?: number | null): { label: string; color: string } | n
 
 interface FormState {
   tipoAnalise: string;
+  propriedadeId: number | null;
   phSolo: string; phAgua: string;
   nitrogenio: string; fosforo: string; potassio: string;
   calcio: string; magnesio: string; materiaOrganica: string;
@@ -34,11 +36,18 @@ interface FormState {
   resultadoTecnico: string; recomendacao: string;
 }
 const EMPTY_FORM: FormState = {
-  tipoAnalise: "solo", phSolo: "", phAgua: "",
+  tipoAnalise: "solo", propriedadeId: null, phSolo: "", phAgua: "",
   nitrogenio: "", fosforo: "", potassio: "",
   calcio: "", magnesio: "", materiaOrganica: "",
   umidade: "", condutividadeEletrica: "",
   resultadoTecnico: "", recomendacao: "",
+};
+
+const TIPO_AMOSTRA: Record<string, string> = {
+  solo: "solo",
+  agua: "água de irrigação",
+  foliar: "foliar",
+  completa: "completa",
 };
 
 export default function AnaliseFitotecnicaScreen() {
@@ -47,25 +56,126 @@ export default function AnaliseFitotecnicaScreen() {
   const utils = trpc.useUtils();
 
   const { data: analises = [], isLoading, refetch } = trpc.secondaryData.analises.list.useQuery();
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
   const createMutation = trpc.secondaryData.analises.create.useMutation({
     onSuccess: () => utils.secondaryData.analises.list.invalidate(),
   });
   const deleteMutation = trpc.secondaryData.analises.delete.useMutation({
     onSuccess: () => utils.secondaryData.analises.list.invalidate(),
   });
+  const interpretarMutation = trpc.analise.interpretar.useMutation();
+  const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [detailItem, setDetailItem] = useState<(typeof analises)[0] | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [interpretando, setInterpretando] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   const parseNum = (v: string) => { const n = parseFloat(v); return isNaN(n) ? undefined : n; };
+
+  const getPropriedadeNome = (id: number | null | undefined) =>
+    propriedades.find((p) => p.id === id)?.nome ?? "Minha propriedade";
+
+  const buildInterpretarInput = (source: {
+    tipoAnalise?: string | null;
+    propriedadeId?: number | null;
+    phSolo?: string | null;
+    phAgua?: string | null;
+    nitrogenio?: string | null;
+    fosforo?: string | null;
+    potassio?: string | null;
+    calcio?: string | null;
+    magnesio?: string | null;
+    materiaOrganica?: string | null;
+    umidade?: string | null;
+    condutividadeEletrica?: string | null;
+  }) => ({
+    tipoAmostra: TIPO_AMOSTRA[source.tipoAnalise ?? "solo"] ?? "solo",
+    propriedadeNome: getPropriedadeNome(source.propriedadeId ?? form.propriedadeId),
+    phSolo: source.phSolo ? parseFloat(source.phSolo) : parseNum(form.phSolo),
+    phAgua: source.phAgua ? parseFloat(source.phAgua) : parseNum(form.phAgua),
+    nitrogenio: source.nitrogenio ? parseFloat(source.nitrogenio) : parseNum(form.nitrogenio),
+    fosforo: source.fosforo ? parseFloat(source.fosforo) : parseNum(form.fosforo),
+    potassio: source.potassio ? parseFloat(source.potassio) : parseNum(form.potassio),
+    calcio: source.calcio ? parseFloat(source.calcio) : parseNum(form.calcio),
+    magnesio: source.magnesio ? parseFloat(source.magnesio) : parseNum(form.magnesio),
+    materiaOrganica: source.materiaOrganica ? parseFloat(source.materiaOrganica) : parseNum(form.materiaOrganica),
+    umidade: source.umidade ? parseFloat(source.umidade) : parseNum(form.umidade),
+    condutividadeEletrica: source.condutividadeEletrica
+      ? parseFloat(source.condutividadeEletrica)
+      : parseNum(form.condutividadeEletrica),
+  });
+
+  const handleInterpretar = async (source: "form" | "detail") => {
+    setInterpretando(true);
+    try {
+      const input = source === "detail" && detailItem
+        ? buildInterpretarInput(detailItem)
+        : buildInterpretarInput({});
+      const result = await interpretarMutation.mutateAsync(input);
+      const resultado = [
+        result.interpretacao,
+        result.alertas.length > 0 ? `\n\nAlertas: ${result.alertas.join("; ")}` : "",
+      ].join("");
+      const recomendacao = result.recomendacoes.join("\n");
+      if (source === "form") {
+        setForm((f) => ({ ...f, resultadoTecnico: resultado, recomendacao }));
+        Alert.alert("Interpretação concluída", `Classificação: ${result.classificacaoGeral}`);
+      } else if (detailItem) {
+        setDetailItem({ ...detailItem, resultadoTecnico: resultado, recomendacao });
+        Alert.alert("Interpretação concluída", `Classificação: ${result.classificacaoGeral}`);
+      }
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível interpretar a análise.";
+      Alert.alert("Erro", message);
+    } finally {
+      setInterpretando(false);
+    }
+  };
+
+  const handleGerarPdf = async (item: (typeof analises)[0]) => {
+    setGeneratingPdf(true);
+    try {
+      const tipo = TIPOS.find((t) => t.value === item.tipoAnalise) ?? TIPOS[0];
+      const { html, titulo } = await pdfMutation.mutateAsync({
+        tipo: "analise_fitotecnica",
+        titulo: `Análise Fitotécnica — ${tipo.label}`,
+        propriedadeNome: getPropriedadeNome(item.propriedadeId),
+        conteudo: JSON.stringify({
+          tipo: item.tipoAnalise,
+          dataAnalise: item.dataAnalise,
+          phSolo: item.phSolo,
+          phAgua: item.phAgua,
+          nitrogenio: item.nitrogenio,
+          fosforo: item.fosforo,
+          potassio: item.potassio,
+          calcio: item.calcio,
+          magnesio: item.magnesio,
+          materiaOrganica: item.materiaOrganica,
+          umidade: item.umidade,
+          condutividadeEletrica: item.condutividadeEletrica,
+          resultadoTecnico: item.resultadoTecnico,
+          recomendacao: item.recomendacao,
+        }),
+        dataEmissao: new Date(item.dataAnalise).toLocaleDateString("pt-BR"),
+      });
+      await openLaudoHtml(html, titulo);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível gerar o PDF.";
+      Alert.alert("Erro", message);
+    } finally {
+      setGeneratingPdf(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaving(true);
     try {
       await createMutation.mutateAsync({
-        tipoAnalise: form.tipoAnalise as any,
+        tipoAnalise: form.tipoAnalise as "solo" | "agua" | "foliar" | "completa",
+        propriedadeId: form.propriedadeId ?? undefined,
         phSolo: parseNum(form.phSolo),
         phAgua: parseNum(form.phAgua),
         nitrogenio: parseNum(form.nitrogenio),
@@ -234,10 +344,26 @@ export default function AnaliseFitotecnicaScreen() {
                       <Text style={{ fontSize: 14, color: colors.foreground, lineHeight: 20 }}>{detailItem.recomendacao}</Text>
                     </View>
                   )}
+                  <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { flex: 1, backgroundColor: "#8B5CF6" }]}
+                      onPress={() => handleInterpretar("detail")}
+                      disabled={interpretando}
+                    >
+                      {interpretando ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Interpretar com IA</Text>}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.saveBtn, { flex: 1 }]}
+                      onPress={() => handleGerarPdf(detailItem)}
+                      disabled={generatingPdf}
+                    >
+                      {generatingPdf ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Gerar PDF</Text>}
+                    </TouchableOpacity>
+                  </View>
                 </>
               );
             })()}
-            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.surface, marginTop: 20 }]} onPress={() => setDetailItem(null)}>
+            <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.surface, marginTop: 12 }]} onPress={() => setDetailItem(null)}>
               <Text style={[styles.saveBtnText, { color: colors.foreground }]}>Fechar</Text>
             </TouchableOpacity>
           </ScrollView>
@@ -258,6 +384,35 @@ export default function AnaliseFitotecnicaScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+
+            {propriedades.length > 0 && (
+              <>
+                <Text style={styles.label}>Propriedade (opcional)</Text>
+                <View style={styles.chipRow}>
+                  <TouchableOpacity
+                    style={[styles.chip, {
+                      backgroundColor: form.propriedadeId === null ? colors.primary : colors.surface,
+                      borderColor: form.propriedadeId === null ? colors.primary : colors.border,
+                    }]}
+                    onPress={() => setForm((f) => ({ ...f, propriedadeId: null }))}
+                  >
+                    <Text style={{ fontSize: 12, fontWeight: "600", color: form.propriedadeId === null ? "#fff" : colors.foreground }}>Nenhuma</Text>
+                  </TouchableOpacity>
+                  {propriedades.map((p) => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.chip, {
+                        backgroundColor: form.propriedadeId === p.id ? colors.primary : colors.surface,
+                        borderColor: form.propriedadeId === p.id ? colors.primary : colors.border,
+                      }]}
+                      onPress={() => setForm((f) => ({ ...f, propriedadeId: p.id }))}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: "600", color: form.propriedadeId === p.id ? "#fff" : colors.foreground }}>{p.nome}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
 
             <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>pH</Text>
             <View style={styles.row}>
@@ -298,6 +453,14 @@ export default function AnaliseFitotecnicaScreen() {
 
             <Text style={styles.label}>Recomendação</Text>
             <TextInput style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]} value={form.recomendacao} onChangeText={(v) => setForm((f) => ({ ...f, recomendacao: v }))} placeholder="Recomendações de correção ou manejo..." placeholderTextColor={colors.muted} multiline />
+
+            <TouchableOpacity
+              style={[styles.saveBtn, { backgroundColor: "#8B5CF6", marginTop: 4 }]}
+              onPress={() => handleInterpretar("form")}
+              disabled={interpretando}
+            >
+              {interpretando ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Interpretar com IA</Text>}
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salvar Análise</Text>}

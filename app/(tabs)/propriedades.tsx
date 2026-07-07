@@ -16,6 +16,9 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { getDeviceCoordinates } from "@/hooks/use-device-location";
+import { hasValidCoordinates, parseCoordinate, parseCoordinateInput } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
 
 const TIPOS_PRODUCAO = [
@@ -42,34 +45,29 @@ interface FormState {
   fonteAgua: string;
   sistemaIrrigacao: string;
   tipoProducao: TipoProducao;
+  latitude: string;
+  longitude: string;
 }
 
 const EMPTY_FORM: FormState = {
   nome: "", cidade: "", estado: "", tamanhoArea: "",
   unidadeArea: "ha", tipoSolo: "", fonteAgua: "",
   sistemaIrrigacao: "", tipoProducao: "graos",
+  latitude: "", longitude: "",
 };
 
 export default function PropriedadesScreen() {
   const colors = useColors();
   const router = useRouter();
-  const utils = trpc.useUtils();
+  const { runMutation } = useRunCoreMutation();
 
   const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery();
-  const createMutation = trpc.coreData.propriedades.create.useMutation({
-    onSuccess: () => utils.coreData.propriedades.list.invalidate(),
-  });
-  const updateMutation = trpc.coreData.propriedades.update.useMutation({
-    onSuccess: () => utils.coreData.propriedades.list.invalidate(),
-  });
-  const deleteMutation = trpc.coreData.propriedades.delete.useMutation({
-    onSuccess: () => utils.coreData.propriedades.list.invalidate(),
-  });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [locating, setLocating] = useState(false);
 
   const openNew = () => { setEditingId(null); setForm(EMPTY_FORM); setModalVisible(true); };
 
@@ -85,12 +83,39 @@ export default function PropriedadesScreen() {
       fonteAgua: prop.fonteAgua ?? "",
       sistemaIrrigacao: prop.sistemaIrrigacao ?? "",
       tipoProducao: (prop.tipoProducao as TipoProducao) ?? "graos",
+      latitude: prop.latitude ? String(prop.latitude) : "",
+      longitude: prop.longitude ? String(prop.longitude) : "",
     });
     setModalVisible(true);
   };
 
+  const handleUseLocation = async () => {
+    setLocating(true);
+    try {
+      const coords = await getDeviceCoordinates();
+      if (!coords) return;
+      setForm((f) => ({
+        ...f,
+        latitude: coords.latitude.toFixed(6),
+        longitude: coords.longitude.toFixed(6),
+      }));
+    } catch (e: any) {
+      Alert.alert("Erro", e.message ?? "Não foi possível obter a localização.");
+    } finally {
+      setLocating(false);
+    }
+  };
+
   const handleSave = async () => {
     if (!form.nome.trim()) { Alert.alert("Atenção", "O nome da propriedade é obrigatório."); return; }
+
+    const latitude = parseCoordinateInput(form.latitude);
+    const longitude = parseCoordinateInput(form.longitude);
+    if ((form.latitude.trim() || form.longitude.trim()) && !hasValidCoordinates(latitude ?? null, longitude ?? null)) {
+      Alert.alert("Atenção", "Informe coordenadas GPS válidas ou deixe os campos em branco.");
+      return;
+    }
+
     setSaving(true);
     try {
       const payload = {
@@ -103,11 +128,13 @@ export default function PropriedadesScreen() {
         fonteAgua: form.fonteAgua.trim() || undefined,
         sistemaIrrigacao: form.sistemaIrrigacao.trim() || undefined,
         tipoProducao: form.tipoProducao,
+        latitude,
+        longitude,
       };
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, data: payload });
+        await runMutation("propriedade", "update", { id: editingId, data: payload });
       } else {
-        await createMutation.mutateAsync(payload);
+        await runMutation("propriedade", "create", payload);
       }
       setModalVisible(false);
     } catch (e: any) {
@@ -121,7 +148,7 @@ export default function PropriedadesScreen() {
     Alert.alert("Excluir Propriedade", `Deseja excluir "${nome}"?`, [
       { text: "Cancelar", style: "cancel" },
       { text: "Excluir", style: "destructive", onPress: async () => {
-        try { await deleteMutation.mutateAsync({ id }); }
+        try { await runMutation("propriedade", "delete", { id }); }
         catch (e: any) { Alert.alert("Erro", e.message ?? "Não foi possível excluir."); }
       }},
     ]);
@@ -155,6 +182,8 @@ export default function PropriedadesScreen() {
     saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
     cancelBtn: { borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 8 },
     cancelBtnText: { color: colors.muted, fontSize: 14 },
+    locateBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.primary + "18", borderRadius: 10, paddingVertical: 10, marginTop: 8, borderWidth: 1, borderColor: colors.primary + "40" },
+    locateBtnText: { color: colors.primary, fontWeight: "600", fontSize: 14 },
   });
 
   const renderItem = ({ item }: { item: typeof propriedades[0] }) => {
@@ -167,6 +196,9 @@ export default function PropriedadesScreen() {
         </View>
         {(item.cidade || item.estado) && (
           <Text style={styles.cardMeta}>📍 {[item.cidade, item.estado].filter(Boolean).join(", ")}</Text>
+        )}
+        {hasValidCoordinates(parseCoordinate(item.latitude), parseCoordinate(item.longitude)) && (
+          <Text style={styles.cardMeta}>🗺️ Localização GPS cadastrada</Text>
         )}
         {item.tamanhoArea && (
           <Text style={styles.cardMeta}>📐 {Number(item.tamanhoArea).toLocaleString("pt-BR")} {item.unidadeArea}</Text>
@@ -187,9 +219,14 @@ export default function PropriedadesScreen() {
     <ScreenContainer>
       <View style={styles.header}>
         <Text style={styles.title}>Propriedades</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openNew}>
-          <IconSymbol name="plus" size={22} color="#fff" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8 }}>
+          <TouchableOpacity style={styles.addBtn} onPress={() => router.push("/propriedades/mapa" as any)}>
+            <IconSymbol name="map.fill" size={22} color="#fff" />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.addBtn} onPress={openNew}>
+            <IconSymbol name="plus" size={22} color="#fff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {isLoading ? (
@@ -270,6 +307,28 @@ export default function PropriedadesScreen() {
 
             <Text style={styles.label}>Sistema de Irrigação</Text>
             <TextInput style={styles.input} value={form.sistemaIrrigacao} onChangeText={(v) => setForm((f) => ({ ...f, sistemaIrrigacao: v }))} placeholder="Ex: Gotejamento, Aspersão" placeholderTextColor={colors.muted} />
+
+            <Text style={styles.label}>Localização GPS</Text>
+            <TouchableOpacity style={styles.locateBtn} onPress={handleUseLocation} disabled={locating}>
+              {locating ? (
+                <ActivityIndicator color={colors.primary} size="small" />
+              ) : (
+                <>
+                  <IconSymbol name="location.fill" size={16} color={colors.primary} />
+                  <Text style={styles.locateBtnText}>Usar minha localização</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <View style={[styles.row, { marginTop: 8 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Latitude</Text>
+                <TextInput style={styles.input} value={form.latitude} onChangeText={(v) => setForm((f) => ({ ...f, latitude: v }))} placeholder="-21.177500" placeholderTextColor={colors.muted} keyboardType="numbers-and-punctuation" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.label}>Longitude</Text>
+                <TextInput style={styles.input} value={form.longitude} onChangeText={(v) => setForm((f) => ({ ...f, longitude: v }))} placeholder="-47.810300" placeholderTextColor={colors.muted} keyboardType="numbers-and-punctuation" />
+              </View>
+            </View>
 
             <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
               {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{editingId ? "Salvar Alterações" : "Cadastrar Propriedade"}</Text>}

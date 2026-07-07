@@ -1,12 +1,12 @@
 import { useState, useEffect } from "react";
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet, TextInput, Alert } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, TextInput, Alert, ActivityIndicator, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
-import { useSession } from "@/hooks/use-session";
 import { useAuthAPI } from "@/hooks/use-auth-api";
 import { trpc } from "@/lib/trpc";
+
 
 type PerfilData = {
   nome: string;
@@ -14,7 +14,6 @@ type PerfilData = {
   telefone: string;
   funcao: string;
   cargo: string;
-  empresa: string;
   registroProfissional: string;
 };
 
@@ -22,93 +21,107 @@ const FUNCAO_OPTIONS = [
   { value: "produtor", label: "Produtor Rural", color: "#38A169" },
   { value: "tecnico", label: "Técnico / Agrônomo", color: "#3B82F6" },
   { value: "administrador", label: "Administrador", color: "#8B5CF6" },
+  { value: "parceiro", label: "Parceiro", color: "#D97706" },
+  { value: "comprador", label: "Comprador", color: "#E53E3E" },
 ];
 
 export default function PerfilScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { perfil: sessionPerfil, user } = useSession();
-  const { logout, isLoading: loggingOut } = useAuthAPI();
   const utils = trpc.useUtils();
+  const { logout, isLoading: loggingOut } = useAuthAPI();
 
-  const upsertPerfil = trpc.auth.perfil.upsert.useMutation({
-    onSuccess: async () => {
-      await utils.auth.session.invalidate();
-      setEditing(false);
-      Alert.alert("Perfil salvo", "Suas informações foram atualizadas.");
-    },
-    onError: (err) => Alert.alert("Erro", err.message),
-  });
-
+  const { data: perfilDb, isLoading: loadingPerfil } = trpc.auth.perfil.get.useQuery();
   const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
   const { data: cultivos = [] } = trpc.coreData.cultivos.list.useQuery();
   const { data: diagnosticos = [] } = trpc.diagnostico.historico.useQuery();
   const { data: eventos = [] } = trpc.coreData.calendario.list.useQuery();
 
-  const stats = {
-    propriedades: propriedades.length,
-    cultivos: cultivos.filter((c) => c.status === "em_andamento").length,
-    diagnosticos: diagnosticos.length,
-    eventos: eventos.filter((e) => e.status === "pendente" || e.status === "em_andamento").length,
-  };
+  const upsertMutation = trpc.auth.perfil.upsert.useMutation({
+    onSuccess: () => utils.auth.perfil.get.invalidate(),
+  });
+  const { data: pushStatus } = trpc.push.status.useQuery();
+  const sendTestPush = trpc.push.sendTest.useMutation();
 
   const [editing, setEditing] = useState(false);
+  const [logoutModalVisible, setLogoutModalVisible] = useState(false);
   const [perfil, setPerfil] = useState<PerfilData>({
     nome: "",
     email: "",
     telefone: "",
     funcao: "produtor",
     cargo: "",
-    empresa: "",
     registroProfissional: "",
   });
   const [form, setForm] = useState<PerfilData>(perfil);
 
   useEffect(() => {
-    const merged: PerfilData = {
-      nome: sessionPerfil?.nome ?? user?.name ?? "",
-      email: sessionPerfil?.email ?? user?.email ?? "",
-      telefone: sessionPerfil?.telefone ?? "",
-      funcao: sessionPerfil?.tipoUsuario ?? "produtor",
-      cargo: sessionPerfil?.cargo ?? "",
-      empresa: "",
-      registroProfissional: sessionPerfil?.registroProfissional ?? "",
-    };
-    setPerfil(merged);
-    setForm(merged);
-  }, [sessionPerfil, user]);
+    if (perfilDb) {
+      const data: PerfilData = {
+        nome: perfilDb.nome ?? "",
+        email: perfilDb.email ?? "",
+        telefone: perfilDb.telefone ?? "",
+        funcao: perfilDb.tipoUsuario ?? "produtor",
+        cargo: perfilDb.cargo ?? "",
+        registroProfissional: perfilDb.registroProfissional ?? "",
+      };
+      setPerfil(data);
+      setForm(data);
+    }
+  }, [perfilDb]);
 
-  const handleLogout = () => {
-    Alert.alert("Sair da conta", "Deseja encerrar sua sessão?", [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Sair",
-        style: "destructive",
-        onPress: async () => {
-          await logout();
-          router.replace("/auth/welcome" as any);
-        },
-      },
-    ]);
+  const stats = {
+    propriedades: propriedades.length,
+    cultivos: cultivos.filter((c) => c.status === "em_andamento").length,
+    diagnosticos: diagnosticos.length,
+    eventos: eventos.filter((e) => e.status === "pendente").length,
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!form.nome.trim()) {
       Alert.alert("Atenção", "Preencha o nome.");
       return;
     }
-    setPerfil(form);
-    upsertPerfil.mutate({
-      nome: form.nome.trim(),
-      email: form.email.trim() || undefined,
-      telefone: form.telefone.trim() || undefined,
-      tipoUsuario: form.funcao as "produtor" | "tecnico" | "administrador" | "parceiro" | "comprador",
-      cargo: form.cargo.trim() || undefined,
-      registroProfissional: form.registroProfissional.trim() || undefined,
-    });
+    try {
+      await upsertMutation.mutateAsync({
+        nome: form.nome.trim(),
+        email: form.email.trim() || undefined,
+        telefone: form.telefone.trim() || undefined,
+        tipoUsuario: form.funcao as "produtor" | "tecnico" | "administrador" | "parceiro" | "comprador",
+        cargo: form.cargo.trim() || undefined,
+        registroProfissional: form.registroProfissional.trim() || undefined,
+      });
+      setPerfil(form);
+      setEditing(false);
+      Alert.alert("Perfil salvo", "Suas informações foram atualizadas.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível salvar o perfil.";
+      Alert.alert("Erro", message);
+    }
+  };
+
+  const handleLogout = () => {
+    setLogoutModalVisible(true);
+  };
+
+  const performLogout = async () => {
+    setLogoutModalVisible(false);
+    await logout();
+    utils.auth.session.setData(undefined, { user: null, perfil: null, isAdmin: false });
+    router.replace("/auth/login" as never);
   };
 
   const funcaoInfo = FUNCAO_OPTIONS.find((f) => f.value === perfil.funcao) ?? FUNCAO_OPTIONS[0];
+
+  if (loadingPerfil) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
 
   const styles = StyleSheet.create({
     label: {
@@ -206,9 +219,6 @@ export default function PerfilScreen() {
           {perfil.cargo && (
             <Text style={{ fontSize: 14, color: colors.muted, marginTop: 4 }}>{perfil.cargo}</Text>
           )}
-          {perfil.empresa && (
-            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>🏢 {perfil.empresa}</Text>
-          )}
         </View>
 
         {/* Stats */}
@@ -303,16 +313,6 @@ export default function PerfilScreen() {
               returnKeyType="next"
             />
 
-            <Text style={styles.label}>Empresa / Propriedade</Text>
-            <TextInput
-              style={styles.input}
-              value={form.empresa}
-              onChangeText={(v) => setForm({ ...form, empresa: v })}
-              placeholder="Nome da empresa ou fazenda"
-              placeholderTextColor={colors.muted}
-              returnKeyType="next"
-            />
-
             <Text style={styles.label}>Registro Profissional (CREA/CRBio/CFT)</Text>
             <TextInput
               style={styles.input}
@@ -344,7 +344,6 @@ export default function PerfilScreen() {
               { icon: "envelope.fill", label: "E-mail", value: perfil.email || "—" },
               { icon: "phone.fill", label: "Telefone", value: perfil.telefone || "—" },
               { icon: "briefcase.fill", label: "Cargo", value: perfil.cargo || "—" },
-              { icon: "building.2.fill", label: "Empresa", value: perfil.empresa || "—" },
               { icon: "doc.text.fill", label: "Registro Profissional", value: perfil.registroProfissional || "—" },
             ].map((item, idx, arr) => (
               <View
@@ -374,27 +373,74 @@ export default function PerfilScreen() {
           </View>
         )}
 
-        {/* Logout */}
+        <View
+          style={{
+            marginTop: 20,
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <IconSymbol name="bell.fill" size={20} color={colors.primary} />
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>Notificações Push</Text>
+          </View>
+          <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 20, marginBottom: 12 }}>
+            {pushStatus?.registered
+              ? `${pushStatus.tokenCount} dispositivo(s) registrado(s) para alertas remotos (FCM/APNs).`
+              : "Nenhum dispositivo registrado. No celular, permita notificações ao abrir o app."}
+          </Text>
+          <TouchableOpacity
+            style={{
+              backgroundColor: colors.primary + "18",
+              borderRadius: 10,
+              paddingVertical: 12,
+              alignItems: "center",
+              borderWidth: 1,
+              borderColor: colors.primary + "40",
+            }}
+            disabled={sendTestPush.isPending}
+            onPress={async () => {
+              try {
+                const result = await sendTestPush.mutateAsync();
+                Alert.alert("Push enviado", `${result.sent} notificação(ões) enviada(s).`);
+              } catch (e: any) {
+                Alert.alert("Não foi possível testar", e.message ?? "Verifique o registro no dispositivo mobile.");
+              }
+            }}
+          >
+            {sendTestPush.isPending ? (
+              <ActivityIndicator color={colors.primary} />
+            ) : (
+              <Text style={{ color: colors.primary, fontWeight: "700" }}>Enviar notificação de teste</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
         <TouchableOpacity
           style={{
             marginTop: 20,
             backgroundColor: colors.error + "12",
             borderRadius: 14,
-            paddingVertical: 14,
+            paddingVertical: 16,
             alignItems: "center",
             borderWidth: 1,
-            borderColor: colors.error + "40",
-            flexDirection: "row",
-            justifyContent: "center",
-            gap: 8,
+            borderColor: colors.error + "35",
+            opacity: loggingOut ? 0.7 : 1,
           }}
           onPress={handleLogout}
-          disabled={loggingOut}
+          disabled={loggingOut || editing}
         >
-          <IconSymbol name="arrow.right" size={18} color={colors.error} />
-          <Text style={{ color: colors.error, fontWeight: "700", fontSize: 15 }}>
-            {loggingOut ? "Saindo..." : "Sair da conta"}
-          </Text>
+          {loggingOut ? (
+            <ActivityIndicator color={colors.error} />
+          ) : (
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <IconSymbol name="arrow.right" size={18} color={colors.error} />
+              <Text style={{ color: colors.error, fontWeight: "700", fontSize: 16 }}>Sair da conta</Text>
+            </View>
+          )}
         </TouchableOpacity>
 
         {/* App info */}
@@ -425,6 +471,37 @@ export default function PerfilScreen() {
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={logoutModalVisible} transparent animationType="fade" onRequestClose={() => setLogoutModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", padding: 24 }}>
+          <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 24, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>Sair da conta?</Text>
+            <Text style={{ fontSize: 14, color: colors.muted, lineHeight: 20, marginBottom: 20 }}>
+              Você precisará fazer login novamente para acessar o app.
+            </Text>
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", borderWidth: 1, borderColor: colors.border }}
+                onPress={() => setLogoutModalVisible(false)}
+                disabled={loggingOut}
+              >
+                <Text style={{ fontWeight: "600", color: colors.foreground }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: colors.error }}
+                onPress={performLogout}
+                disabled={loggingOut}
+              >
+                {loggingOut ? (
+                  <ActivityIndicator color="#FFFFFF" />
+                ) : (
+                  <Text style={{ fontWeight: "700", color: "#FFFFFF" }}>Sair</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
   );
 }

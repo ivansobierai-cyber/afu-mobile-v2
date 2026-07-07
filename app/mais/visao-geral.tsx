@@ -5,7 +5,26 @@ import { useColors } from "@/hooks/use-colors";
 import { RelatedLinks } from "@/components/related-links";
 import { RELATED_LINKS_MAP } from "@/constants/related-links-map";
 
-const TABS = ["Missão", "Problema", "Solução", "Diferenciais", "Impacto"];
+const TABS = ["Missão", "Visão", "Valores", "Problema", "Solução", "Diferenciais", "Impacto"];
+
+function StatusBadge({ status }: { status: "mvp" | "roadmap" }) {
+  const isMvp = status === "mvp";
+  return (
+    <View
+      style={{
+        backgroundColor: isMvp ? "#2E7D3220" : "#1565C020",
+        borderRadius: 10,
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        marginLeft: 6,
+      }}
+    >
+      <Text style={{ color: isMvp ? "#2E7D32" : "#1565C0", fontSize: 10, fontWeight: "700" }}>
+        {isMvp ? "MVP 1.0" : "Roadmap"}
+      </Text>
+    </View>
+  );
+}
 
 export default function VisaoGeralScreen() {
   const colors = useColors();
@@ -75,8 +94,55 @@ export default function VisaoGeralScreen() {
           </View>
         )}
 
-        {/* ── Problema ── */}
+        {/* ── Visão ── */}
         {tab === 1 && (
+          <View className="gap-4">
+            <View style={{ backgroundColor: "#1565C015", borderWidth: 1, borderColor: "#1565C030" }} className="rounded-xl p-4">
+              <Text style={{ color: "#1565C0" }} className="text-sm font-bold mb-2">🔭 Visão de Futuro</Text>
+              <Text className="text-sm text-foreground leading-relaxed">
+                Ser a principal plataforma de inteligência fitotécnica da América Latina, conectando produtores rurais a tecnologia agronômica de ponta — tornando o diagnóstico precoce, a gestão integrada e o conhecimento técnico acessíveis a qualquer produtor com um smartphone.
+              </Text>
+            </View>
+            <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }} className="rounded-xl p-4">
+              <Text style={{ color: "#1565C0" }} className="text-sm font-bold mb-3">🗺️ Horizonte Estratégico</Text>
+              {[
+                { k: "Curto prazo (AFU 1.0)", v: "MVP funcional com diagnóstico IA, gestão de propriedades e laudos PDF para 100 produtores piloto" },
+                { k: "Médio prazo (AFU 2.0–3.0)", v: "Expansão regional, marketplace rural e assistente IA conversacional" },
+                { k: "Longo prazo (AFU 4.0–5.0)", v: "Geointeligência, IoT, América Latina e escala global" },
+              ].map((r) => (
+                <View key={r.k} className="py-2" style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
+                  <Text className="text-xs font-bold text-foreground mb-1">{r.k}</Text>
+                  <Text className="text-xs text-muted leading-relaxed">{r.v}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* ── Valores ── */}
+        {tab === 2 && (
+          <View className="gap-4">
+            {[
+              { cor: "#1B5E20", emoji: "🌱", t: "Acessibilidade", d: "Tecnologia agronômica ao alcance de todos os produtores, independentemente do porte ou localização." },
+              { cor: "#1565C0", emoji: "🔬", t: "Rigor Técnico", d: "Diagnósticos baseados em ciência fitotécnica, com transparência sobre limites da IA e orientação para confirmação profissional." },
+              { cor: "#7B1FA2", emoji: "🤝", t: "Proximidade com o Campo", d: "Produto pensado para a realidade do produtor rural brasileiro — simples, offline-first e em português." },
+              { cor: "#E65100", emoji: "🌍", t: "Sustentabilidade", d: "Reduzir perdas e uso excessivo de agroquímicos por meio de diagnóstico precoce e manejo baseado em dados." },
+              { cor: "#00695C", emoji: "📖", t: "Conhecimento Aberto", d: "Sistematizar e democratizar o conhecimento agronômico regional para preservá-lo e ampliá-lo." },
+              { cor: "#C62828", emoji: "🔒", t: "Privacidade e LGPD", d: "Dados do produtor tratados com segurança, transparência e conformidade legal." },
+            ].map((v) => (
+              <View key={v.t} style={{ backgroundColor: v.cor + "12", borderWidth: 1, borderColor: v.cor + "30" }} className="rounded-xl p-4">
+                <View className="flex-row items-center gap-2 mb-2">
+                  <Text className="text-xl">{v.emoji}</Text>
+                  <Text style={{ color: v.cor }} className="text-sm font-bold flex-1">{v.t}</Text>
+                </View>
+                <Text className="text-xs text-muted leading-relaxed">{v.d}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* ── Problema ── */}
+        {tab === 3 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#B71C1C15", borderWidth: 1, borderColor: "#B71C1C30" }} className="rounded-xl p-4">
               <Text style={{ color: "#B71C1C" }} className="text-sm font-bold mb-3">❌ Problemas Identificados</Text>
@@ -117,24 +183,27 @@ export default function VisaoGeralScreen() {
         )}
 
         {/* ── Solução ── */}
-        {tab === 2 && (
+        {tab === 4 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#1565C015", borderWidth: 1, borderColor: "#1565C030" }} className="rounded-xl p-4">
               <Text style={{ color: "#1565C0" }} className="text-sm font-bold mb-3">✅ A Solução AFU</Text>
               <Text className="text-sm text-foreground leading-relaxed mb-3">
-                O AFU oferece um ecossistema digital completo integrado por IA, com diagnóstico por foto, banco de dados agronômico e ferramentas de gestão acessíveis via smartphone.
+                O AFU oferece um ecossistema digital integrado por IA, com diagnóstico por foto, banco de dados agronômico e ferramentas de gestão acessíveis via smartphone.
               </Text>
-              {[
-                { emoji: "📸", t: "Diagnóstico por Foto", d: "Tire uma foto da planta e receba diagnóstico em segundos via IA multimodal (GPT-4o Vision)." },
-                { emoji: "🧠", t: "IA Agrônomo Virtual", d: "Assistente conversacional especializado em fitotecnia, disponível 24h pelo app e WhatsApp." },
-                { emoji: "🗃️", t: "Banco Agronômico", d: "17 culturas com dados de clima, solo, nutrientes, pragas, doenças, genética e calendário." },
-                { emoji: "📊", t: "Gestão Integrada", d: "Propriedades, cultivos, análises laboratoriais, relatórios e marketplace em um só lugar." },
-                { emoji: "🛰️", t: "Geointeligência", d: "Imagens de satélite, NDVI, drones e sensores IoT para agricultura de precisão." },
-              ].map((s) => (
+              {([
+                { emoji: "📸", t: "Diagnóstico por Foto", d: "Tire uma foto da planta e receba diagnóstico em segundos via IA multimodal (GPT-4o Vision).", status: "mvp" as const },
+                { emoji: "🧠", t: "IA Agrônomo Virtual", d: "Assistente conversacional especializado em fitotecnia, disponível 24h pelo app e WhatsApp.", status: "roadmap" as const },
+                { emoji: "🗃️", t: "Banco Agronômico", d: "15+ culturas com dados de clima, solo, nutrientes, pragas, doenças e calendário.", status: "mvp" as const },
+                { emoji: "📊", t: "Gestão Integrada", d: "Propriedades, cultivos, análises laboratoriais, relatórios e laudos PDF em um só lugar.", status: "mvp" as const },
+                { emoji: "🛰️", t: "Geointeligência", d: "Imagens de satélite, NDVI, drones e sensores IoT para agricultura de precisão.", status: "roadmap" as const },
+              ]).map((s) => (
                 <View key={s.t} className="flex-row gap-3 mb-3">
                   <Text className="text-2xl">{s.emoji}</Text>
                   <View className="flex-1">
-                    <Text style={{ color: "#1565C0" }} className="text-xs font-bold">{s.t}</Text>
+                    <View className="flex-row items-center flex-wrap">
+                      <Text style={{ color: "#1565C0" }} className="text-xs font-bold">{s.t}</Text>
+                      <StatusBadge status={s.status} />
+                    </View>
                     <Text className="text-xs text-muted mt-1 leading-relaxed">{s.d}</Text>
                   </View>
                 </View>
@@ -142,16 +211,17 @@ export default function VisaoGeralScreen() {
             </View>
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }} className="rounded-xl p-4">
               <Text style={{ color: "#1565C0" }} className="text-sm font-bold mb-2">🏗️ Plataformas</Text>
-              {[
-                { p: "App Mobile (Android/iOS)", t: "Expo React Native · EAS Build" },
-                { p: "Portal Web do Produtor", t: "Next.js 15 · Vercel" },
-                { p: "Painel Administrativo", t: "React · Dashboard" },
-                { p: "API Backend", t: "NestJS · PostgreSQL · Docker" },
-                { p: "Integração WhatsApp", t: "Meta Business API" },
-              ].map((r) => (
-                <View key={r.p} className="flex-row py-2" style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              {([
+                { p: "App Mobile (Android/iOS)", t: "Expo SDK 54 · React Native · EAS Build", status: "mvp" as const },
+                { p: "API Backend", t: "Express · tRPC · MySQL · Drizzle ORM", status: "mvp" as const },
+                { p: "Portal Web do Produtor", t: "Next.js 15 · Vercel", status: "roadmap" as const },
+                { p: "Painel Administrativo", t: "React · Dashboard", status: "roadmap" as const },
+                { p: "Integração WhatsApp", t: "Meta Business API", status: "roadmap" as const },
+              ]).map((r) => (
+                <View key={r.p} className="flex-row py-2 items-center" style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
                   <Text className="text-xs text-foreground flex-1 font-medium">{r.p}</Text>
-                  <Text className="text-xs text-muted">{r.t}</Text>
+                  <Text className="text-xs text-muted mr-2">{r.t}</Text>
+                  <StatusBadge status={r.status} />
                 </View>
               ))}
             </View>
@@ -159,20 +229,21 @@ export default function VisaoGeralScreen() {
         )}
 
         {/* ── Diferenciais ── */}
-        {tab === 3 && (
+        {tab === 5 && (
           <View className="gap-4">
-            {[
-              { cor: "#1B5E20", emoji: "🤖", t: "IA Especializada em Fitotecnia", d: "Modelo treinado com dados agronômicos brasileiros, não apenas um chatbot genérico. Integra GPT-4o Vision com banco de conhecimento proprietário." },
-              { cor: "#1565C0", emoji: "🗃️", t: "Banco Agronômico Proprietário", d: "10 módulos de dados: culturas, clima, solo, genética, pragas, doenças, calendário, laboratório, economia e geointeligência. Dados regionalizados para o Brasil." },
-              { cor: "#7B1FA2", emoji: "📱", t: "Mobile-First para o Campo", d: "App offline-first, funciona sem internet, interface simples para produtores com baixa familiaridade digital. Suporte a voz em 3 idiomas." },
-              { cor: "#C62828", emoji: "🔬", t: "Laboratório Digital Integrado", d: "Análises de solo, foliar, água e sementes com laudos automáticos, QR Code e certificados digitais." },
-              { cor: "#E65100", emoji: "🛒", t: "Marketplace Agronômico", d: "Venda de mudas, sementes e bioinsumos com rastreabilidade completa, QR Code e certificações." },
-              { cor: "#00695C", emoji: "🛰️", t: "Geointeligência Avançada", d: "Integração com Sentinel-2, Landsat e drones para NDVI, mapeamento de pragas e agricultura de precisão." },
-            ].map((d) => (
+            {([
+              { cor: "#1B5E20", emoji: "🤖", t: "IA Especializada em Fitotecnia", d: "Integra GPT-4o Vision com banco de conhecimento proprietário para diagnóstico por imagem.", status: "mvp" as const },
+              { cor: "#1565C0", emoji: "🗃️", t: "Banco Agronômico Proprietário", d: "Módulos de culturas, clima, solo, pragas, doenças e calendário. Dados regionalizados para o Brasil.", status: "mvp" as const },
+              { cor: "#7B1FA2", emoji: "📱", t: "Mobile-First para o Campo", d: "App com sync offline parcial, interface simples para produtores com baixa familiaridade digital.", status: "mvp" as const },
+              { cor: "#C62828", emoji: "🔬", t: "Laboratório Digital Integrado", d: "Análises de solo, foliar e água com laudos automáticos em PDF.", status: "mvp" as const },
+              { cor: "#E65100", emoji: "🛒", t: "Marketplace Agronômico", d: "Venda de mudas, sementes e bioinsumos com rastreabilidade e certificações.", status: "roadmap" as const },
+              { cor: "#00695C", emoji: "🛰️", t: "Geointeligência Avançada", d: "Integração com Sentinel-2, Landsat e drones para NDVI e agricultura de precisão.", status: "roadmap" as const },
+            ]).map((d) => (
               <View key={d.t} style={{ backgroundColor: d.cor + "12", borderWidth: 1, borderColor: d.cor + "30" }} className="rounded-xl p-4">
                 <View className="flex-row items-center gap-2 mb-2">
                   <Text className="text-xl">{d.emoji}</Text>
                   <Text style={{ color: d.cor }} className="text-sm font-bold flex-1">{d.t}</Text>
+                  <StatusBadge status={d.status} />
                 </View>
                 <Text className="text-xs text-muted leading-relaxed">{d.d}</Text>
               </View>
@@ -181,7 +252,7 @@ export default function VisaoGeralScreen() {
         )}
 
         {/* ── Impacto ── */}
-        {tab === 4 && (
+        {tab === 6 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#1B5E2015", borderWidth: 1, borderColor: "#1B5E2030" }} className="rounded-xl p-4">
               <Text style={{ color: "#1B5E20" }} className="text-sm font-bold mb-3">🌍 Impacto Esperado</Text>

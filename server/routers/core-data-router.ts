@@ -29,6 +29,7 @@ import {
   deleteEvento,
 } from "../db";
 import { getDb } from "../db";
+import { sendPushToUsuario } from "../services/push-delivery";
 import { produtores } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 
@@ -276,11 +277,23 @@ const calendarioRouter = router({
     .mutation(async ({ ctx, input }) => {
       const perfil = await getUsuarioAfuByUserId(ctx.user.id);
       if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-      return createEvento({
+      const eventId = await createEvento({
         ...input,
         usuarioId: perfil.id,
         dataProgramada: new Date(input.dataProgramada),
       } as any);
+
+      if (input.lembreteAtivo) {
+        const dataLabel = new Date(input.dataProgramada).toLocaleDateString("pt-BR");
+        void sendPushToUsuario(perfil.id, {
+          title: "Evento no calendário",
+          body: `${input.titulo} — ${dataLabel}. Lembrete local também foi agendado.`,
+          data: { type: "calendario", eventId: String(eventId) },
+          priority: input.prioridade === "critica" || input.prioridade === "alta" ? "high" : "default",
+        });
+      }
+
+      return eventId;
     }),
 
   update: protectedProcedure

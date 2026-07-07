@@ -1,6 +1,7 @@
 import {
   boolean,
   decimal,
+  index,
   int,
   mysqlEnum,
   mysqlTable,
@@ -529,6 +530,42 @@ export type Pedido = typeof pedidos.$inferSelect;
 export type InsertPedido = typeof pedidos.$inferInsert;
 
 // ─────────────────────────────────────────────
+// TABELA: tickets_suporte
+// ─────────────────────────────────────────────
+export const ticketsSuporte = mysqlTable("tickets_suporte", {
+  id: int("id").autoincrement().primaryKey(),
+  usuarioId: int("usuarioId").notNull(),
+  tipo: mysqlEnum("tipo", ["chamado", "duvida", "visita", "chat"]).notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao").notNull(),
+  prioridade: mysqlEnum("prioridade", ["baixa", "normal", "alta"]).default("normal"),
+  status: mysqlEnum("status", ["aberto", "em_andamento", "resolvido", "cancelado"]).default("aberto"),
+  culturaRelacionada: varchar("culturaRelacionada", { length: 100 }),
+  dataVisita: varchar("dataVisita", { length: 30 }),
+  resposta: text("resposta"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TicketSuporte = typeof ticketsSuporte.$inferSelect;
+export type InsertTicketSuporte = typeof ticketsSuporte.$inferInsert;
+
+// ─────────────────────────────────────────────
+// TABELA: mensagens_suporte
+// ─────────────────────────────────────────────
+export const mensagensSuporte = mysqlTable("mensagens_suporte", {
+  id: int("id").autoincrement().primaryKey(),
+  usuarioId: int("usuarioId").notNull(),
+  ticketId: int("ticketId"),
+  autor: mysqlEnum("autor", ["usuario", "sistema", "tecnico"]).notNull(),
+  texto: text("texto").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type MensagemSuporte = typeof mensagensSuporte.$inferSelect;
+export type InsertMensagemSuporte = typeof mensagensSuporte.$inferInsert;
+
+// ─────────────────────────────────────────────
 // TABELA: parceiros
 // ─────────────────────────────────────────────
 export const parceiros = mysqlTable("parceiros", {
@@ -557,37 +594,24 @@ export type Parceiro = typeof parceiros.$inferSelect;
 export type InsertParceiro = typeof parceiros.$inferInsert;
 
 // ─────────────────────────────────────────────
-// TABELA: tickets_suporte
+// TABELA: push_tokens (FCM/APNs via Expo Push)
 // ─────────────────────────────────────────────
-export const ticketsSuporte = mysqlTable("tickets_suporte", {
-  id: int("id").autoincrement().primaryKey(),
-  usuarioId: int("usuarioId").notNull(), // FK → usuarios_afu.id
-  tipo: mysqlEnum("tipo", ["chamado", "duvida", "visita", "chat"]).notNull(),
-  titulo: varchar("titulo", { length: 200 }).notNull(),
-  descricao: text("descricao").notNull(),
-  prioridade: mysqlEnum("prioridade", ["baixa", "normal", "alta"]).default("normal"),
-  status: mysqlEnum("status", ["aberto", "em_andamento", "resolvido", "cancelado"]).default("aberto"),
-  culturaRelacionada: varchar("culturaRelacionada", { length: 100 }),
-  dataVisita: varchar("dataVisita", { length: 30 }),
-  resposta: text("resposta"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+export const pushTokens = mysqlTable(
+  "push_tokens",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    usuarioAfuId: int("usuarioAfuId").notNull(),
+    expoPushToken: varchar("expoPushToken", { length: 255 }).notNull().unique(),
+    platform: mysqlEnum("platform", ["ios", "android", "web"]).notNull(),
+    deviceName: varchar("deviceName", { length: 100 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+    lastUsedAt: timestamp("lastUsedAt").defaultNow().notNull(),
+  },
+  (table) => ({
+    usuarioIdx: index("push_tokens_usuario_idx").on(table.usuarioAfuId),
+  }),
+);
 
-export type TicketSuporte = typeof ticketsSuporte.$inferSelect;
-export type InsertTicketSuporte = typeof ticketsSuporte.$inferInsert;
-
-// ─────────────────────────────────────────────
-// TABELA: mensagens_suporte (chat técnico)
-// ─────────────────────────────────────────────
-export const mensagensSuporte = mysqlTable("mensagens_suporte", {
-  id: int("id").autoincrement().primaryKey(),
-  usuarioId: int("usuarioId").notNull(), // FK → usuarios_afu.id
-  ticketId: int("ticketId"), // FK → tickets_suporte.id (opcional)
-  autor: mysqlEnum("autor", ["usuario", "sistema", "tecnico"]).notNull(),
-  texto: text("texto").notNull(),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
-
-export type MensagemSuporte = typeof mensagensSuporte.$inferSelect;
-export type InsertMensagemSuporte = typeof mensagensSuporte.$inferInsert;
+export type PushToken = typeof pushTokens.$inferSelect;
+export type InsertPushToken = typeof pushTokens.$inferInsert;

@@ -24,6 +24,7 @@ import {
   calendarioCuidados,
   parceiros,
   produtosMarketplace,
+  analisesFitotecnicas,
 } from "../drizzle/schema";
 
 const DEMO_EMAIL = "demo@afuagro.com.br";
@@ -316,13 +317,89 @@ async function main() {
       unidade: "caixa",
       status: "disponivel",
     },
+    {
+      vendedorId: usuarioAfuId,
+      nomeProduto: "Fertilizante NPK 20-05-20 (saca 50kg)",
+      categoria: "fertilizantes",
+      descricao: "Formulação balanceada para cobertura em grãos e hortaliças.",
+      preco: "185.00",
+      estoque: "200.00",
+      unidade: "saca",
+      status: "disponivel",
+    },
+    {
+      vendedorId: usuarioAfuId,
+      nomeProduto: "Herbicida Glifosato 480g/L (20L)",
+      categoria: "defensivos",
+      descricao: "Controle de plantas daninhas em pré-plantio e dessecação.",
+      preco: "420.00",
+      estoque: "35.00",
+      unidade: "galão",
+      status: "disponivel",
+    },
+    {
+      vendedorId: usuarioAfuId,
+      nomeProduto: "Pulverizador costal 20L",
+      categoria: "equipamentos",
+      descricao: "Bomba manual reforçada, bicos ajustáveis, ideal para áreas menores.",
+      preco: "289.00",
+      estoque: "15.00",
+      unidade: "un",
+      status: "disponivel",
+    },
+    {
+      vendedorId: usuarioAfuId,
+      nomeProduto: "Análise de solo completa (por amostra)",
+      categoria: "servicos",
+      descricao: "Coleta orientada + laudo com recomendação de calagem e adubação.",
+      preco: "120.00",
+      estoque: "999.00",
+      unidade: "amostra",
+      status: "disponivel",
+    },
+    {
+      vendedorId: usuarioAfuId,
+      nomeProduto: "Calcário dolomítico PRNT 90%",
+      categoria: "fertilizantes",
+      descricao: "Correção de acidez com fornecimento de Ca e Mg.",
+      preco: "95.00",
+      estoque: "500.00",
+      unidade: "ton",
+      status: "disponivel",
+    },
+    {
+      vendedorId: usuarioAfuId,
+      nomeProduto: "Semente de Milho Híbrido (saca 60kg)",
+      categoria: "sementes",
+      descricao: "Alto potencial produtivo, tolerância a pragas foliares.",
+      preco: "780.00",
+      estoque: "80.00",
+      unidade: "saca",
+      status: "disponivel",
+    },
   ]);
+
+  console.log("Criando análise fitotécnica demo...");
+  await db.insert(analisesFitotecnicas).values({
+    usuarioId: usuarioAfuId,
+    propriedadeId,
+    tipoAnalise: "solo",
+    phSolo: "5.80",
+    nitrogenio: "12.500",
+    fosforo: "8.200",
+    potassio: "0.180",
+    calcio: "2.100",
+    magnesio: "0.850",
+    materiaOrganica: "3.20",
+    resultadoTecnico: "Solo com pH levemente ácido e baixo teor de fósforo. Matéria orgânica em nível médio.",
+    recomendacao: "Aplicar calcário dolomítico conforme necessidade de elevação do pH. Adubação fosfatada de plantio.",
+  });
 
   console.log("");
   console.log("Seed concluído com sucesso!");
   console.log(`  Login demo: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
   console.log("  1 propriedade, 2 terrenos, 2 cultivos, 6 pragas/doenças,");
-  console.log("  4 materiais, 3 eventos de calendário, 1 parceiro, 2 produtos.");
+  console.log("  4 materiais, 3 eventos de calendário, 1 parceiro, 8 produtos, 1 análise fitotécnica.");
   process.exit(0);
 }
 

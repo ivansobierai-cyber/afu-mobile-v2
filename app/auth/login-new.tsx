@@ -1,6 +1,5 @@
-import { Redirect } from "expo-router";
+import { Redirect } from 'expo-router';
 
-/** @deprecated Use /auth/login — redirecionamento de compatibilidade */
-export default function LegacyLoginNewRedirect() {
+export default function LoginNewRedirect() {
   return <Redirect href="/auth/login" />;
 }

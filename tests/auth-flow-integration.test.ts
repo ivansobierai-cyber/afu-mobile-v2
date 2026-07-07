@@ -136,8 +136,10 @@ describe('Fluxo Completo de Autenticação', () => {
     });
 
     it('deve redirecionar para login se sessionToken expirou', async () => {
-      const pastExpiry = Date.now() - 1000;
-      const isExpired = Date.now() > pastExpiry;
+      const expiredAt = Date.now() - 86400001; // expirou há mais de 24h
+      const expiredToken = `expired:${expiredAt}`;
+      const isExpired = Date.now() - parseInt(expiredToken.split(':')[1], 10) > 86400000;
+
       expect(isExpired).toBe(true);
     });
   });

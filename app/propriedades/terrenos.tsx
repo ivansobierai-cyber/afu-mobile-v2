@@ -10,12 +10,12 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  RefreshControl,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { trpc } from "@/lib/trpc";
 
 const TIPO_SOLO = [
@@ -24,12 +24,6 @@ const TIPO_SOLO = [
   { value: "siltoso", label: "Siltoso" },
   { value: "franco", label: "Franco" },
   { value: "organico", label: "Orgânico" },
-];
-
-const DRENAGEM = [
-  { value: "bom", label: "Boa" },
-  { value: "medio", label: "Média" },
-  { value: "ruim", label: "Ruim" },
 ];
 
 const IRRIGACAO = [
@@ -41,121 +35,50 @@ const IRRIGACAO = [
   { value: "nenhum", label: "Nenhum" },
 ];
 
-type TerrenoRow = {
-  id: number;
-  propriedadeId: number;
-  nome: string;
-  area: string | null;
-  tipoSolo: string | null;
-  sistemaIrrigacao: string | null;
-  observacoes: string | null;
-};
-
-function buildObservacoes(ph: string, drenagem: string, base: string): string | undefined {
-  const parts: string[] = [];
-  if (ph.trim()) parts.push(`pH médio: ${ph.trim()}`);
-  const dLabel = DRENAGEM.find((d) => d.value === drenagem)?.label;
-  if (drenagem && drenagem !== "bom") parts.push(`Drenagem: ${dLabel ?? drenagem}`);
-  if (base.trim()) parts.push(base.trim());
-  return parts.length > 0 ? parts.join(" | ") : undefined;
-}
-
-function parseObservacoes(obs?: string | null) {
-  const raw = obs ?? "";
-  const phMatch = raw.match(/pH médio:\s*([\d.]+)/i);
-  const drenMatch = raw.match(/Drenagem:\s*(Boa|Média|Ruim|bom|medio|ruim)/i);
-  let tipoDrenagem = "bom";
-  if (drenMatch) {
-    const map: Record<string, string> = { boa: "bom", média: "medio", media: "medio", ruim: "ruim" };
-    tipoDrenagem = map[drenMatch[1].toLowerCase()] ?? drenMatch[1].toLowerCase();
-  }
-  const cleaned = raw
-    .replace(/pH médio:\s*[\d.]+\s*\|?\s*/i, "")
-    .replace(/Drenagem:\s*[^|]+\s*\|?\s*/i, "")
-    .trim();
-  return {
-    phMedio: phMatch?.[1] ?? "",
-    tipoDrenagem,
-    observacoes: cleaned,
-  };
-}
-
-function parsePhFromObs(obs?: string | null): string | undefined {
-  const m = (obs ?? "").match(/pH médio:\s*([\d.]+)/i);
-  return m?.[1];
-}
-
-function parseDrenagemFromObs(obs?: string | null): string | undefined {
-  const m = (obs ?? "").match(/Drenagem:\s*(Boa|Média|Ruim)/i);
-  if (!m) return undefined;
-  const map: Record<string, string> = { boa: "bom", média: "medio", ruim: "ruim" };
-  return map[m[1].toLowerCase()] ?? m[1].toLowerCase();
-}
-
 export default function TerrenosScreen() {
   const colors = useColors();
   const router = useRouter();
-  const utils = trpc.useUtils();
-  const { propriedadeId: propriedadeIdParam } = useLocalSearchParams<{ propriedadeId: string }>();
-  const propriedadeId = parseInt(propriedadeIdParam ?? "0", 10);
+  const { runMutation } = useRunCoreMutation();
+  const { propriedadeId } = useLocalSearchParams<{ propriedadeId: string }>();
+  const propId = parseInt(propriedadeId ?? "0", 10);
 
   const { data: propriedade, isLoading: loadingProp } = trpc.coreData.propriedades.get.useQuery(
-    { id: propriedadeId },
-    { enabled: propriedadeId > 0 },
+    { id: propId },
+    { enabled: propId > 0 },
   );
-
-  const { data: terrenos = [], isLoading: loadingTerrenos, refetch } =
-    trpc.coreData.terrenos.listByPropriedade.useQuery(
-      { propriedadeId },
-      { enabled: propriedadeId > 0 },
-    );
-
-  const createMutation = trpc.coreData.terrenos.create.useMutation({
-    onSuccess: () => utils.coreData.terrenos.listByPropriedade.invalidate({ propriedadeId }),
-  });
-  const updateMutation = trpc.coreData.terrenos.update.useMutation({
-    onSuccess: () => utils.coreData.terrenos.listByPropriedade.invalidate({ propriedadeId }),
-  });
-  const deleteMutation = trpc.coreData.terrenos.delete.useMutation({
-    onSuccess: () => utils.coreData.terrenos.listByPropriedade.invalidate({ propriedadeId }),
-  });
+  const { data: terrenos = [], isLoading: loadingTerrenos, refetch } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: propId },
+    { enabled: propId > 0 },
+  );
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [nome, setNome] = useState("");
   const [area, setArea] = useState("");
   const [tipoSolo, setTipoSolo] = useState("franco");
-  const [phMedio, setPhMedio] = useState("");
-  const [tipoDrenagem, setTipoDrenagem] = useState("bom");
-  const [tipoIrrigacao, setTipoIrrigacao] = useState("nenhum");
+  const [sistemaIrrigacao, setSistemaIrrigacao] = useState("nenhum");
   const [observacoes, setObservacoes] = useState("");
   const [saving, setSaving] = useState(false);
 
   const areaTotal = Number(propriedade?.tamanhoArea ?? 0);
-  const areaUsada = (terrenos as TerrenoRow[]).reduce((sum, t) => sum + Number(t.area ?? 0), 0);
 
   const openNew = () => {
     setEditingId(null);
     setNome("");
     setArea("");
     setTipoSolo("franco");
-    setPhMedio("");
-    setTipoDrenagem("bom");
-    setTipoIrrigacao("nenhum");
+    setSistemaIrrigacao("nenhum");
     setObservacoes("");
     setModalVisible(true);
   };
 
-  const openEdit = (t: TerrenoRow) => {
-    const parsed = parseObservacoes(t.observacoes);
+  const openEdit = (t: (typeof terrenos)[0]) => {
     setEditingId(t.id);
     setNome(t.nome);
     setArea(t.area ? String(t.area) : "");
     setTipoSolo(t.tipoSolo ?? "franco");
-    setPhMedio(parsed.phMedio);
-    setTipoDrenagem(parsed.tipoDrenagem);
-    setTipoIrrigacao(t.sistemaIrrigacao ?? "nenhum");
-    setObservacoes(parsed.observacoes);
+    setSistemaIrrigacao(t.sistemaIrrigacao ?? "nenhum");
+    setObservacoes(t.observacoes ?? "");
     setModalVisible(true);
   };
 
@@ -170,34 +93,38 @@ export default function TerrenosScreen() {
       return;
     }
     if (areaTotal > 0 && areaNum > areaTotal) {
-      Alert.alert("Atenção", `A área do terreno (${areaNum} ha) não pode ser maior que a área total da propriedade (${areaTotal} ha).`);
+      Alert.alert(
+        "Atenção",
+        `A área do terreno (${areaNum} ha) não pode ser maior que a área total da propriedade (${areaTotal} ha).`,
+      );
       return;
     }
 
     setSaving(true);
     try {
       const payload = {
-        propriedadeId,
+        propriedadeId: propId,
         nome: nome.trim(),
         area: areaNum,
         tipoSolo: tipoSolo || undefined,
-        sistemaIrrigacao: tipoIrrigacao !== "nenhum" ? tipoIrrigacao : undefined,
-        observacoes: buildObservacoes(phMedio, tipoDrenagem, observacoes),
+        sistemaIrrigacao: sistemaIrrigacao !== "nenhum" ? sistemaIrrigacao : undefined,
+        observacoes: observacoes.trim() || undefined,
       };
       if (editingId) {
-        await updateMutation.mutateAsync({ id: editingId, data: payload });
+        await runMutation("terreno", "update", { id: editingId, data: payload });
       } else {
-        await createMutation.mutateAsync(payload);
+        await runMutation("terreno", "create", payload);
       }
       setModalVisible(false);
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível salvar o terreno.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível salvar.";
+      Alert.alert("Erro", message);
     } finally {
       setSaving(false);
     }
   };
 
-  const handleDelete = (t: TerrenoRow) => {
+  const handleDelete = (t: (typeof terrenos)[0]) => {
     Alert.alert("Excluir terreno?", `"${t.nome}" será removido permanentemente.`, [
       { text: "Cancelar", style: "cancel" },
       {
@@ -205,9 +132,10 @@ export default function TerrenosScreen() {
         style: "destructive",
         onPress: async () => {
           try {
-            await deleteMutation.mutateAsync({ id: t.id });
-          } catch (e: any) {
-            Alert.alert("Erro", e.message ?? "Não foi possível excluir.");
+            await runMutation("terreno", "delete", { id: t.id });
+          } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Não foi possível excluir.";
+            Alert.alert("Erro", message);
           }
         },
       },
@@ -223,7 +151,12 @@ export default function TerrenosScreen() {
       borderWidth: 1,
       borderColor: colors.border,
     },
-    label: { fontSize: 12, color: colors.muted, marginBottom: 4, fontWeight: "500" },
+    label: {
+      fontSize: 12,
+      color: colors.muted,
+      marginBottom: 4,
+      fontWeight: "500",
+    },
     input: {
       backgroundColor: colors.background,
       borderWidth: 1,
@@ -245,13 +178,23 @@ export default function TerrenosScreen() {
     },
   });
 
-  const isLoading = loadingProp || loadingTerrenos;
+  const areaUsada = terrenos.reduce((sum, t) => sum + (Number(t.area) || 0), 0);
 
-  if (propriedadeId <= 0) {
+  if (loadingProp || loadingTerrenos) {
     return (
       <ScreenContainer>
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: colors.muted }}>Propriedade inválida.</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      </ScreenContainer>
+    );
+  }
+
+  if (!propriedade) {
+    return (
+      <ScreenContainer>
+        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
+          <Text style={{ color: colors.muted }}>Propriedade não encontrada.</Text>
         </View>
       </ScreenContainer>
     );
@@ -276,11 +219,7 @@ export default function TerrenosScreen() {
           </TouchableOpacity>
           <View>
             <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>Terrenos</Text>
-            {propriedade && (
-              <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>
-                {propriedade.nome}
-              </Text>
-            )}
+            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>{propriedade.nome}</Text>
           </View>
         </View>
         <TouchableOpacity
@@ -291,53 +230,54 @@ export default function TerrenosScreen() {
         </TouchableOpacity>
       </View>
 
-      {propriedade && (
-        <View
-          style={{
-            backgroundColor: colors.surface,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-            paddingHorizontal: 20,
-            paddingVertical: 12,
-            flexDirection: "row",
-            justifyContent: "space-between",
-          }}
-        >
-          <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.primary }}>
-              {areaTotal > 0 ? `${areaTotal} ha` : "—"}
-            </Text>
-            <Text style={{ fontSize: 11, color: colors.muted }}>Área Total</Text>
-          </View>
-          <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.success }}>{areaUsada.toFixed(1)} ha</Text>
-            <Text style={{ fontSize: 11, color: colors.muted }}>Mapeada</Text>
-          </View>
-          <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.warning }}>
-              {areaTotal > 0 ? Math.max(0, areaTotal - areaUsada).toFixed(1) : "—"} ha
-            </Text>
-            <Text style={{ fontSize: 11, color: colors.muted }}>Disponível</Text>
-          </View>
-          <View style={{ alignItems: "center" }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>{terrenos.length}</Text>
-            <Text style={{ fontSize: 11, color: colors.muted }}>Talhões</Text>
-          </View>
+      <View
+        style={{
+          backgroundColor: colors.surface,
+          borderBottomWidth: 1,
+          borderBottomColor: colors.border,
+          paddingHorizontal: 20,
+          paddingVertical: 12,
+          flexDirection: "row",
+          justifyContent: "space-between",
+        }}
+      >
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.primary }}>{areaTotal || "—"} ha</Text>
+          <Text style={{ fontSize: 11, color: colors.muted }}>Área Total</Text>
         </View>
-      )}
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.success }}>{areaUsada.toFixed(1)} ha</Text>
+          <Text style={{ fontSize: 11, color: colors.muted }}>Mapeada</Text>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.warning }}>
+            {areaTotal > 0 ? Math.max(0, areaTotal - areaUsada).toFixed(1) : "—"} ha
+          </Text>
+          <Text style={{ fontSize: 11, color: colors.muted }}>Disponível</Text>
+        </View>
+        <View style={{ alignItems: "center" }}>
+          <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>{terrenos.length}</Text>
+          <Text style={{ fontSize: 11, color: colors.muted }}>Talhões</Text>
+        </View>
+      </View>
 
-      {isLoading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : terrenos.length === 0 ? (
+      {terrenos.length === 0 ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
           <IconSymbol name="map.fill" size={64} color={colors.border} />
           <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginTop: 16 }}>
             Nenhum terreno cadastrado
           </Text>
+          <Text style={{ fontSize: 14, color: colors.muted, textAlign: "center", marginTop: 8 }}>
+            Divida sua propriedade em talhões para gerenciar melhor cada área.
+          </Text>
           <TouchableOpacity
-            style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 24, paddingVertical: 14, marginTop: 20 }}
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              paddingHorizontal: 24,
+              paddingVertical: 14,
+              marginTop: 20,
+            }}
             onPress={openNew}
           >
             <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>+ Novo Terreno</Text>
@@ -345,60 +285,72 @@ export default function TerrenosScreen() {
         </View>
       ) : (
         <FlatList
-          data={terrenos as TerrenoRow[]}
+          data={terrenos}
           keyExtractor={(item) => String(item.id)}
           contentContainerStyle={{ padding: 16 }}
-          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.primary} />}
-          renderItem={({ item }) => {
-            const ph = parsePhFromObs(item.observacoes);
-            const drenagem = parseDrenagemFromObs(item.observacoes);
-            return (
-              <View style={styles.card}>
-                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: "700", color: colors.foreground }}>{item.nome}</Text>
-                    <View style={{ flexDirection: "row", gap: 16, marginTop: 8, flexWrap: "wrap" }}>
-                      <Text style={{ fontSize: 13, color: colors.muted }}>{item.area} ha</Text>
-                      {item.tipoSolo && (
-                        <Text style={{ fontSize: 13, color: colors.muted, textTransform: "capitalize" }}>{item.tipoSolo}</Text>
-                      )}
-                      {ph && <Text style={{ fontSize: 13, color: colors.muted }}>pH {ph}</Text>}
+          showsVerticalScrollIndicator={false}
+          renderItem={({ item }) => (
+            <View style={styles.card}>
+              <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start" }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 17, fontWeight: "700", color: colors.foreground }}>{item.nome}</Text>
+                  <View style={{ flexDirection: "row", gap: 16, marginTop: 8 }}>
+                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                      <IconSymbol name="scalemass.fill" size={13} color={colors.muted} />
+                      <Text style={{ fontSize: 13, color: colors.muted }}>{Number(item.area)} ha</Text>
                     </View>
-                  </View>
-                  <View style={{ flexDirection: "row", gap: 12 }}>
-                    <TouchableOpacity onPress={() => openEdit(item)}>
-                      <IconSymbol name="pencil" size={18} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity onPress={() => handleDelete(item)}>
-                      <IconSymbol name="trash.fill" size={18} color={colors.error} />
-                    </TouchableOpacity>
+                    {item.tipoSolo && (
+                      <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                        <IconSymbol name="leaf.fill" size={13} color={colors.muted} />
+                        <Text style={{ fontSize: 13, color: colors.muted, textTransform: "capitalize" }}>
+                          {item.tipoSolo}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 </View>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
-                  {item.sistemaIrrigacao && (
-                    <View style={{ backgroundColor: "#3B82F620", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <Text style={{ fontSize: 11, color: "#3B82F6", fontWeight: "600" }}>
-                        {IRRIGACAO.find((i) => i.value === item.sistemaIrrigacao)?.label ?? item.sistemaIrrigacao}
-                      </Text>
-                    </View>
-                  )}
-                  {drenagem && (
-                    <View style={{ backgroundColor: colors.success + "20", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "600", color: colors.success }}>
-                        Drenagem {DRENAGEM.find((d) => d.value === drenagem)?.label}
-                      </Text>
-                    </View>
-                  )}
+                <View style={{ flexDirection: "row", gap: 12 }}>
+                  <TouchableOpacity onPress={() => openEdit(item)}>
+                    <IconSymbol name="pencil" size={18} color={colors.primary} />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleDelete(item)}>
+                    <IconSymbol name="trash.fill" size={18} color={colors.error} />
+                  </TouchableOpacity>
                 </View>
               </View>
-            );
-          }}
+
+              {item.sistemaIrrigacao && (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                  <View style={{ backgroundColor: "#3B82F620", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3 }}>
+                    <Text style={{ fontSize: 11, color: "#3B82F6", fontWeight: "600" }}>
+                      {IRRIGACAO.find((i) => i.value === item.sistemaIrrigacao)?.label ?? item.sistemaIrrigacao}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {item.observacoes && (
+                <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8 }} numberOfLines={2}>
+                  {item.observacoes}
+                </Text>
+              )}
+            </View>
+          )}
         />
       )}
 
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <View style={{ flex: 1, backgroundColor: colors.background }}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", padding: 20, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              padding: 20,
+              borderBottomWidth: 1,
+              borderBottomColor: colors.border,
+            }}
+          >
             <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground }}>
               {editingId ? "Editar Terreno" : "Novo Terreno"}
             </Text>
@@ -408,55 +360,93 @@ export default function TerrenosScreen() {
           </View>
           <ScrollView contentContainerStyle={{ padding: 20 }}>
             <Text style={styles.label}>Nome do Terreno / Talhão *</Text>
-            <TextInput style={styles.input} value={nome} onChangeText={setNome} placeholder="Ex: Talhão A" placeholderTextColor={colors.muted} />
+            <TextInput
+              style={styles.input}
+              value={nome}
+              onChangeText={setNome}
+              placeholder="Ex: Talhão A, Área Norte, Várzea"
+              placeholderTextColor={colors.muted}
+              returnKeyType="next"
+            />
+
             <Text style={styles.label}>Área (hectares) *</Text>
-            <TextInput style={styles.input} value={area} onChangeText={setArea} keyboardType="decimal-pad" placeholder="Ex: 25.5" placeholderTextColor={colors.muted} />
+            <TextInput
+              style={styles.input}
+              value={area}
+              onChangeText={setArea}
+              placeholder="Ex: 25.5"
+              placeholderTextColor={colors.muted}
+              keyboardType="decimal-pad"
+              returnKeyType="next"
+            />
+
             <Text style={styles.label}>Tipo de Solo</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 14 }}>
               {TIPO_SOLO.map((t) => (
                 <TouchableOpacity
                   key={t.value}
-                  style={[styles.chip, { backgroundColor: tipoSolo === t.value ? colors.primary : colors.surface, borderColor: tipoSolo === t.value ? colors.primary : colors.border }]}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: tipoSolo === t.value ? colors.primary : colors.surface,
+                      borderColor: tipoSolo === t.value ? colors.primary : colors.border,
+                    },
+                  ]}
                   onPress={() => setTipoSolo(t.value)}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: tipoSolo === t.value ? "#FFF" : colors.foreground }}>{t.label}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: tipoSolo === t.value ? "#FFF" : colors.foreground }}>
+                    {t.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
-            <Text style={styles.label}>pH Médio (opcional)</Text>
-            <TextInput style={styles.input} value={phMedio} onChangeText={setPhMedio} keyboardType="decimal-pad" placeholder="Ex: 6.5" placeholderTextColor={colors.muted} />
-            <Text style={styles.label}>Drenagem</Text>
-            <View style={{ flexDirection: "row", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-              {DRENAGEM.map((d) => (
-                <TouchableOpacity
-                  key={d.value}
-                  style={[styles.chip, { backgroundColor: tipoDrenagem === d.value ? colors.primary : colors.surface, borderColor: tipoDrenagem === d.value ? colors.primary : colors.border }]}
-                  onPress={() => setTipoDrenagem(d.value)}
-                >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: tipoDrenagem === d.value ? "#FFF" : colors.foreground }}>{d.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+
             <Text style={styles.label}>Sistema de Irrigação</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
               {IRRIGACAO.map((i) => (
                 <TouchableOpacity
                   key={i.value}
-                  style={[styles.chip, { backgroundColor: tipoIrrigacao === i.value ? colors.tint : colors.surface, borderColor: tipoIrrigacao === i.value ? colors.tint : colors.border }]}
-                  onPress={() => setTipoIrrigacao(i.value)}
+                  style={[
+                    styles.chip,
+                    {
+                      backgroundColor: sistemaIrrigacao === i.value ? colors.tint : colors.surface,
+                      borderColor: sistemaIrrigacao === i.value ? colors.tint : colors.border,
+                    },
+                  ]}
+                  onPress={() => setSistemaIrrigacao(i.value)}
                 >
-                  <Text style={{ fontSize: 13, fontWeight: "600", color: tipoIrrigacao === i.value ? "#FFF" : colors.foreground }}>{i.label}</Text>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: sistemaIrrigacao === i.value ? "#FFF" : colors.foreground }}>
+                    {i.label}
+                  </Text>
                 </TouchableOpacity>
               ))}
             </View>
+
             <Text style={styles.label}>Observações</Text>
-            <TextInput style={[styles.input, { height: 80, textAlignVertical: "top" }]} value={observacoes} onChangeText={setObservacoes} multiline placeholderTextColor={colors.muted} />
-            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 16, alignItems: "center", marginTop: 8, opacity: saving ? 0.6 : 1 }} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : (
-                <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
-                  {editingId ? "Salvar Alterações" : "Cadastrar Terreno"}
-                </Text>
-              )}
+            <TextInput
+              style={[styles.input, { height: 80, textAlignVertical: "top" }]}
+              value={observacoes}
+              onChangeText={setObservacoes}
+              placeholder="Características do terreno, histórico de cultivos..."
+              placeholderTextColor={colors.muted}
+              multiline
+              returnKeyType="done"
+            />
+
+            <TouchableOpacity
+              style={{
+                backgroundColor: saving ? colors.muted : colors.primary,
+                borderRadius: 12,
+                paddingVertical: 16,
+                alignItems: "center",
+                marginTop: 8,
+              }}
+              onPress={handleSave}
+              disabled={saving}
+            >
+              <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 16 }}>
+                {editingId ? "Salvar Alterações" : "Cadastrar Terreno"}
+              </Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

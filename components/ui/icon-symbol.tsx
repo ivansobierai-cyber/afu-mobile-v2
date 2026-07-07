@@ -110,6 +110,8 @@ const MAPPING = {
   "gearshape.2.fill": "settings-applications",
   "hammer.fill": "hardware",
   "map": "map",
+  "qrcode": "qr-code",
+  "banknote.fill": "payments",
 } as unknown as IconMapping;
 
 /**

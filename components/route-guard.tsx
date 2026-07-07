@@ -15,7 +15,6 @@ import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { useSession } from "@/hooks/use-session";
 import { useColors } from "@/hooks/use-colors";
-import { isAuthDisabled } from "@shared/dev-auth";
 
 type RouteGuardProps = {
   children: React.ReactNode;
@@ -33,10 +32,6 @@ export function RouteGuard({
   const router = useRouter();
   const colors = useColors();
   const { isAuthenticated, isAdmin, perfil, onboardingPendente, contaSuspensa, loading } = useSession();
-
-  if (isAuthDisabled()) {
-    return <>{children}</>;
-  }
 
   if (loading) {
     return (
@@ -133,11 +128,6 @@ export function RouteGuard({
  */
 export function usePermission(opts: { requireAuth?: boolean; requireAdmin?: boolean }) {
   const { isAuthenticated, isAdmin, loading } = useSession();
-
-  if (isAuthDisabled()) {
-    return { canAccess: true, loading: false };
-  }
-
   const canAccess =
     !loading &&
     (!opts.requireAuth || isAuthenticated) &&

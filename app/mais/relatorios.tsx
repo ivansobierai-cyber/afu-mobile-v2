@@ -30,6 +30,14 @@ const STATUS_COLORS: Record<string, string> = {
 
 const TIPOS = ["diagnostico", "analise_solo", "historico", "recomendacao", "certificado"] as const;
 
+const PDF_TIPO_MAP: Record<string, "diagnostico" | "analise_fitotecnica" | "historico_propriedade" | "recomendacao" | "certificado"> = {
+  diagnostico: "diagnostico",
+  analise_solo: "analise_fitotecnica",
+  historico: "historico_propriedade",
+  recomendacao: "recomendacao",
+  certificado: "certificado",
+};
+
 interface FormState { titulo: string; tipoRelatorio: string; conteudo: string; }
 const EMPTY_FORM: FormState = { titulo: "", tipoRelatorio: "diagnostico", conteudo: "" };
 
@@ -45,12 +53,13 @@ export default function RelatoriosScreen() {
   const deleteMutation = trpc.secondaryData.relatorios.delete.useMutation({
     onSuccess: () => utils.secondaryData.relatorios.list.invalidate(),
   });
+  const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
   const [modalVisible, setModalVisible] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [generatingPdfId, setGeneratingPdfId] = useState<number | null>(null);
   const [filter, setFilter] = useState<string>("todos");
-  const [tipoFilter, setTipoFilter] = useState<string>("todos");
 
   const handleSave = async () => {
     if (!form.titulo.trim()) {
@@ -84,48 +93,37 @@ export default function RelatoriosScreen() {
     ]);
   };
 
-  const handleShare = async (item: any) => {
+  const handleShare = async (item: (typeof relatorios)[0]) => {
     try {
       await Share.share({
         title: item.titulo,
         message: `Relatório AFU: ${item.titulo}\nTipo: ${TIPO_LABELS[item.tipoRelatorio ?? "diagnostico"] ?? item.tipoRelatorio}\nStatus: ${STATUS_LABELS[item.status ?? "rascunho"] ?? item.status}\n\n${item.conteudo ?? ""}`,
       });
-    } catch {}
-  };
-
-  const handleViewLaudo = async (item: any) => {
-    if (!item.conteudo) {
-      Alert.alert("Sem conteúdo", "Este relatório não possui laudo HTML para visualizar.");
-      return;
-    }
-    try {
-      const parsed = JSON.parse(item.conteudo);
-      if (parsed?.html) {
-        await openLaudoHtml(parsed.html, item.titulo);
-        return;
-      }
     } catch {
-      // conteúdo em texto livre
+      // usuário cancelou
     }
-    Alert.alert("Visualização", "Use compartilhar para enviar o conteúdo deste relatório.");
   };
 
-  const getConteudoPreview = (conteudo: string | null | undefined): string | null => {
-    if (!conteudo) return null;
+  const handleGerarPdf = async (item: (typeof relatorios)[0]) => {
+    setGeneratingPdfId(item.id);
     try {
-      const parsed = JSON.parse(conteudo);
-      if (parsed?.dados?.problema) return parsed.dados.problema;
-      if (parsed?.dados?.descricao) return parsed.dados.descricao;
-      if (parsed?.html) return "Laudo técnico disponível para visualização";
-    } catch {
-      return conteudo;
+      const tipo = item.tipoRelatorio ?? "diagnostico";
+      const { html, titulo } = await pdfMutation.mutateAsync({
+        tipo: PDF_TIPO_MAP[tipo] ?? "diagnostico",
+        titulo: item.titulo,
+        conteudo: item.conteudo ?? JSON.stringify({ descricao: item.titulo }),
+        dataEmissao: new Date(item.dataEmissao).toLocaleDateString("pt-BR"),
+      });
+      await openLaudoHtml(html, titulo);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível gerar o PDF.";
+      Alert.alert("Erro", message);
+    } finally {
+      setGeneratingPdfId(null);
     }
-    return null;
   };
 
-  const filtered = relatorios
-    .filter((r) => (filter === "todos" ? true : r.status === filter))
-    .filter((r) => (tipoFilter === "todos" ? true : r.tipoRelatorio === tipoFilter));
+  const filtered = filter === "todos" ? relatorios : relatorios.filter((r) => r.status === filter);
 
   const styles = StyleSheet.create({
     card: { backgroundColor: colors.surface, borderRadius: 14, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
@@ -154,32 +152,6 @@ export default function RelatoriosScreen() {
           <IconSymbol name="plus" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
-
-      {/* Filtro de tipo */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row" }}>
-        {(["todos", "diagnostico", "analise_solo", "historico", "recomendacao", "certificado"] as const).map((f) => {
-          const active = tipoFilter === f;
-          const chipColor = f === "todos" ? colors.primary : (TIPO_COLORS[f] ?? colors.primary);
-          return (
-            <TouchableOpacity
-              key={f}
-              style={{
-                paddingHorizontal: 14,
-                paddingVertical: 6,
-                borderRadius: 20,
-                backgroundColor: active ? chipColor : colors.background,
-                borderWidth: 1,
-                borderColor: active ? chipColor : colors.border,
-              }}
-              onPress={() => setTipoFilter(f)}
-            >
-              <Text style={{ fontSize: 12, fontWeight: "700", color: active ? "#fff" : colors.muted }}>
-                {f === "todos" ? "Todos os tipos" : TIPO_LABELS[f] ?? f}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
 
       {/* Filtro de status */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row" }}>
@@ -231,8 +203,12 @@ export default function RelatoriosScreen() {
                       </Text>
                   </View>
                   <View style={{ flexDirection: "row", gap: 8, marginLeft: 8 }}>
-                    <TouchableOpacity onPress={() => handleViewLaudo(item)}>
-                      <IconSymbol name="doc.fill" size={16} color={colors.primary} />
+                    <TouchableOpacity onPress={() => handleGerarPdf(item)} disabled={generatingPdfId === item.id}>
+                      {generatingPdfId === item.id ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                      ) : (
+                        <IconSymbol name="doc.fill" size={16} color={colors.primary} />
+                      )}
                     </TouchableOpacity>
                     <TouchableOpacity onPress={() => handleShare(item)}>
                       <IconSymbol name="paperplane.fill" size={16} color={colors.primary} />
@@ -242,14 +218,9 @@ export default function RelatoriosScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-                {(() => {
-                  const preview = getConteudoPreview(item.conteudo);
-                  return preview ? (
-                    <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8, lineHeight: 18 }} numberOfLines={3}>
-                      {preview}
-                    </Text>
-                  ) : null;
-                })()}
+                {item.conteudo && (
+                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8, lineHeight: 18 }} numberOfLines={3}>{item.conteudo}</Text>
+                )}
               </View>
             );
           }}

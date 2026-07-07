@@ -1,4 +1,5 @@
-import type { CookieOptions, Request } from "express";
+import type { CookieOptions, Request, Response } from "express";
+import { COOKIE_NAME } from "../../shared/const";
 
 const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "::1"]);
 
@@ -49,12 +50,26 @@ export function getSessionCookieOptions(
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
   const hostname = req.hostname;
   const domain = getParentDomain(hostname);
+  const secure = isSecureRequest(req);
+  const isLocal = LOCAL_HOSTS.has(hostname) || isIpAddress(hostname);
 
   return {
     domain,
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    // localhost HTTP: Lax funciona; None exige Secure e quebra clear no logout
+    sameSite: isLocal && !secure ? "lax" : "none",
+    secure: isLocal ? secure : secure,
   };
+}
+
+/** Remove cookie de sessão com variações de path/domain (dev local + produção). */
+export function clearSessionCookie(res: Response, req: Request): void {
+  const opts = getSessionCookieOptions(req);
+  res.clearCookie(COOKIE_NAME, { ...opts, maxAge: -1 });
+  res.clearCookie(COOKIE_NAME, { path: "/", httpOnly: true, maxAge: -1 });
+  res.clearCookie(COOKIE_NAME, { path: "/", maxAge: -1 });
+  if (opts.domain) {
+    res.clearCookie(COOKIE_NAME, { path: "/", domain: opts.domain, maxAge: -1 });
+  }
 }

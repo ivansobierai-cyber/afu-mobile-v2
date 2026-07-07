@@ -13,17 +13,35 @@ import {
   getProdutosMarketplace,
   createProdutoMarketplace,
   updateProdutoMarketplace,
+  getPedidosComprador,
+  createPedido,
+  getProdutoMarketplaceById,
+  cancelarPedido,
+  getPedidosVendedor,
+  getUsuarioAfuById,
+  atualizarStatusPedidoVendedor,
+  getPedidoById,
+  confirmarPagamentoPix,
   getAnalises,
   createAnalise,
   getTicketsSuporte,
   createTicketSuporte,
-  updateTicketSuporte,
   getMensagensSuporte,
   createMensagemSuporte,
 } from "../db";
 import { getDb } from "../db";
-import { analisesFitotecnicas, relatorios, produtosMarketplace } from "../../drizzle/schema";
+import { analisesFitotecnicas, relatorios, produtosMarketplace, pedidos } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
+import {
+  encodeMarketplaceObservacoes,
+  generateDemoPixCode,
+  parseMarketplaceObservacoes,
+} from "../../shared/marketplace";
+import {
+  notifyCompradorStatusPedido,
+  notifyVendedorNovoPedido,
+  notifyVendedorPagamento,
+} from "../services/marketplace-notifications";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 const relatorioInput = z.object({
@@ -297,9 +315,283 @@ const marketplaceRouter = router({
       indisponiveis: todos.filter((p) => p.status === "indisponivel").length,
     };
   }),
+
+  pedidos: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) return [];
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR" });
+      const lista = await getPedidosComprador(perfil.id);
+      const enriched = await Promise.all(
+        lista.map(async (p) => {
+          const produto = await getProdutoMarketplaceById(p.produtoId);
+          const { metodo, observacoes } = parseMarketplaceObservacoes(p.observacoes);
+          return {
+            ...p,
+            produtoNome: produto?.nomeProduto ?? "Produto",
+            produtoCategoria: produto?.categoria ?? "outro",
+            metodoPagamento: metodo,
+            observacoesTexto: observacoes,
+          };
+        }),
+      );
+      return enriched;
+    }),
+
+    get: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+        const pedido = await getPedidoById(input.id);
+        if (!pedido || pedido.compradorId !== perfil.id) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Pedido não encontrado" });
+        }
+
+        const [produto, vendedor] = await Promise.all([
+          getProdutoMarketplaceById(pedido.produtoId),
+          getUsuarioAfuById(pedido.vendedorId),
+        ]);
+        const { metodo, observacoes } = parseMarketplaceObservacoes(pedido.observacoes);
+
+        return {
+          ...pedido,
+          produtoNome: produto?.nomeProduto ?? "Produto",
+          produtoCategoria: produto?.categoria ?? "outro",
+          vendedorNome: vendedor?.nome ?? "Vendedor",
+          metodoPagamento: metodo,
+          observacoesTexto: observacoes,
+        };
+      }),
+
+    checkout: protectedProcedure
+      .input(
+        z.object({
+          items: z
+            .array(
+              z.object({
+                produtoId: z.number().int().positive(),
+                quantidade: z.number().positive(),
+              }),
+            )
+            .min(1)
+            .max(20),
+          enderecoEntrega: z.string().min(5).max(500),
+          metodoPagamento: z.enum(["pix", "na_entrega"]),
+          observacoes: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+        const observacoesEncoded = encodeMarketplaceObservacoes(
+          input.metodoPagamento,
+          input.observacoes,
+        );
+        const pedidoIds: number[] = [];
+        let total = 0;
+
+        for (const item of input.items) {
+          const produto = await getProdutoMarketplaceById(item.produtoId);
+          if (!produto) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message: `Produto #${item.produtoId} não encontrado`,
+            });
+          }
+          if (produto.status !== "disponivel") {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `"${produto.nomeProduto}" está indisponível`,
+            });
+          }
+          if (produto.vendedorId === perfil.id) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Você não pode comprar seu próprio produto",
+            });
+          }
+
+          const precoUnit = Number(produto.preco ?? 0);
+          const valorTotal = precoUnit > 0 ? precoUnit * item.quantidade : undefined;
+          if (valorTotal) total += valorTotal;
+
+          const id = await createPedido({
+            compradorId: perfil.id,
+            vendedorId: produto.vendedorId,
+            produtoId: produto.id,
+            quantidade: item.quantidade.toString(),
+            valorUnitario: precoUnit > 0 ? precoUnit.toString() : undefined,
+            valorTotal: valorTotal != null ? valorTotal.toString() : undefined,
+            enderecoEntrega: input.enderecoEntrega.trim(),
+            observacoes: observacoesEncoded,
+            statusPedido: "aguardando",
+            statusPagamento: "pendente",
+          });
+
+          pedidoIds.push(id);
+          void notifyVendedorNovoPedido({
+            vendedorId: produto.vendedorId,
+            compradorId: perfil.id,
+            pedidoId: id,
+            produtoId: produto.id,
+          });
+        }
+
+        return { pedidoIds, total, success: true };
+      }),
+
+    pagarPix: protectedProcedure
+      .input(z.object({ pedidoId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+        try {
+          const pedido = await confirmarPagamentoPix(input.pedidoId, perfil.id);
+
+          const valor = Number(pedido.valorTotal ?? 0);
+          void notifyVendedorPagamento({
+            vendedorId: pedido.vendedorId,
+            pedidoId: pedido.id,
+            produtoId: pedido.produtoId,
+          });
+
+          return {
+            success: true,
+            pixCode: generateDemoPixCode(pedido.id, valor),
+          };
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : "Não foi possível confirmar o pagamento";
+          throw new TRPCError({ code: "BAD_REQUEST", message });
+        }
+      }),
+
+    create: protectedProcedure
+      .input(
+        z.object({
+          produtoId: z.number().int().positive(),
+          quantidade: z.number().positive().default(1),
+          observacoes: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED" });
+
+        const produto = await getProdutoMarketplaceById(input.produtoId);
+        if (!produto) throw new TRPCError({ code: "NOT_FOUND", message: "Produto não encontrado" });
+        if (produto.status !== "disponivel") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Produto indisponível" });
+        }
+        if (produto.vendedorId === perfil.id) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Você não pode pedir seu próprio produto" });
+        }
+
+        const precoUnit = Number(produto.preco ?? 0);
+        const quantidade = input.quantidade;
+        const valorTotal = precoUnit > 0 ? precoUnit * quantidade : undefined;
+
+        const id = await createPedido({
+          compradorId: perfil.id,
+          vendedorId: produto.vendedorId,
+          produtoId: produto.id,
+          quantidade: quantidade.toString(),
+          valorUnitario: precoUnit > 0 ? precoUnit.toString() : undefined,
+          valorTotal: valorTotal != null ? valorTotal.toString() : undefined,
+          observacoes: input.observacoes ?? null,
+          statusPedido: "aguardando",
+          statusPagamento: "pendente",
+        });
+
+        void notifyVendedorNovoPedido({
+          vendedorId: produto.vendedorId,
+          compradorId: perfil.id,
+          pedidoId: id,
+          produtoId: produto.id,
+        });
+
+        return { id, success: true };
+      }),
+
+    cancelar: protectedProcedure
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED" });
+        try {
+          return await cancelarPedido(input.id, perfil.id);
+        } catch (e: unknown) {
+          const message = e instanceof Error ? e.message : "Não foi possível cancelar";
+          throw new TRPCError({ code: "BAD_REQUEST", message });
+        }
+      }),
+
+    vendas: router({
+      list: protectedProcedure.query(async ({ ctx }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) return [];
+        const lista = await getPedidosVendedor(perfil.id);
+        const enriched = await Promise.all(
+          lista.map(async (p) => {
+            const [produto, comprador] = await Promise.all([
+              getProdutoMarketplaceById(p.produtoId),
+              getUsuarioAfuById(p.compradorId),
+            ]);
+            const { metodo, observacoes } = parseMarketplaceObservacoes(p.observacoes);
+            return {
+              ...p,
+              produtoNome: produto?.nomeProduto ?? "Produto",
+              compradorNome: comprador?.nome ?? "Comprador",
+              compradorTelefone: comprador?.telefone ?? null,
+              metodoPagamento: metodo,
+              observacoesTexto: observacoes,
+            };
+          }),
+        );
+        return enriched;
+      }),
+
+      atualizarStatus: protectedProcedure
+        .input(
+          z.object({
+            id: z.number().int().positive(),
+            status: z.enum([
+              "confirmado",
+              "em_preparo",
+              "enviado",
+              "entregue",
+              "cancelado",
+            ]),
+          }),
+        )
+        .mutation(async ({ ctx, input }) => {
+          const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+          if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED" });
+          try {
+            const result = await atualizarStatusPedidoVendedor(input.id, perfil.id, input.status);
+            if (result.pedido) {
+              void notifyCompradorStatusPedido({
+                compradorId: result.pedido.compradorId,
+                pedidoId: result.pedido.id,
+                status: input.status,
+                produtoId: result.pedido.produtoId,
+              });
+            }
+            return { success: true };
+          } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Não foi possível atualizar o pedido";
+            throw new TRPCError({ code: "BAD_REQUEST", message });
+          }
+        }),
+    }),
+  }),
 });
 
-// ─── Router de Suporte Técnico ────────────────────────────────────────────────
+// ─── Router de Suporte ────────────────────────────────────────────────────────
 const ticketInput = z.object({
   tipo: z.enum(["chamado", "duvida", "visita", "chat"]),
   titulo: z.string().min(1).max(200),
@@ -310,94 +602,61 @@ const ticketInput = z.object({
 });
 
 const suporteRouter = router({
-  listTickets: protectedProcedure
-    .input(z.object({ tipo: z.enum(["chamado", "duvida", "visita", "chat"]).optional() }).optional())
-    .query(async ({ ctx, input }) => {
+  tickets: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
       const perfil = await getUsuarioAfuByUserId(ctx.user.id);
       if (!perfil) return [];
-      const tickets = await getTicketsSuporte(perfil.id);
-      if (input?.tipo) return tickets.filter((t) => t.tipo === input.tipo);
-      return tickets;
+      return getTicketsSuporte(perfil.id);
     }),
 
-  createTicket: protectedProcedure
-    .input(ticketInput)
-    .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-      const id = await createTicketSuporte({
-        usuarioId: perfil.id,
-        tipo: input.tipo,
-        titulo: input.titulo,
-        descricao: input.descricao,
-        prioridade: input.prioridade ?? "normal",
-        culturaRelacionada: input.culturaRelacionada,
-        dataVisita: input.dataVisita,
-        status: "aberto",
-      });
-      return { id };
-    }),
-
-  updateTicket: protectedProcedure
-    .input(
-      z.object({
-        id: z.number().int().positive(),
-        data: z.object({
-          status: z.enum(["aberto", "em_andamento", "resolvido", "cancelado"]).optional(),
-          resposta: z.string().optional(),
-          prioridade: z.enum(["baixa", "normal", "alta"]).optional(),
-        }),
-      })
-    )
-    .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-      const tickets = await getTicketsSuporte(perfil.id);
-      if (!tickets.some((t) => t.id === input.id)) {
-        throw new TRPCError({ code: "NOT_FOUND", message: "Ticket não encontrado" });
-      }
-      await updateTicketSuporte(input.id, input.data);
-      return { success: true };
-    }),
-
-  listMensagens: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return [];
-    return getMensagensSuporte(perfil.id);
+    create: protectedProcedure
+      .input(ticketInput)
+      .mutation(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+        const id = await createTicketSuporte({
+          usuarioId: perfil.id,
+          tipo: input.tipo,
+          titulo: input.titulo.trim(),
+          descricao: input.descricao.trim(),
+          prioridade: input.prioridade ?? "normal",
+          culturaRelacionada: input.culturaRelacionada ?? null,
+          dataVisita: input.dataVisita ?? null,
+          status: "aberto",
+        });
+        return { id, success: true };
+      }),
   }),
 
-  enviarMensagem: protectedProcedure
-    .input(z.object({ texto: z.string().min(1).max(2000), ticketId: z.number().int().positive().optional() }))
-    .mutation(async ({ ctx, input }) => {
+  mensagens: router({
+    list: protectedProcedure.query(async ({ ctx }) => {
       const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      if (!perfil) return [];
+      return getMensagensSuporte(perfil.id);
+    }),
 
-      const existing = await getMensagensSuporte(perfil.id);
-      if (existing.length === 0) {
-        await createMensagemSuporte({
+    enviar: protectedProcedure
+      .input(z.object({ texto: z.string().min(1).max(2000) }))
+      .mutation(async ({ ctx, input }) => {
+        const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+        if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+
+        const id = await createMensagemSuporte({
+          usuarioId: perfil.id,
+          autor: "usuario",
+          texto: input.texto.trim(),
+        });
+
+        const respostaId = await createMensagemSuporte({
           usuarioId: perfil.id,
           autor: "sistema",
-          texto: "Olá! Sou o assistente técnico do AFU. Como posso ajudar você hoje?",
+          texto:
+            "Obrigado pela mensagem! Um técnico especializado irá analisar seu caso e responder em breve.",
         });
-      }
 
-      const userMsgId = await createMensagemSuporte({
-        usuarioId: perfil.id,
-        ticketId: input.ticketId,
-        autor: "usuario",
-        texto: input.texto.trim(),
-      });
-
-      await createMensagemSuporte({
-        usuarioId: perfil.id,
-        ticketId: input.ticketId,
-        autor: "sistema",
-        texto:
-          "Obrigado pela informação! Um técnico especializado irá analisar seu caso e responder em breve. Enquanto isso, você também pode abrir um chamado na aba Chamados.",
-      });
-
-      return { id: userMsgId };
-    }),
+        return { id, respostaId };
+      }),
+  }),
 });
 
 // ─── Export ───────────────────────────────────────────────────────────────────

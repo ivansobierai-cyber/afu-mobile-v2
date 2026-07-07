@@ -9,12 +9,11 @@ import { useAuthAPI } from '@/hooks/use-auth-api';
 import { useSession } from '@/hooks/use-session';
 import { useColors } from '@/hooks/use-colors';
 import { startOAuthLogin } from '@/constants/oauth';
-import { isAuthDisabled } from '@shared/dev-auth';
 
 export default function LoginScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { isAuthenticated, loading: sessionLoading } = useSession();
+  const { isAuthenticated, loading: authLoading } = useSession();
   const { login: loginAPI, isLoading: apiLoading, error: apiError, clearError } = useAuthAPI();
 
   const [email, setEmail] = useState('');
@@ -22,21 +21,15 @@ export default function LoginScreen() {
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   useEffect(() => {
-    if (isAuthDisabled()) {
+    if (isAuthenticated && !authLoading) {
       router.replace('/(tabs)');
     }
-  }, [router]);
+  }, [isAuthenticated, authLoading, router]);
 
-  if (isAuthDisabled()) {
-    return null;
-  }
-
-  if (sessionLoading || isAuthenticated || apiLoading) {
+  if (authLoading) {
     return (
       <ScreenContainer className="items-center justify-center">
-        <RNText className="text-lg text-muted">
-          {apiLoading ? 'Entrando...' : 'Verificando autenticação...'}
-        </RNText>
+        <RNText className="text-lg text-muted">Verificando autenticação...</RNText>
       </ScreenContainer>
     );
   }
@@ -66,10 +59,11 @@ export default function LoginScreen() {
     clearError();
     const result = await loginAPI({ email, password });
 
-    if (!result.success && result.error) {
+    if (result.success) {
+      router.replace('/(tabs)');
+    } else if (result.error) {
       setErrors({ email: result.error.message });
     }
-    // AuthGuard redireciona após sessão estabilizar (tabs / onboarding)
   };
 
   const handleOAuthLogin = async () => {
@@ -137,7 +131,7 @@ export default function LoginScreen() {
                 </View>
 
                 <AuthButton
-                  label="Entrar com Google"
+                  label="Entrar com OAuth"
                   onPress={handleOAuthLogin}
                   disabled={apiLoading}
                   variant="outline"

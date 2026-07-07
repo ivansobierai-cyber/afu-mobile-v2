@@ -1,7 +1,5 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
 import type { User } from "../../drizzle/schema";
-import { isAuthDisabled } from "../../shared/dev-auth";
-import { ensureDevUser } from "./dev-user";
 import { sdk } from "./sdk";
 
 export type TrpcContext = {
@@ -15,12 +13,9 @@ export async function createContext(opts: CreateExpressContextOptions): Promise<
 
   try {
     user = await sdk.authenticateRequest(opts.req);
-  } catch {
+  } catch (error) {
+    // Authentication is optional for public procedures.
     user = null;
-  }
-
-  if (!user && isAuthDisabled()) {
-    user = await ensureDevUser();
   }
 
   return {

@@ -27,33 +27,37 @@ export function useCoreOfflineSync() {
   }, []);
 
   const executeItem = useCallback(
-    async (item: CoreMutationItem) => {
+    async (item: CoreMutationItem): Promise<unknown> => {
       const { entity, action, payload } = item;
       const id = payload.id as number | undefined;
+      let result: unknown;
 
       if (entity === "propriedade") {
-        if (action === "create") await utils.client.coreData.propriedades.create.mutate(payload as any);
-        else if (action === "update" && id) await utils.client.coreData.propriedades.update.mutate({ id, data: payload.data as any });
-        else if (action === "delete" && id) await utils.client.coreData.propriedades.delete.mutate({ id });
+        if (action === "create") result = await utils.client.coreData.propriedades.create.mutate(payload as any);
+        else if (action === "update" && id) result = await utils.client.coreData.propriedades.update.mutate({ id, data: payload.data as any });
+        else if (action === "delete" && id) result = await utils.client.coreData.propriedades.delete.mutate({ id });
       } else if (entity === "cultivo") {
-        if (action === "create") await utils.client.coreData.cultivos.create.mutate(payload as any);
-        else if (action === "update" && id) await utils.client.coreData.cultivos.update.mutate({ id, data: payload.data as any });
-        else if (action === "delete" && id) await utils.client.coreData.cultivos.delete.mutate({ id });
+        if (action === "create") result = await utils.client.coreData.cultivos.create.mutate(payload as any);
+        else if (action === "update" && id) result = await utils.client.coreData.cultivos.update.mutate({ id, data: payload.data as any });
+        else if (action === "delete" && id) result = await utils.client.coreData.cultivos.delete.mutate({ id });
       } else if (entity === "terreno") {
-        if (action === "create") await utils.client.coreData.terrenos.create.mutate(payload as any);
-        else if (action === "update" && id) await utils.client.coreData.terrenos.update.mutate({ id, data: payload.data as any });
-        else if (action === "delete" && id) await utils.client.coreData.terrenos.delete.mutate({ id });
+        if (action === "create") result = await utils.client.coreData.terrenos.create.mutate(payload as any);
+        else if (action === "update" && id) result = await utils.client.coreData.terrenos.update.mutate({ id, data: payload.data as any });
+        else if (action === "delete" && id) result = await utils.client.coreData.terrenos.delete.mutate({ id });
       } else if (entity === "evento") {
-        if (action === "create") await utils.client.coreData.calendario.create.mutate(payload as any);
-        else if (action === "update" && id) await utils.client.coreData.calendario.update.mutate({ id, data: payload.data as any });
-        else if (action === "delete" && id) await utils.client.coreData.calendario.delete.mutate({ id });
+        if (action === "create") result = await utils.client.coreData.calendario.create.mutate(payload as any);
+        else if (action === "update" && id) result = await utils.client.coreData.calendario.update.mutate({ id, data: payload.data as any });
+        else if (action === "delete" && id) result = await utils.client.coreData.calendario.delete.mutate({ id });
       }
 
       await Promise.all([
         utils.coreData.propriedades.list.invalidate(),
         utils.coreData.cultivos.list.invalidate(),
         utils.coreData.calendario.list.invalidate(),
+        utils.coreData.terrenos.listByPropriedade.invalidate(),
       ]);
+
+      return result;
     },
     [utils]
   );
@@ -76,7 +80,7 @@ export function useCoreOfflineSync() {
     async (entity: CoreEntity, action: CoreAction, payload: Record<string, unknown>) => {
       if (isOnline) {
         try {
-          await executeItem({
+          const result = await executeItem({
             id: "live",
             entity,
             action,
@@ -84,7 +88,7 @@ export function useCoreOfflineSync() {
             timestamp: Date.now(),
             tentativas: 0,
           });
-          return { queued: false as const };
+          return { queued: false as const, result };
         } catch (error: any) {
           const msg = String(error?.message ?? error ?? "");
           const networkError =

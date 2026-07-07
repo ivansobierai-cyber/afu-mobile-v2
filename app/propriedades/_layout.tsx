@@ -5,6 +5,7 @@ export default function PropriedadesLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="[id]" />
       <Stack.Screen name="terrenos" />
+      <Stack.Screen name="mapa" />
     </Stack>
   );
 }

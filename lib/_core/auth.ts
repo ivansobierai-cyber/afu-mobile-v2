@@ -11,17 +11,21 @@ export type User = {
   lastSignedIn: Date;
 };
 
+function getWebStorage(): Storage | null {
+  if (Platform.OS !== "web" || typeof window === "undefined") return null;
+  return window.sessionStorage;
+}
+
 export async function getSessionToken(): Promise<string | null> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        return window.sessionStorage.getItem(SESSION_TOKEN_KEY);
-      }
-      return null;
+      const token = getWebStorage()?.getItem(SESSION_TOKEN_KEY) ?? null;
+      return token;
     }
 
+    console.log("[Auth] Getting session token...");
     const token = await SecureStore.getItemAsync(SESSION_TOKEN_KEY);
-    return token;
+    return token ?? null;
   } catch (error) {
     console.error("[Auth] Failed to get session token:", error);
     return null;
@@ -31,9 +35,7 @@ export async function getSessionToken(): Promise<string | null> {
 export async function setSessionToken(token: string): Promise<void> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-      }
+      getWebStorage()?.setItem(SESSION_TOKEN_KEY, token);
       return;
     }
 
@@ -47,9 +49,7 @@ export async function setSessionToken(token: string): Promise<void> {
 export async function removeSessionToken(): Promise<void> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        window.sessionStorage.removeItem(SESSION_TOKEN_KEY);
-      }
+      getWebStorage()?.removeItem(SESSION_TOKEN_KEY);
       return;
     }
 
@@ -63,17 +63,12 @@ export async function getUserInfo(): Promise<User | null> {
   try {
     let info: string | null = null;
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        info = window.localStorage.getItem(USER_INFO_KEY);
-      }
+      info = window.localStorage.getItem(USER_INFO_KEY);
     } else {
-      // Use SecureStore for native
       info = await SecureStore.getItemAsync(USER_INFO_KEY);
     }
 
-    if (!info) {
-      return null;
-    }
+    if (!info) return null;
     return JSON.parse(info) as User;
   } catch (error) {
     console.error("[Auth] Failed to get user info:", error);
@@ -84,9 +79,7 @@ export async function getUserInfo(): Promise<User | null> {
 export async function setUserInfo(user: User): Promise<void> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem(USER_INFO_KEY, JSON.stringify(user));
-      }
+      window.localStorage.setItem(USER_INFO_KEY, JSON.stringify(user));
       return;
     }
 
@@ -99,13 +92,10 @@ export async function setUserInfo(user: User): Promise<void> {
 export async function clearUserInfo(): Promise<void> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        window.localStorage.removeItem(USER_INFO_KEY);
-      }
+      window.localStorage.removeItem(USER_INFO_KEY);
       return;
     }
 
-    // Use SecureStore for native
     await SecureStore.deleteItemAsync(USER_INFO_KEY);
   } catch (error) {
     console.error("[Auth] Failed to clear user info:", error);
@@ -117,14 +107,11 @@ const REFRESH_TOKEN_KEY = "afu_refresh_token";
 export async function getRefreshToken(): Promise<string | null> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        return window.sessionStorage.getItem(REFRESH_TOKEN_KEY);
-      }
-      return null;
+      return getWebStorage()?.getItem(REFRESH_TOKEN_KEY) ?? null;
     }
 
     const token = await SecureStore.getItemAsync(REFRESH_TOKEN_KEY);
-    return token;
+    return token ?? null;
   } catch (error) {
     console.error("[Auth] Failed to get refresh token:", error);
     return null;
@@ -134,9 +121,7 @@ export async function getRefreshToken(): Promise<string | null> {
 export async function setRefreshToken(token: string): Promise<void> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        window.sessionStorage.setItem(REFRESH_TOKEN_KEY, token);
-      }
+      getWebStorage()?.setItem(REFRESH_TOKEN_KEY, token);
       return;
     }
 
@@ -150,9 +135,7 @@ export async function setRefreshToken(token: string): Promise<void> {
 export async function removeRefreshToken(): Promise<void> {
   try {
     if (Platform.OS === "web") {
-      if (typeof window !== "undefined") {
-        window.sessionStorage.removeItem(REFRESH_TOKEN_KEY);
-      }
+      getWebStorage()?.removeItem(REFRESH_TOKEN_KEY);
       return;
     }
 
@@ -162,7 +145,7 @@ export async function removeRefreshToken(): Promise<void> {
   }
 }
 
-/** Remove all locally stored auth credentials (session, refresh, user cache). */
+/** Limpa toda autenticação local (web + native). */
 export async function clearLocalAuth(): Promise<void> {
   await removeSessionToken();
   await removeRefreshToken();

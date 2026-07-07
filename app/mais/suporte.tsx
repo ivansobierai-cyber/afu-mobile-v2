@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
-  RefreshControl,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -33,73 +32,82 @@ const PRIORIDADE_CONFIG: Record<string, { label: string; color: string }> = {
   alta: { label: "Alta", color: "#EF4444" },
 };
 
-const WELCOME_MSG = {
-  id: "welcome",
-  autor: "sistema" as const,
-  texto: "Olá! Sou o assistente técnico do AFU. Como posso ajudar você hoje?",
-  hora: "—",
-};
-
 export default function SuporteScreen() {
   const colors = useColors();
   const router = useRouter();
   const utils = trpc.useUtils();
+
+  const { data: tickets = [], isLoading: loadingTickets } = trpc.secondaryData.suporte.tickets.list.useQuery();
+  const { data: mensagensDb = [] } = trpc.secondaryData.suporte.mensagens.list.useQuery();
+
+  const createTicketMutation = trpc.secondaryData.suporte.tickets.create.useMutation({
+    onSuccess: () => utils.secondaryData.suporte.tickets.list.invalidate(),
+  });
+  const enviarMensagemMutation = trpc.secondaryData.suporte.mensagens.enviar.useMutation({
+    onSuccess: () => utils.secondaryData.suporte.mensagens.list.invalidate(),
+  });
+
   const [aba, setAba] = useState<AbaSuporte>("chat");
   const [mensagem, setMensagem] = useState("");
-  const [sendingChat, setSendingChat] = useState(false);
-  const [saving, setSaving] = useState(false);
+  const [enviando, setEnviando] = useState(false);
 
+  const mensagens = mensagensDb.length > 0
+    ? mensagensDb.map((m) => ({
+        id: String(m.id),
+        autor: m.autor,
+        texto: m.texto,
+        hora: new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      }))
+    : [{
+        id: "welcome",
+        autor: "sistema",
+        texto: "Olá! Sou o assistente técnico do AFU. Como posso ajudar você hoje?",
+        hora: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+      }];
+
+  const chamados = tickets.filter((t) => t.tipo === "chamado");
+
+  // Formulário de chamado
   const [tituloChamado, setTituloChamado] = useState("");
   const [descChamado, setDescChamado] = useState("");
   const [prioridade, setPrioridade] = useState<"baixa" | "normal" | "alta">("normal");
 
+  // Formulário de dúvida
   const [duvida, setDuvida] = useState("");
   const [culturaDuvida, setCulturaDuvida] = useState("");
 
+  // Formulário de visita
   const [dataVisita, setDataVisita] = useState("");
   const [motivoVisita, setMotivoVisita] = useState("");
 
-  const { data: tickets = [], isLoading: loadingTickets, refetch: refetchTickets } =
-    trpc.secondaryData.suporte.listTickets.useQuery();
-  const { data: mensagensDb = [], isLoading: loadingMsgs, refetch: refetchMsgs } =
-    trpc.secondaryData.suporte.listMensagens.useQuery();
-
-  const createTicket = trpc.secondaryData.suporte.createTicket.useMutation({
-    onSuccess: () => utils.secondaryData.suporte.listTickets.invalidate(),
-  });
-  const enviarMensagemMutation = trpc.secondaryData.suporte.enviarMensagem.useMutation({
-    onSuccess: () => utils.secondaryData.suporte.listMensagens.invalidate(),
-  });
-
-  const chamados = tickets.filter((t) => t.tipo === "chamado" || t.tipo === "duvida" || t.tipo === "visita");
-
-  const mensagens = mensagensDb.length === 0
-    ? [WELCOME_MSG]
-    : mensagensDb.map((m) => ({
-        id: String(m.id),
-        autor: m.autor as "usuario" | "sistema" | "tecnico",
-        texto: m.texto,
-        hora: m.createdAt
-          ? new Date(m.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })
-          : "—",
-      }));
-
-  useEffect(() => {
-    if (aba === "chamado") refetchTickets();
-    if (aba === "chat") refetchMsgs();
-  }, [aba, refetchTickets, refetchMsgs]);
-
   const enviarMensagem = async () => {
-    if (!mensagem.trim() || sendingChat) return;
-    setSendingChat(true);
+    if (!mensagem.trim()) return;
+    setEnviando(true);
     try {
       await enviarMensagemMutation.mutateAsync({ texto: mensagem.trim() });
       setMensagem("");
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível enviar a mensagem.");
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Não foi possível enviar a mensagem.";
+      Alert.alert("Erro", msg);
     } finally {
-      setSendingChat(false);
+      setEnviando(false);
     }
+  };
+
+  const criarTicket = async (
+    tipo: "chamado" | "duvida" | "visita",
+    titulo: string,
+    descricao: string,
+    extra?: { culturaRelacionada?: string; dataVisita?: string; prioridade?: "baixa" | "normal" | "alta" },
+  ) => {
+    await createTicketMutation.mutateAsync({
+      tipo,
+      titulo,
+      descricao,
+      prioridade: extra?.prioridade,
+      culturaRelacionada: extra?.culturaRelacionada,
+      dataVisita: extra?.dataVisita,
+    });
   };
 
   const abrirChamado = async () => {
@@ -107,22 +115,14 @@ export default function SuporteScreen() {
       Alert.alert("Preencha o título e a descrição do chamado.");
       return;
     }
-    setSaving(true);
     try {
-      await createTicket.mutateAsync({
-        tipo: "chamado",
-        titulo: tituloChamado.trim(),
-        descricao: descChamado.trim(),
-        prioridade,
-      });
-      setTituloChamado("");
-      setDescChamado("");
-      setPrioridade("normal");
-      Alert.alert("Chamado aberto!", "Seu chamado foi registrado. Um técnico entrará em contato em até 24 horas.");
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível abrir o chamado.");
-    } finally {
-      setSaving(false);
+      await criarTicket("chamado", tituloChamado.trim(), descChamado.trim(), { prioridade });
+      Alert.alert("Chamado aberto!", "Seu chamado foi registrado. Um técnico entrará em contato em até 24 horas.", [
+        { text: "OK", onPress: () => { setTituloChamado(""); setDescChamado(""); setAba("chamado"); } },
+      ]);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Não foi possível abrir o chamado.";
+      Alert.alert("Erro", msg);
     }
   };
 
@@ -131,22 +131,17 @@ export default function SuporteScreen() {
       Alert.alert("Descreva sua dúvida.");
       return;
     }
-    setSaving(true);
     try {
-      await createTicket.mutateAsync({
-        tipo: "duvida",
-        titulo: culturaDuvida.trim() ? `Dúvida: ${culturaDuvida.trim()}` : "Dúvida técnica",
-        descricao: duvida.trim(),
-        prioridade: "normal",
-        culturaRelacionada: culturaDuvida.trim() || undefined,
-      });
+      const titulo = culturaDuvida.trim()
+        ? `Dúvida — ${culturaDuvida.trim()}`
+        : "Dúvida técnica";
+      await criarTicket("duvida", titulo, duvida.trim(), { culturaRelacionada: culturaDuvida.trim() || undefined });
+      Alert.alert("Dúvida enviada!", "Sua dúvida foi registrada. Você receberá uma resposta em até 48 horas.");
       setDuvida("");
       setCulturaDuvida("");
-      Alert.alert("Dúvida enviada!", "Sua dúvida foi registrada. Nossa equipe responderá em até 48 horas.");
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível enviar a dúvida.");
-    } finally {
-      setSaving(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Não foi possível enviar a dúvida.";
+      Alert.alert("Erro", msg);
     }
   };
 
@@ -155,22 +150,14 @@ export default function SuporteScreen() {
       Alert.alert("Preencha a data e o motivo da visita.");
       return;
     }
-    setSaving(true);
     try {
-      await createTicket.mutateAsync({
-        tipo: "visita",
-        titulo: `Visita técnica — ${dataVisita.trim()}`,
-        descricao: motivoVisita.trim(),
-        prioridade: "alta",
-        dataVisita: dataVisita.trim(),
-      });
+      await criarTicket("visita", `Visita técnica — ${dataVisita}`, motivoVisita.trim(), { dataVisita: dataVisita.trim() });
+      Alert.alert("Visita agendada!", `Sua visita técnica foi solicitada para ${dataVisita}. Um técnico confirmará o agendamento em breve.`);
       setDataVisita("");
       setMotivoVisita("");
-      Alert.alert("Visita agendada!", `Sua visita técnica foi solicitada para ${dataVisita}. Um técnico confirmará em breve.`);
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível agendar a visita.");
-    } finally {
-      setSaving(false);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Não foi possível agendar a visita.";
+      Alert.alert("Erro", msg);
     }
   };
 
@@ -210,15 +197,10 @@ export default function SuporteScreen() {
     { value: "visita", label: "Visita", icon: "calendar" },
   ];
 
-  const tipoLabel = (tipo: string) => {
-    if (tipo === "duvida") return "Dúvida";
-    if (tipo === "visita") return "Visita";
-    return "Chamado";
-  };
-
   return (
     <ScreenContainer>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        {/* Header */}
         <View style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
           <TouchableOpacity onPress={() => router.back()}>
             <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
@@ -232,6 +214,7 @@ export default function SuporteScreen() {
           </View>
         </View>
 
+        {/* Abas */}
         <View style={{ flexDirection: "row", backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           {ABAS.map((a) => (
             <TouchableOpacity
@@ -245,41 +228,34 @@ export default function SuporteScreen() {
           ))}
         </View>
 
+        {/* Conteúdo das abas */}
         {aba === "chat" && (
           <View style={{ flex: 1 }}>
-            {loadingMsgs ? (
-              <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-                <ActivityIndicator color={colors.primary} />
-              </View>
-            ) : (
-              <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
-                {mensagens.map((msg) => (
-                  <View
-                    key={msg.id}
-                    style={{
-                      alignSelf: msg.autor === "usuario" ? "flex-end" : "flex-start",
-                      maxWidth: "80%",
-                      backgroundColor: msg.autor === "usuario" ? colors.primary : colors.surface,
-                      borderRadius: 14,
-                      padding: 12,
-                      borderWidth: msg.autor !== "usuario" ? 1 : 0,
-                      borderColor: colors.border,
-                    }}
-                  >
-                    {msg.autor !== "usuario" && (
-                      <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginBottom: 4 }}>
-                        <IconSymbol name="leaf.fill" size={12} color={colors.primary} />
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
-                          {msg.autor === "tecnico" ? "Técnico AFU" : "Assistente AFU"}
-                        </Text>
-                      </View>
-                    )}
-                    <Text style={{ fontSize: 14, color: msg.autor === "usuario" ? "#FFFFFF" : colors.foreground, lineHeight: 20 }}>{msg.texto}</Text>
-                    <Text style={{ fontSize: 10, color: msg.autor === "usuario" ? "rgba(255,255,255,0.7)" : colors.muted, marginTop: 4, textAlign: "right" }}>{msg.hora}</Text>
-                  </View>
-                ))}
-              </ScrollView>
-            )}
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 10 }}>
+              {mensagens.map((msg) => (
+                <View
+                  key={msg.id}
+                  style={{
+                    alignSelf: msg.autor === "usuario" ? "flex-end" : "flex-start",
+                    maxWidth: "80%",
+                    backgroundColor: msg.autor === "usuario" ? colors.primary : colors.surface,
+                    borderRadius: 14,
+                    padding: 12,
+                    borderWidth: msg.autor === "sistema" ? 1 : 0,
+                    borderColor: colors.border,
+                  }}
+                >
+                  {msg.autor === "sistema" && (
+                    <View style={{ flexDirection: "row", gap: 6, alignItems: "center", marginBottom: 4 }}>
+                      <IconSymbol name="leaf.fill" size={12} color={colors.primary} />
+                      <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>Assistente AFU</Text>
+                    </View>
+                  )}
+                  <Text style={{ fontSize: 14, color: msg.autor === "usuario" ? "#FFFFFF" : colors.foreground, lineHeight: 20 }}>{msg.texto}</Text>
+                  <Text style={{ fontSize: 10, color: msg.autor === "usuario" ? "rgba(255,255,255,0.7)" : colors.muted, marginTop: 4, textAlign: "right" }}>{msg.hora}</Text>
+                </View>
+              ))}
+            </ScrollView>
             <View style={{ flexDirection: "row", gap: 10, padding: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background }}>
               <TextInput
                 style={[styles.input, { flex: 1, marginBottom: 0, paddingVertical: 10 }]}
@@ -289,24 +265,20 @@ export default function SuporteScreen() {
                 placeholderTextColor={colors.muted}
                 returnKeyType="send"
                 onSubmitEditing={enviarMensagem}
-                editable={!sendingChat}
               />
               <TouchableOpacity
-                style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", opacity: sendingChat ? 0.7 : 1 }}
+                style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", opacity: enviando ? 0.7 : 1 }}
                 onPress={enviarMensagem}
-                disabled={sendingChat}
+                disabled={enviando}
               >
-                {sendingChat ? <ActivityIndicator color="#fff" size="small" /> : <IconSymbol name="paperplane.fill" size={18} color="#FFFFFF" />}
+                {enviando ? <ActivityIndicator color="#FFFFFF" /> : <IconSymbol name="paperplane.fill" size={18} color="#FFFFFF" />}
               </TouchableOpacity>
             </View>
           </View>
         )}
 
         {aba === "chamado" && (
-          <ScrollView
-            contentContainerStyle={{ padding: 16 }}
-            refreshControl={<RefreshControl refreshing={loadingTickets} onRefresh={refetchTickets} />}
-          >
+          <ScrollView contentContainerStyle={{ padding: 16 }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginBottom: 16 }}>Abrir Novo Chamado</Text>
 
             <Text style={styles.label}>Título do problema *</Text>
@@ -328,46 +300,32 @@ export default function SuporteScreen() {
               ))}
             </View>
 
-            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", opacity: saving ? 0.7 : 1 }} onPress={abrirChamado} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>Abrir Chamado</Text>}
+            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center" }} onPress={abrirChamado}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>Abrir Chamado</Text>
             </TouchableOpacity>
 
-            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 28, marginBottom: 12 }}>Meus Tickets</Text>
+            {/* Chamados existentes */}
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, marginTop: 28, marginBottom: 12 }}>Meus Chamados</Text>
             {loadingTickets ? (
               <ActivityIndicator color={colors.primary} />
             ) : chamados.length === 0 ? (
-              <Text style={{ fontSize: 13, color: colors.muted }}>Nenhum ticket registrado ainda.</Text>
+              <Text style={{ fontSize: 14, color: colors.muted }}>Nenhum chamado aberto.</Text>
             ) : (
-              chamados.map((c) => {
-                const status = STATUS_CONFIG[c.status ?? "aberto"] ?? STATUS_CONFIG.aberto;
-                const prio = PRIORIDADE_CONFIG[c.prioridade ?? "normal"] ?? PRIORIDADE_CONFIG.normal;
-                return (
-                  <View key={c.id} style={styles.card}>
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
-                      <View style={{ flex: 1, marginRight: 8 }}>
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary, marginBottom: 2 }}>{tipoLabel(c.tipo)}</Text>
-                        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>{c.titulo}</Text>
-                      </View>
-                      <View style={{ backgroundColor: status.bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
-                        <Text style={{ fontSize: 11, fontWeight: "700", color: status.color }}>{status.label}</Text>
-                      </View>
-                    </View>
-                    <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }} numberOfLines={2}>{c.descricao}</Text>
-                    <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
-                      <Text style={{ fontSize: 11, color: prio.color, fontWeight: "600" }}>● {prio.label}</Text>
-                      <Text style={{ fontSize: 11, color: colors.muted }}>
-                        {c.createdAt ? new Date(c.createdAt).toLocaleDateString("pt-BR") : ""}
-                      </Text>
-                    </View>
-                    {c.resposta && (
-                      <View style={{ marginTop: 8, padding: 10, backgroundColor: colors.primary + "10", borderRadius: 8 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary, marginBottom: 2 }}>Resposta técnica</Text>
-                        <Text style={{ fontSize: 13, color: colors.foreground }}>{c.resposta}</Text>
-                      </View>
-                    )}
+              chamados.map((c) => (
+              <View key={c.id} style={styles.card}>
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 6 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, flex: 1, marginRight: 8 }}>{c.titulo}</Text>
+                  <View style={{ backgroundColor: (STATUS_CONFIG[c.status ?? "aberto"] ?? STATUS_CONFIG.aberto).bg, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
+                    <Text style={{ fontSize: 11, fontWeight: "700", color: (STATUS_CONFIG[c.status ?? "aberto"] ?? STATUS_CONFIG.aberto).color }}>{(STATUS_CONFIG[c.status ?? "aberto"] ?? STATUS_CONFIG.aberto).label}</Text>
                   </View>
-                );
-              })
+                </View>
+                <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 18 }} numberOfLines={2}>{c.descricao}</Text>
+                <View style={{ flexDirection: "row", gap: 12, marginTop: 8 }}>
+                  <Text style={{ fontSize: 11, color: PRIORIDADE_CONFIG[c.prioridade ?? "normal"].color, fontWeight: "600" }}>● {PRIORIDADE_CONFIG[c.prioridade ?? "normal"].label}</Text>
+                  <Text style={{ fontSize: 11, color: colors.muted }}>{new Date(c.createdAt).toLocaleDateString("pt-BR")}</Text>
+                </View>
+              </View>
+            ))
             )}
           </ScrollView>
         )}
@@ -376,7 +334,7 @@ export default function SuporteScreen() {
           <ScrollView contentContainerStyle={{ padding: 16 }}>
             <View style={{ backgroundColor: colors.primary + "10", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.primary + "30", marginBottom: 20 }}>
               <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary, marginBottom: 4 }}>Enviar Dúvida Técnica</Text>
-              <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>Nossa equipe de agrônomos responde em até 48 horas.</Text>
+              <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>Nossa equipe de agrônomos responde em até 48 horas por e-mail.</Text>
             </View>
 
             <Text style={styles.label}>Cultura relacionada</Text>
@@ -385,8 +343,8 @@ export default function SuporteScreen() {
             <Text style={styles.label}>Sua dúvida *</Text>
             <TextInput style={[styles.input, { height: 120, textAlignVertical: "top" }]} value={duvida} onChangeText={setDuvida} placeholder="Descreva sua dúvida técnica com o máximo de detalhes possível..." placeholderTextColor={colors.muted} multiline />
 
-            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", opacity: saving ? 0.7 : 1 }} onPress={enviarDuvida} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>Enviar Dúvida</Text>}
+            <TouchableOpacity style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center" }} onPress={enviarDuvida}>
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>Enviar Dúvida</Text>
             </TouchableOpacity>
           </ScrollView>
         )}
@@ -404,13 +362,9 @@ export default function SuporteScreen() {
             <Text style={styles.label}>Motivo da visita *</Text>
             <TextInput style={[styles.input, { height: 100, textAlignVertical: "top" }]} value={motivoVisita} onChangeText={setMotivoVisita} placeholder="Descreva o motivo da visita: problema identificado, análise preventiva, etc." placeholderTextColor={colors.muted} multiline />
 
-            <TouchableOpacity style={{ backgroundColor: "#16A34A", borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8, opacity: saving ? 0.7 : 1 }} onPress={agendarVisita} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : (
-                <>
-                  <IconSymbol name="calendar" size={18} color="#FFFFFF" />
-                  <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>Agendar Visita</Text>
-                </>
-              )}
+            <TouchableOpacity style={{ backgroundColor: "#16A34A", borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }} onPress={agendarVisita}>
+              <IconSymbol name="calendar" size={18} color="#FFFFFF" />
+              <Text style={{ fontSize: 16, fontWeight: "700", color: "#FFFFFF" }}>Agendar Visita</Text>
             </TouchableOpacity>
 
             <View style={{ marginTop: 24, gap: 10 }}>

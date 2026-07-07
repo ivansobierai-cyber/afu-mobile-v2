@@ -84,8 +84,7 @@ export function validatePlantedArea(
 
   // Calcular totais
   const areaTotal = existente + atual;
-  const disponivelAntes = terreno - existente;
-  const areaDisponivel = terreno - areaTotal;
+  const areaDisponivelAntes = terreno - existente;
   const percentualUso = (areaTotal / terreno) * 100;
 
   // Validar se cabe
@@ -93,18 +92,19 @@ export function validatePlantedArea(
     const excesso = areaTotal - terreno;
     return {
       isValid: false,
-      message: `Área plantada (${areaTotal.toFixed(2)} ha) excede a área do terreno (${terreno.toFixed(2)} ha) em ${excesso.toFixed(2)} ha. Disponível: ${disponivelAntes.toFixed(2)} ha`,
-      areaDisponivel: disponivelAntes,
+      message: `Área plantada (${areaTotal.toFixed(2)} ha) excede a área do terreno (${terreno.toFixed(2)} ha) em ${excesso.toFixed(2)} ha. Disponível: ${areaDisponivelAntes.toFixed(2)} ha`,
+      areaDisponivel: areaDisponivelAntes,
       areaUsada: existente,
       areaPlantada: atual,
       percentualUso,
     };
   }
 
-  // Validação bem-sucedida
+  // Validação bem-sucedida — areaDisponivel = remanescente após o plantio atual
+  const areaDisponivel = terreno - areaTotal;
   return {
     isValid: true,
-    message: `Plantio registrado com sucesso. Área usada: ${areaTotal.toFixed(2)} ha de ${terreno.toFixed(2)} ha (${percentualUso.toFixed(1)}%). Disponível para plantio: ${disponivelAntes.toFixed(2)} ha`,
+    message: `Plantio registrado com sucesso. Área usada: ${areaTotal.toFixed(2)} ha de ${terreno.toFixed(2)} ha (${percentualUso.toFixed(1)}%). Disponível: ${areaDisponivel.toFixed(2)} ha`,
     areaDisponivel,
     areaUsada: existente,
     areaPlantada: atual,

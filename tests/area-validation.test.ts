@@ -242,7 +242,8 @@ describe('Area Validation', () => {
     });
 
     it('deve incluir area disponivel na mensagem', () => {
-      const result = validatePlantedArea(10, 6, 3);
+      const result = validatePlantedArea(10, 8, 3);
+      expect(result.isValid).toBe(false);
       expect(result.message).toContain('7');
     });
   });

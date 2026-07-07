@@ -29,16 +29,19 @@ import {
   InsertProdutoMarketplace,
   pedidos,
   InsertPedido,
+  Pedido,
+  ticketsSuporte,
+  InsertTicketSuporte,
+  mensagensSuporte,
+  InsertMensagemSuporte,
   parceiros,
   InsertParceiro,
   pragasDoencas,
   InsertPragaDoenca,
   materiaisDidaticos,
   InsertMaterialDidatico,
-  ticketsSuporte,
-  InsertTicketSuporte,
-  mensagensSuporte,
-  InsertMensagemSuporte,
+  pushTokens,
+  InsertPushToken,
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -106,6 +109,13 @@ export async function getUsuarioAfuByUserId(userId: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function getUsuarioAfuById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(usuariosAfu).where(eq(usuariosAfu.id, id)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function createUsuarioAfu(data: InsertUsuarioAfu) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -125,6 +135,37 @@ export async function getPropriedades(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(propriedades).orderBy(desc(propriedades.createdAt));
+}
+
+export async function getPropriedadesComCoordenadas() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const rows = await db
+    .select({
+      propriedadeId: propriedades.id,
+      nome: propriedades.nome,
+      latitude: propriedades.latitude,
+      longitude: propriedades.longitude,
+      usuarioAfuId: produtores.usuarioId,
+    })
+    .from(propriedades)
+    .innerJoin(produtores, eq(propriedades.produtorId, produtores.id));
+
+  return rows
+    .map((row) => {
+      const latitude = row.latitude != null ? parseFloat(String(row.latitude)) : NaN;
+      const longitude = row.longitude != null ? parseFloat(String(row.longitude)) : NaN;
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
+      return {
+        propriedadeId: row.propriedadeId,
+        nome: row.nome,
+        latitude,
+        longitude,
+        usuarioAfuId: row.usuarioAfuId,
+      };
+    })
+    .filter((row): row is NonNullable<typeof row> => row != null);
 }
 
 export async function getPropriedadeById(id: number) {
@@ -361,6 +402,163 @@ export async function createPedido(data: InsertPedido) {
   return result[0].insertId;
 }
 
+export async function getProdutoMarketplaceById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(produtosMarketplace)
+    .where(eq(produtosMarketplace.id, id))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getPedidoById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(pedidos).where(eq(pedidos.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function confirmarPagamentoPix(pedidoId: number, compradorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const pedido = await getPedidoById(pedidoId);
+  if (!pedido || pedido.compradorId !== compradorId) {
+    throw new Error("Pedido não encontrado");
+  }
+  if (pedido.statusPedido === "cancelado") {
+    throw new Error("Pedido cancelado");
+  }
+  if (pedido.statusPagamento !== "pendente") {
+    throw new Error("Pagamento já processado");
+  }
+  const metodoMatch = (pedido.observacoes ?? "").match(/^__mp:(pix|na_entrega)__/);
+  if (metodoMatch?.[1] !== "pix") {
+    throw new Error("Este pedido não usa pagamento PIX");
+  }
+
+  await db.update(pedidos).set({ statusPagamento: "pago" }).where(eq(pedidos.id, pedidoId));
+  return pedido;
+}
+
+export async function cancelarPedido(id: number, compradorId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const rows = await db
+    .select()
+    .from(pedidos)
+    .where(eq(pedidos.id, id))
+    .limit(1);
+  const pedido = rows[0];
+  if (!pedido || pedido.compradorId !== compradorId) {
+    throw new Error("Pedido não encontrado");
+  }
+  if (pedido.statusPedido !== "aguardando") {
+    throw new Error("Somente pedidos aguardando podem ser cancelados");
+  }
+  await db
+    .update(pedidos)
+    .set({ statusPedido: "cancelado", statusPagamento: "cancelado" })
+    .where(eq(pedidos.id, id));
+  return { success: true };
+}
+
+export async function getPedidosVendedor(vendedorId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(pedidos)
+    .where(eq(pedidos.vendedorId, vendedorId))
+    .orderBy(desc(pedidos.dataPedido));
+}
+
+type StatusPedido = NonNullable<Pedido["statusPedido"]>;
+
+const VENDOR_STATUS_TRANSITIONS: Record<StatusPedido, StatusPedido[]> = {
+  aguardando: ["confirmado", "cancelado"],
+  confirmado: ["em_preparo", "cancelado"],
+  em_preparo: ["enviado"],
+  enviado: ["entregue"],
+  entregue: [],
+  cancelado: [],
+};
+
+export async function atualizarStatusPedidoVendedor(
+  id: number,
+  vendedorId: number,
+  novoStatus: StatusPedido,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const rows = await db.select().from(pedidos).where(eq(pedidos.id, id)).limit(1);
+  const pedido = rows[0];
+  if (!pedido || pedido.vendedorId !== vendedorId) {
+    throw new Error("Pedido não encontrado");
+  }
+
+  const statusAtual = (pedido.statusPedido ?? "aguardando") as StatusPedido;
+  const permitidos = VENDOR_STATUS_TRANSITIONS[statusAtual];
+  if (!permitidos.includes(novoStatus)) {
+    throw new Error(`Não é possível alterar de "${statusAtual}" para "${novoStatus}"`);
+  }
+
+  const updates: Partial<InsertPedido> = { statusPedido: novoStatus };
+  if (novoStatus === "entregue") {
+    updates.dataEntrega = new Date();
+    const metodoMatch = (pedido.observacoes ?? "").match(/^__mp:(pix|na_entrega)__/);
+    if (metodoMatch?.[1] === "na_entrega" && pedido.statusPagamento === "pendente") {
+      updates.statusPagamento = "pago";
+    }
+  }
+  if (novoStatus === "cancelado") {
+    updates.statusPagamento = "cancelado";
+  }
+
+  await db.update(pedidos).set(updates).where(eq(pedidos.id, id));
+  const updated = await getPedidoById(id);
+  return { success: true, pedido: updated };
+}
+
+// ─── SUPORTE ─────────────────────────────────────────────────────────────────
+
+export async function getTicketsSuporte(usuarioId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(ticketsSuporte)
+    .where(eq(ticketsSuporte.usuarioId, usuarioId))
+    .orderBy(desc(ticketsSuporte.createdAt));
+}
+
+export async function createTicketSuporte(data: InsertTicketSuporte) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(ticketsSuporte).values(data);
+  return result[0].insertId as number;
+}
+
+export async function getMensagensSuporte(usuarioId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(mensagensSuporte)
+    .where(eq(mensagensSuporte.usuarioId, usuarioId))
+    .orderBy(mensagensSuporte.createdAt);
+}
+
+export async function createMensagemSuporte(data: InsertMensagemSuporte) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(mensagensSuporte).values(data);
+  return result[0].insertId as number;
+}
+
 // ─── PARCEIROS ───────────────────────────────────────────────────────────────
 
 export async function getParceiros() {
@@ -418,48 +616,6 @@ export async function createMaterialDidatico(data: InsertMaterialDidatico) {
   return result[0].insertId;
 }
 
-// ─── SUPORTE TÉCNICO ─────────────────────────────────────────────────────────
-
-export async function getTicketsSuporte(usuarioId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(ticketsSuporte)
-    .where(eq(ticketsSuporte.usuarioId, usuarioId))
-    .orderBy(desc(ticketsSuporte.createdAt));
-}
-
-export async function createTicketSuporte(data: InsertTicketSuporte) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const result = await db.insert(ticketsSuporte).values(data);
-  return result[0].insertId;
-}
-
-export async function updateTicketSuporte(id: number, data: Partial<InsertTicketSuporte>) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  await db.update(ticketsSuporte).set(data).where(eq(ticketsSuporte.id, id));
-}
-
-export async function getMensagensSuporte(usuarioId: number) {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(mensagensSuporte)
-    .where(eq(mensagensSuporte.usuarioId, usuarioId))
-    .orderBy(mensagensSuporte.createdAt);
-}
-
-export async function createMensagemSuporte(data: InsertMensagemSuporte) {
-  const db = await getDb();
-  if (!db) throw new Error("Database not available");
-  const result = await db.insert(mensagensSuporte).values(data);
-  return result[0].insertId;
-}
-
 // ─── ESTATÍSTICAS DASHBOARD ──────────────────────────────────────────────────
 
 export async function getDashboardStats(userId: number) {
@@ -483,4 +639,61 @@ export async function getDashboardStats(userId: number) {
     relatorios: rels.length,
     eventos: evts.length,
   };
+}
+
+// ─── PUSH TOKENS ─────────────────────────────────────────────────────────────
+
+export async function upsertPushToken(data: {
+  usuarioAfuId: number;
+  expoPushToken: string;
+  platform: "ios" | "android" | "web";
+  deviceName?: string;
+}): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+
+  const existing = await db
+    .select()
+    .from(pushTokens)
+    .where(eq(pushTokens.expoPushToken, data.expoPushToken))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db
+      .update(pushTokens)
+      .set({
+        usuarioAfuId: data.usuarioAfuId,
+        platform: data.platform,
+        deviceName: data.deviceName,
+        lastUsedAt: new Date(),
+      })
+      .where(eq(pushTokens.expoPushToken, data.expoPushToken));
+    return;
+  }
+
+  await db.insert(pushTokens).values({
+    usuarioAfuId: data.usuarioAfuId,
+    expoPushToken: data.expoPushToken,
+    platform: data.platform,
+    deviceName: data.deviceName,
+    lastUsedAt: new Date(),
+  } as InsertPushToken);
+}
+
+export async function getPushTokensByUsuario(usuarioAfuId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(pushTokens).where(eq(pushTokens.usuarioAfuId, usuarioAfuId));
+}
+
+export async function deletePushToken(expoPushToken: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(pushTokens).where(eq(pushTokens.expoPushToken, expoPushToken));
+}
+
+export async function deletePushTokensByUsuario(usuarioAfuId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(pushTokens).where(eq(pushTokens.usuarioAfuId, usuarioAfuId));
 }

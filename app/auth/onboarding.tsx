@@ -27,10 +27,8 @@ export default function OnboardingScreen() {
   const [cargo, setCargo] = useState("");
   const [registroProfissional, setRegistroProfissional] = useState("");
 
-  const utils = trpc.useUtils();
   const upsertMutation = trpc.auth.perfil.upsert.useMutation({
-    onSuccess: async () => {
-      await utils.auth.session.invalidate();
+    onSuccess: () => {
       Alert.alert("✅ Perfil criado!", "Bem-vindo ao AFU Agro!", [
         { text: "Começar", onPress: () => router.replace("/(tabs)" as any) },
       ]);

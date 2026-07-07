@@ -1,8 +1,6 @@
-import { useMemo } from "react";
-import { View, type ViewProps, type ViewStyle } from "react-native";
-import { type Edge } from "react-native-safe-area-context";
+import { View, type ViewProps } from "react-native";
+import { SafeAreaView, type Edge } from "react-native-safe-area-context";
 
-import { useAppSafeAreaInsets } from "@/hooks/use-safe-area-insets";
 import { cn } from "@/lib/utils";
 
 export interface ScreenContainerProps extends ViewProps {
@@ -20,28 +18,25 @@ export interface ScreenContainerProps extends ViewProps {
    */
   containerClassName?: string;
   /**
-   * @deprecated Use `className` — kept for backwards compatibility.
+   * Additional className for the SafeAreaView (content layer).
    */
   safeAreaClassName?: string;
 }
 
-function buildSafeAreaPadding(
-  edges: Edge[],
-  insets: { top: number; right: number; bottom: number; left: number },
-): ViewStyle {
-  const padding: ViewStyle = {};
-
-  if (edges.includes("top")) padding.paddingTop = insets.top;
-  if (edges.includes("right")) padding.paddingRight = insets.right;
-  if (edges.includes("bottom")) padding.paddingBottom = insets.bottom;
-  if (edges.includes("left")) padding.paddingLeft = insets.left;
-
-  return padding;
-}
-
 /**
- * Screen wrapper that applies safe-area padding via `useSafeAreaInsets` + View.
- * Avoids nested SafeAreaView instances during stack/tab transitions.
+ * A container component that properly handles SafeArea and background colors.
+ *
+ * The outer View extends to full screen (including status bar area) with the background color,
+ * while the inner SafeAreaView ensures content is within safe bounds.
+ *
+ * Usage:
+ * ```tsx
+ * <ScreenContainer className="p-4">
+ *   <Text className="text-2xl font-bold text-foreground">
+ *     Welcome
+ *   </Text>
+ * </ScreenContainer>
+ * ```
  */
 export function ScreenContainer({
   children,
@@ -52,25 +47,22 @@ export function ScreenContainer({
   style,
   ...props
 }: ScreenContainerProps) {
-  const insets = useAppSafeAreaInsets();
-
-  const safeAreaStyle = useMemo(
-    () => buildSafeAreaPadding(edges, insets),
-    [edges, insets],
-  );
-
   return (
     <View
-      className={cn("flex-1", "bg-background", containerClassName)}
-      style={style}
+      className={cn(
+        "flex-1",
+        "bg-background",
+        containerClassName
+      )}
       {...props}
     >
-      <View
-        className={cn("flex-1", safeAreaClassName, className)}
-        style={safeAreaStyle}
+      <SafeAreaView
+        edges={edges}
+        className={cn("flex-1", safeAreaClassName)}
+        style={style}
       >
-        {children}
-      </View>
+        <View className={cn("flex-1", className)}>{children}</View>
+      </SafeAreaView>
     </View>
   );
 }

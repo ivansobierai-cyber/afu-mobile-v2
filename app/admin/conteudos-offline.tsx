@@ -53,6 +53,8 @@ export default function ConteudosOfflineScreen(): React.ReactNode {
   const [moduloIdFiltro, setModuloIdFiltro] = useState<string>("");
   const [buscaTexto, setBuscaTexto] = useState<string>("");
   const [saving, setSaving] = useState<boolean>(false);
+  const [filtroTipo, setFiltroTipo] = useState<string>("");
+  const [filtroStatus, setFiltroStatus] = useState<string>("");
 
   const modulos: Modulo[] = state.modulos;
   const conteudos: Conteudo[] = state.conteudos;
@@ -66,10 +68,12 @@ export default function ConteudosOfflineScreen(): React.ReactNode {
           !q ||
           c.titulo.toLowerCase().includes(q) ||
           c.descricao.toLowerCase().includes(q);
-        return matchModulo && matchBusca;
+        const matchTipo = !filtroTipo || c.tipo === filtroTipo;
+        const matchStatus = !filtroStatus || c.syncStatus === filtroStatus;
+        return matchModulo && matchBusca && matchTipo && matchStatus;
       })
       .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
-  }, [conteudos, moduloIdFiltro, buscaTexto]);
+  }, [conteudos, moduloIdFiltro, buscaTexto, filtroTipo, filtroStatus]);
 
   const itensPendentes = useMemo(
     () => conteudos.filter((c) => c.syncStatus !== "sincronizado").length,
@@ -274,6 +278,52 @@ export default function ConteudosOfflineScreen(): React.ReactNode {
                 style={[s.moduleBtn, moduloIdFiltro === m.id ? s.moduleBtnActive : null]}
               >
                 <Text style={moduloIdFiltro === m.id ? s.moduleBtnActiveText : s.moduleBtnText}>{m.nome}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={s.filterRow}>
+          <Text style={s.filterLabel}>Filtrar por Tipo</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.moduleScroll}>
+            <TouchableOpacity
+              onPress={() => setFiltroTipo("")}
+              style={[s.moduleBtn, filtroTipo === "" ? s.moduleBtnActive : null]}
+            >
+              <Text style={filtroTipo === "" ? s.moduleBtnActiveText : s.moduleBtnText}>Todos</Text>
+            </TouchableOpacity>
+            {(["artigo", "guia", "pdf", "video", "imagem"] as const).map((tipo) => (
+              <TouchableOpacity
+                key={tipo}
+                onPress={() => setFiltroTipo(tipo)}
+                style={[s.moduleBtn, filtroTipo === tipo ? s.moduleBtnActive : null]}
+              >
+                <Text style={filtroTipo === tipo ? s.moduleBtnActiveText : s.moduleBtnText}>
+                  {tipo.charAt(0).toUpperCase() + tipo.slice(1)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+
+        <View style={s.filterRow}>
+          <Text style={s.filterLabel}>Filtrar por Status</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.moduleScroll}>
+            <TouchableOpacity
+              onPress={() => setFiltroStatus("")}
+              style={[s.moduleBtn, filtroStatus === "" ? s.moduleBtnActive : null]}
+            >
+              <Text style={filtroStatus === "" ? s.moduleBtnActiveText : s.moduleBtnText}>Todos</Text>
+            </TouchableOpacity>
+            {(["sincronizado", "pendente", "sincronizando"] as const).map((status) => (
+              <TouchableOpacity
+                key={status}
+                onPress={() => setFiltroStatus(status)}
+                style={[s.moduleBtn, filtroStatus === status ? s.moduleBtnActive : null]}
+              >
+                <Text style={filtroStatus === status ? s.moduleBtnActiveText : s.moduleBtnText}>
+                  {status === "sincronizado" ? "🟢" : status === "pendente" ? "🟠" : "🟡"} {status.charAt(0).toUpperCase() + status.slice(1)}
+                </Text>
               </TouchableOpacity>
             ))}
           </ScrollView>

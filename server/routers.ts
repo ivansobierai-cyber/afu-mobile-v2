@@ -3,11 +3,14 @@ import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import { getDiagnosticos, createDiagnostico, getUsuarioAfuByUserId } from "./db";
+import { sendPushToUsuario } from "./services/push-delivery";
 import { authRouter } from "./routers/auth-router";
 import { culturasPragasRouter } from "./routers/culturas-pragas-router";
 import { materiaisParceirosRouter } from "./routers/materiais-parceiros-router";
 import { coreDataRouter } from "./routers/core-data-router";
 import { secondaryDataRouter } from "./routers/secondary-data-router";
+import { weatherRouter } from "./routers/weather-router";
+import { pushRouter } from "./routers/push-router";
 
 const diagnosticoRouter = router({
   historico: protectedProcedure.query(async ({ ctx }) => {
@@ -18,12 +21,9 @@ const diagnosticoRouter = router({
   salvar: protectedProcedure
     .input(z.object({
       culturaNome: z.string(),
-      culturaChipId: z.string().optional(),
-      parteAnalisada: z.string(),
       sintomas: z.string().optional(),
-      cultivoId: z.number().int().positive().optional(),
-      cultivoNome: z.string().optional(),
-      propriedadeId: z.number().int().positive().optional(),
+      culturaId: z.number().int().positive().optional(),
+      parteAnalisada: z.string(),
       problema: z.string(),
       tipo: z.string(),
       confianca: z.number(),
@@ -37,13 +37,14 @@ const diagnosticoRouter = router({
     .mutation(async ({ ctx, input }) => {
       const perfil = await getUsuarioAfuByUserId(ctx.user.id);
       if (!perfil) throw new Error("Perfil não encontrado");
-      const id = await createDiagnostico({
+      const created = await createDiagnostico({
         usuarioId: perfil.id,
-        propriedadeId: input.propriedadeId,
-        culturaId: input.cultivoId,
+        culturaId: input.culturaId,
         partePlanta: input.parteAnalisada,
-        sintomasInformados: input.sintomas,
+        sintomasInformados: input.sintomas ?? null,
         resultado: JSON.stringify({
+          culturaNome: input.culturaNome,
+          sintomas: input.sintomas,
           problema: input.problema,
           tipo: input.tipo,
           confianca: input.confianca,
@@ -52,20 +53,25 @@ const diagnosticoRouter = router({
           recomendacoes: input.recomendacoes,
           agenteCausal: input.agenteCausal,
           observacoesTecnicas: input.observacoesTecnicas,
-          culturaNome: input.culturaNome,
-          culturaChipId: input.culturaChipId,
-          cultivoId: input.cultivoId,
-          cultivoNome: input.cultivoNome,
         }),
         pragaProvavel: input.tipo === "praga" ? input.problema : undefined,
         doencaProvavel: input.tipo === "doenca" ? input.problema : undefined,
-        deficienciaNutricional: input.tipo === "deficiencia_nutricional" ? input.problema : undefined,
         gravidade: input.severidade as any,
         confiancaIa: input.confianca,
         recomendacao: input.recomendacoes.join("; "),
         imagemUrl: input.imagemUrl,
       });
-      return { id };
+
+      if (input.severidade === "grave" || input.severidade === "critica") {
+        void sendPushToUsuario(perfil.id, {
+          title: "Alerta fitossanitário",
+          body: `${input.problema} detectado em ${input.culturaNome}. Abra o diagnóstico para ver recomendações.`,
+          data: { type: "diagnostico", diagnosticoId: String(created) },
+          priority: "high",
+        });
+      }
+
+      return created;
     }),
   analisar: publicProcedure
     .input(
@@ -402,6 +408,8 @@ export const appRouter = router({
   materiaisParceiros: materiaisParceirosRouter,
   coreData: coreDataRouter,
   secondaryData: secondaryDataRouter,
+  weather: weatherRouter,
+  push: pushRouter,
 });
 
 export type AppRouter = typeof appRouter;

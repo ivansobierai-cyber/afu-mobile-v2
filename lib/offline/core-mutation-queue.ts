@@ -20,7 +20,7 @@ export interface CoreMutationItem {
   lastError?: string;
 }
 
-export type CoreMutationExecutor = (item: CoreMutationItem) => Promise<void>;
+export type CoreMutationExecutor = (item: CoreMutationItem) => Promise<unknown>;
 
 export async function loadCoreQueue(): Promise<CoreMutationItem[]> {
   try {

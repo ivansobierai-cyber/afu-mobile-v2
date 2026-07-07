@@ -37,22 +37,25 @@ export function getApiBaseUrl(): string {
 
   // On web, derive from current hostname by replacing port 8081 with 3000
   if (ReactNative.Platform.OS === "web" && typeof window !== "undefined" && window.location) {
-    const { protocol, hostname, port } = window.location;
-    // Desenvolvimento local: Metro em 8081, API em 3000
+    const { protocol, hostname } = window.location;
+
+    // Dev local: Metro em 8081, API em 3000
     if (hostname === "localhost" || hostname === "127.0.0.1") {
       return `${protocol}//${hostname}:3000`;
     }
+
     // Pattern: 8081-sandboxid.region.domain -> 3000-sandboxid.region.domain
     const apiHostname = hostname.replace(/^8081-/, "3000-");
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
     }
-    // Mesmo host, porta da API explícita quando Metro usa 8081
-    if (port === "8081") {
-      return `${protocol}//${hostname}:3000`;
-    }
     // Produção: usar URL relativa (mesmo domínio)
     return "";
+  }
+
+  // Emulador Android: host da máquina acessível pelo guest
+  if (ReactNative.Platform.OS === "android" && !API_BASE_URL) {
+    return "http://10.0.2.2:3000";
   }
 
   // Em dispositivos nativos (iOS/Android), usar domínio de produção
@@ -62,8 +65,8 @@ export function getApiBaseUrl(): string {
     return "https://afumobile-risprfgp.manus.space";
   }
 
-  // Fallback to empty (will use relative URL)
-  return "";
+  // Fallback dev: API local
+  return "http://localhost:3000";
 }
 
 export const SESSION_TOKEN_KEY = "app_session_token";

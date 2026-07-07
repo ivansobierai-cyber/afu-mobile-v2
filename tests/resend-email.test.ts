@@ -1,9 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-
-vi.mock('@/lib/_core/api', () => ({
-  apiCall: vi.fn(),
-}));
-
 import { formatCooldownTime, getCooldownMessage } from '../hooks/use-resend-email';
 
 /**

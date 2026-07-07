@@ -1,6 +1,5 @@
-import { Redirect } from "expo-router";
+import { Redirect } from 'expo-router';
 
-/** @deprecated Use /auth/cadastro — redirecionamento de compatibilidade */
-export default function LegacyCadastroNewRedirect() {
+export default function CadastroNewRedirect() {
   return <Redirect href="/auth/cadastro" />;
 }

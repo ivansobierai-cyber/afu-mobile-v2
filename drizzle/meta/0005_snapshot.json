@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "80137d86-0307-47b3-b8ff-11c14da7f426",
-  "prevId": "d3a00010-970e-4d9c-9263-b35e1d5e781f",
+  "id": "10418a8a-4147-40b4-933e-261a99cac703",
+  "prevId": "80137d86-0307-47b3-b8ff-11c14da7f426",
   "tables": {
     "analises_fitotecnicas": {
       "name": "analises_fitotecnicas",
@@ -695,66 +695,6 @@
       "compositePrimaryKeys": {
         "materiais_didaticos_id": {
           "name": "materiais_didaticos_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "mensagens_suporte": {
-      "name": "mensagens_suporte",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "usuarioId": {
-          "name": "usuarioId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "ticketId": {
-          "name": "ticketId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "autor": {
-          "name": "autor",
-          "type": "enum('usuario','sistema','tecnico')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "texto": {
-          "name": "texto",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "mensagens_suporte_id": {
-          "name": "mensagens_suporte_id",
           "columns": [
             "id"
           ]
@@ -1670,112 +1610,6 @@
       "compositePrimaryKeys": {
         "terrenos_id": {
           "name": "terrenos_id",
-          "columns": [
-            "id"
-          ]
-        }
-      },
-      "uniqueConstraints": {},
-      "checkConstraint": {}
-    },
-    "tickets_suporte": {
-      "name": "tickets_suporte",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": true
-        },
-        "usuarioId": {
-          "name": "usuarioId",
-          "type": "int",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "tipo": {
-          "name": "tipo",
-          "type": "enum('chamado','duvida','visita','chat')",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "titulo": {
-          "name": "titulo",
-          "type": "varchar(200)",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "descricao": {
-          "name": "descricao",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "prioridade": {
-          "name": "prioridade",
-          "type": "enum('baixa','normal','alta')",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "'normal'"
-        },
-        "status": {
-          "name": "status",
-          "type": "enum('aberto','em_andamento','resolvido','cancelado')",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false,
-          "default": "'aberto'"
-        },
-        "culturaRelacionada": {
-          "name": "culturaRelacionada",
-          "type": "varchar(100)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "dataVisita": {
-          "name": "dataVisita",
-          "type": "varchar(30)",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "resposta": {
-          "name": "resposta",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "createdAt": {
-          "name": "createdAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": "(now())"
-        },
-        "updatedAt": {
-          "name": "updatedAt",
-          "type": "timestamp",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "onUpdate": true,
-          "default": "(now())"
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {
-        "tickets_suporte_id": {
-          "name": "tickets_suporte_id",
           "columns": [
             "id"
           ]

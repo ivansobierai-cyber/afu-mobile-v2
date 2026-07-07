@@ -11,26 +11,16 @@ import {
   TextInput,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { CULTURAS } from "@/lib/mock-data";
 import { trpc } from "@/lib/trpc";
-import { buildDiagnosticoFromAnalise, mapDiagnosticoFromDb } from "@/lib/diagnostico-mapper";
+import { mapDbDiagnostico, type DiagnosticoView } from "@/lib/diagnostico-utils";
 import { openLaudoHtml } from "@/lib/laudo-html";
-import type { Diagnostico, DiagnosticoResultado, PartePlanta } from "@/shared/types";
-
-type CultivoDb = {
-  id: number;
-  propriedadeId: number;
-  nomeCultura: string;
-  variedade: string | null;
-  faseAtual: string | null;
-  areaPlantada: string | null;
-  status: string | null;
-  terrenoId: number | null;
-};
+import { notifyFitossanitario } from "@/lib/notifications";
+import type { PartePlanta } from "@/shared/types";
 
 const PARTES: { value: PartePlanta; label: string; icon: string }[] = [
   { value: "folha", label: "Folha", icon: "leaf.fill" },
@@ -72,32 +62,38 @@ const STATUS_COLORS: Record<string, string> = {
   erro: "#EF4444",
 };
 
-function culturaChipIdFromNome(nomeCultura: string): string {
-  const match = CULTURAS.find(
-    (c) =>
-      c.nomePopular.toLowerCase() === nomeCultura.toLowerCase() ||
-      c.nomeCientifico?.toLowerCase() === nomeCultura.toLowerCase(),
-  );
-  return match?.id ?? "soja";
-}
+
+type CultivoAtivo = {
+  id: number;
+  nomeCultura: string;
+  variedade?: string | null;
+  faseAtual?: string | null;
+  areaPlantada?: string | null;
+  status?: string | null;
+};
 
 export default function DiagnosticoScreen() {
   const colors = useColors();
-  const router = useRouter();
   const { historico: historicoParam } = useLocalSearchParams<{ historico?: string }>();
   const utils = trpc.useUtils();
+
+  const { data: historicoRaw = [], refetch: refetchHistorico } = trpc.diagnostico.historico.useQuery();
+  const { data: cultivosDb = [] } = trpc.coreData.cultivos.list.useQuery();
+
+  const historico = historicoRaw.map(mapDbDiagnostico);
+  const cultivosAtivos = cultivosDb.filter((c) => c.status === "em_andamento");
+
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [imageBase64, setImageBase64] = useState<string | null>(null);
   const [culturaId, setCulturaId] = useState("soja");
   const [parte, setParte] = useState<PartePlanta>("folha");
   const [sintomas, setSintomas] = useState("");
-  const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoDb | null>(null);
+  const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoAtivo | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const [generatingPdf, setGeneratingPdf] = useState(false);
-  const [resultado, setResultado] = useState<Diagnostico | null>(null);
+  const [resultado, setResultado] = useState<DiagnosticoView | null>(null);
   const [showHistorico, setShowHistorico] = useState(false);
   const [showCultivoPicker, setShowCultivoPicker] = useState(false);
-  const [generatingLaudoId, setGeneratingLaudoId] = useState<string | null>(null);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
 
   useEffect(() => {
     if (historicoParam === "1") {
@@ -105,23 +101,11 @@ export default function DiagnosticoScreen() {
     }
   }, [historicoParam]);
 
-  const { data: historicoDb = [], isLoading: loadingHistorico } =
-    trpc.diagnostico.historico.useQuery(undefined, { enabled: showHistorico });
-
-  const { data: cultivosDb = [], isLoading: loadingCultivos } =
-    trpc.coreData.cultivos.list.useQuery(undefined, { enabled: showCultivoPicker });
-
-  const analyzeMutation = trpc.diagnostico.analisar.useMutation();
   const salvarMutation = trpc.diagnostico.salvar.useMutation({
     onSuccess: () => utils.diagnostico.historico.invalidate(),
   });
-  const gerarPdfMutation = trpc.analise.gerarPDF.useMutation();
-  const createRelatorioMutation = trpc.secondaryData.relatorios.create.useMutation({
-    onSuccess: () => utils.secondaryData.relatorios.list.invalidate(),
-  });
 
-  const historico = historicoDb.map((row) => mapDiagnosticoFromDb(row as any));
-  const cultivos = (cultivosDb as CultivoDb[]).filter((c) => c.status === "em_andamento");
+  const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
   const pickImage = async (fromCamera: boolean) => {
     if (fromCamera) {
@@ -151,130 +135,114 @@ export default function DiagnosticoScreen() {
     }
   };
 
+  const analyzeMutation = trpc.diagnostico.analisar.useMutation({
+    onSuccess: async (data) => {
+      const cultura = CULTURAS.find((c) => c.id === culturaId);
+      const culturaNome = cultura?.nomePopular ?? culturaId;
+      const cultivoNome = cultivoSelecionado
+        ? `${cultivoSelecionado.nomeCultura} — ${cultivoSelecionado.variedade ?? ""}`
+        : undefined;
+
+      try {
+        await salvarMutation.mutateAsync({
+          culturaNome,
+          culturaId: cultivoSelecionado?.id,
+          parteAnalisada: parte,
+          sintomas: sintomas.trim() || undefined,
+          problema: data.problema,
+          tipo: data.tipo,
+          confianca: data.confianca,
+          severidade: data.severidade,
+          descricao: data.descricao,
+          recomendacoes: data.recomendacoes,
+          agenteCausal: data.agenteCausal,
+          observacoesTecnicas: data.observacoesTecnicas,
+          imagemUrl: imageUri ?? undefined,
+        });
+      } catch {
+        // diagnóstico exibido mesmo se salvar falhar
+      }
+
+      const diag: DiagnosticoView = {
+        id: Date.now(),
+        culturaNome,
+        cultivoId: cultivoSelecionado?.id,
+        cultivoNome,
+        parteAnalisada: parte,
+        sintomas: sintomas.trim() || undefined,
+        imagemUrl: imageUri,
+        status: "concluido",
+        resultado: data,
+        createdAt: new Date().toISOString(),
+      };
+      setResultado(diag);
+      setAnalyzing(false);
+
+      if (data.severidade === "grave" || data.severidade === "critica") {
+        void notifyFitossanitario(
+          "Alerta fitossanitário",
+          `${data.problema} — severidade ${data.severidade}. Confirme com um técnico.`,
+        );
+      }
+    },
+    onError: (err) => {
+      setAnalyzing(false);
+      Alert.alert("Erro na análise", err.message || "Não foi possível analisar a imagem. Tente novamente.");
+    },
+  });
+
   const handleAnalyze = async () => {
     if (!imageUri || !imageBase64) {
       Alert.alert("Atenção", "Selecione uma imagem da planta para analisar.");
       return;
     }
-
     setAnalyzing(true);
     const cultura = CULTURAS.find((c) => c.id === culturaId);
-    const culturaNome = cultura?.nomePopular ?? culturaId;
-    const cultivoNome = cultivoSelecionado
-      ? `${cultivoSelecionado.nomeCultura}${cultivoSelecionado.variedade ? ` — ${cultivoSelecionado.variedade}` : ""}`
-      : undefined;
-
-    try {
-      const analise = await analyzeMutation.mutateAsync({
-        imageBase64,
-        culturaNome,
-        parteAnalisada: parte,
-        sintomas: sintomas.trim() || undefined,
-        faseFenologica: cultivoSelecionado?.faseAtual ?? undefined,
-      });
-
-      const { id } = await salvarMutation.mutateAsync({
-        culturaNome,
-        culturaChipId: culturaId,
-        parteAnalisada: parte,
-        sintomas: sintomas.trim() || undefined,
-        cultivoId: cultivoSelecionado?.id,
-        cultivoNome,
-        propriedadeId: cultivoSelecionado?.propriedadeId,
-        problema: analise.problema,
-        tipo: analise.tipo,
-        confianca: analise.confianca,
-        severidade: analise.severidade,
-        descricao: analise.descricao,
-        recomendacoes: analise.recomendacoes,
-        agenteCausal: analise.agenteCausal,
-        observacoesTecnicas: analise.observacoesTecnicas,
-        imagemUrl: imageUri,
-      });
-
-      setResultado(
-        buildDiagnosticoFromAnalise({
-          id,
-          analise: analise as DiagnosticoResultado,
-          culturaChipId: culturaId,
-          culturaNome,
-          parte,
-          sintomas: sintomas.trim() || undefined,
-          imagemUrl: imageUri,
-          cultivoId: cultivoSelecionado?.id,
-          cultivoNome,
-        }),
-      );
-    } catch (err: any) {
-      Alert.alert(
-        "Erro na análise",
-        err?.message || "Não foi possível analisar ou salvar o diagnóstico. Verifique sua conexão e se está autenticado.",
-      );
-    } finally {
-      setAnalyzing(false);
-    }
-  };
-
-  const handleGerarLaudo = async (diag: Diagnostico) => {
-    const laudoId = diag.id;
-    setGeneratingLaudoId(laudoId);
-    const isCurrentResult = laudoId === resultado?.id;
-    if (isCurrentResult) setGeneratingPdf(true);
-    const dataEmissao = new Date().toLocaleDateString("pt-BR", {
-      day: "2-digit",
-      month: "long",
-      year: "numeric",
+    analyzeMutation.mutate({
+      imageBase64,
+      culturaNome: cultura?.nomePopular ?? culturaId,
+      parteAnalisada: parte,
+      sintomas: sintomas.trim() || undefined,
+      faseFenologica: cultivoSelecionado?.faseAtual?.replace(/_/g, " ") || undefined,
     });
-    const titulo = `Laudo Fitossanitário — ${diag.resultado.problema}`;
-    const dadosLaudo = {
-      ...diag.resultado,
-      culturaNome: diag.culturaNome,
-      parteAnalisada: diag.parteAnalisada,
-      sintomas: diag.sintomas,
-      cultivoNome: diag.cultivoNome,
-    };
+  };
 
+  const handleGerarPdf = async () => {
+    if (!resultado) return;
+    setGeneratingPdf(true);
     try {
-      const { html } = await gerarPdfMutation.mutateAsync({
+      const { html, titulo } = await pdfMutation.mutateAsync({
         tipo: "diagnostico",
-        titulo,
-        culturaNome: diag.culturaNome,
-        conteudo: JSON.stringify(dadosLaudo),
-        dataEmissao,
+        titulo: `Diagnóstico — ${resultado.resultado.problema}`,
+        culturaNome: resultado.culturaNome,
+        conteudo: JSON.stringify({
+          problema: resultado.resultado.problema,
+          tipo: resultado.resultado.tipo,
+          severidade: resultado.resultado.severidade,
+          confianca: resultado.resultado.confianca,
+          descricao: resultado.resultado.descricao,
+          agenteCausal: resultado.resultado.agenteCausal,
+          recomendacoes: resultado.resultado.recomendacoes,
+          observacoesTecnicas: resultado.resultado.observacoesTecnicas,
+        }),
+        dataEmissao: new Date().toLocaleDateString("pt-BR"),
       });
-
-      const diagnosticoId = parseInt(diag.id, 10);
-      await createRelatorioMutation.mutateAsync({
-        titulo,
-        tipoRelatorio: "diagnostico",
-        diagnosticoId: Number.isNaN(diagnosticoId) ? undefined : diagnosticoId,
-        conteudo: JSON.stringify({ html, dados: dadosLaudo }),
-        status: "emitido",
-      });
-
       await openLaudoHtml(html, titulo);
-
-      Alert.alert(
-        "Laudo gerado",
-        "O laudo foi salvo em Relatórios e aberto para visualização ou impressão (salvar como PDF).",
-        [
-          { text: "OK" },
-          {
-            text: "Ver Relatórios",
-            onPress: () => router.push("/mais/relatorios" as any),
-          },
-        ],
-      );
-    } catch (err: any) {
-      Alert.alert("Erro", err?.message ?? "Não foi possível gerar o laudo.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível gerar o laudo.";
+      Alert.alert("Erro", message);
     } finally {
-      setGeneratingLaudoId(null);
-      if (isCurrentResult) setGeneratingPdf(false);
+      setGeneratingPdf(false);
     }
   };
 
-  const handleGerarLaudoAtual = () => {
-    if (resultado) void handleGerarLaudo(resultado);
+  const openHistorico = () => {
+    refetchHistorico();
+    setShowHistorico(true);
+  };
+
+  const openCultivoPicker = () => {
+    setShowCultivoPicker(true);
   };
 
   const styles = StyleSheet.create({
@@ -334,12 +302,7 @@ export default function DiagnosticoScreen() {
           <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>Histórico de Diagnósticos</Text>
         </View>
         <ScrollView contentContainerStyle={{ padding: 16 }}>
-          {loadingHistorico ? (
-            <View style={{ alignItems: "center", paddingVertical: 40 }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ fontSize: 14, color: colors.muted, marginTop: 12 }}>Carregando histórico...</Text>
-            </View>
-          ) : historico.length === 0 ? (
+          {historico.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 40 }}>
               <IconSymbol name="camera.fill" size={48} color={colors.border} />
               <Text style={{ fontSize: 16, color: colors.muted, marginTop: 12 }}>Nenhum diagnóstico realizado</Text>
@@ -415,29 +378,6 @@ export default function DiagnosticoScreen() {
                         {new Date(diag.createdAt).toLocaleDateString("pt-BR")}
                       </Text>
                     </View>
-                    <TouchableOpacity
-                      style={{
-                        marginTop: 10,
-                        flexDirection: "row",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        gap: 6,
-                        backgroundColor: colors.primary + "15",
-                        borderRadius: 10,
-                        paddingVertical: 8,
-                      }}
-                      onPress={() => handleGerarLaudo(diag)}
-                      disabled={generatingLaudoId === diag.id}
-                    >
-                      {generatingLaudoId === diag.id ? (
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      ) : (
-                        <IconSymbol name="doc.fill" size={16} color={colors.primary} />
-                      )}
-                      <Text style={{ fontSize: 13, fontWeight: "600", color: colors.primary }}>
-                        {generatingLaudoId === diag.id ? "Gerando laudo..." : "Gerar laudo"}
-                      </Text>
-                    </TouchableOpacity>
                   </View>
                 </View>
               </View>
@@ -489,17 +429,12 @@ export default function DiagnosticoScreen() {
             <IconSymbol name="xmark.circle.fill" size={22} color={colors.muted} />
             <Text style={{ fontSize: 15, color: colors.muted, fontWeight: "600" }}>Nenhum cultivo (análise geral)</Text>
           </TouchableOpacity>
-          {loadingCultivos ? (
-            <View style={{ alignItems: "center", paddingVertical: 32 }}>
-              <ActivityIndicator size="large" color={colors.primary} />
-              <Text style={{ fontSize: 14, color: colors.muted, marginTop: 12 }}>Carregando cultivos...</Text>
-            </View>
-          ) : cultivos.length === 0 ? (
+          {cultivosAtivos.length === 0 ? (
             <View style={{ alignItems: "center", paddingVertical: 32 }}>
               <Text style={{ fontSize: 14, color: colors.muted }}>Nenhum cultivo ativo encontrado.</Text>
             </View>
           ) : (
-            cultivos.map((c) => (
+            cultivosAtivos.map((c) => (
               <TouchableOpacity
                 key={c.id}
                 style={{
@@ -512,15 +447,18 @@ export default function DiagnosticoScreen() {
                 }}
                 onPress={() => {
                   setCultivoSelecionado(c);
-                  setCulturaId(culturaChipIdFromNome(c.nomeCultura));
+                  const match = CULTURAS.find(
+                    (cu) => cu.nomePopular.toLowerCase() === c.nomeCultura.toLowerCase(),
+                  );
+                  if (match) setCulturaId(match.id);
                   setShowCultivoPicker(false);
                 }}
               >
                 <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
-                  {c.nomeCultura}{c.variedade ? ` — ${c.variedade}` : ""}
+                  {c.nomeCultura} — {c.variedade}
                 </Text>
                 <Text style={{ fontSize: 13, color: colors.muted, marginTop: 2 }}>
-                  {c.areaPlantada ? `${c.areaPlantada} ha` : ""}{c.faseAtual ? ` · ${c.faseAtual.replace(/_/g, " ")}` : ""}
+                  {c.areaPlantada ? `${Number(c.areaPlantada)} ha` : "—"} · {(c.faseAtual ?? "plantio").replace(/_/g, " ")}
                 </Text>
               </TouchableOpacity>
             ))
@@ -553,7 +491,7 @@ export default function DiagnosticoScreen() {
         </View>
         <TouchableOpacity
           style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-          onPress={() => setShowHistorico(true)}
+          onPress={openHistorico}
         >
           <IconSymbol name="clock.fill" size={20} color="#FFFFFF" />
         </TouchableOpacity>
@@ -656,17 +594,17 @@ export default function DiagnosticoScreen() {
             gap: 10,
             marginBottom: 16,
           }}
-          onPress={() => setShowCultivoPicker(true)}
+          onPress={openCultivoPicker}
         >
           <IconSymbol name="leaf.fill" size={18} color={cultivoSelecionado ? colors.primary : colors.muted} />
           <View style={{ flex: 1 }}>
             {cultivoSelecionado ? (
               <>
                 <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary }}>
-                  {cultivoSelecionado.nomeCultura}{cultivoSelecionado.variedade ? ` — ${cultivoSelecionado.variedade}` : ""}
+                  {cultivoSelecionado.nomeCultura} — {cultivoSelecionado.variedade}
                 </Text>
                 <Text style={{ fontSize: 12, color: colors.muted }}>
-                  {cultivoSelecionado.faseAtual?.replace(/_/g, " ") ?? ""}
+                  {(cultivoSelecionado.faseAtual ?? "plantio").replace(/_/g, " ")}
                 </Text>
               </>
             ) : (
@@ -995,16 +933,8 @@ export default function DiagnosticoScreen() {
             {/* Botões de ação */}
             <View style={{ gap: 10, marginBottom: 20 }}>
               <TouchableOpacity
-                style={{
-                  backgroundColor: generatingPdf ? colors.muted : colors.primary,
-                  borderRadius: 12,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                  flexDirection: "row",
-                  justifyContent: "center",
-                  gap: 8,
-                }}
-                onPress={handleGerarLaudoAtual}
+                style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
+                onPress={handleGerarPdf}
                 disabled={generatingPdf}
               >
                 {generatingPdf ? (

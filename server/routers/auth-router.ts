@@ -5,7 +5,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, publicProcedure, protectedProcedure, adminProcedure } from "../_core/trpc";
 import { COOKIE_NAME } from "../../shared/const";
-import { getSessionCookieOptions } from "../_core/cookies";
+import { getSessionCookieOptions, clearSessionCookie } from "../_core/cookies";
 import {
   listarUsuariosCompletos,
   getUsuarioCompletoById,
@@ -174,12 +174,8 @@ export const authRouter = router({
   me: protectedProcedure.query((opts) => opts.ctx.user ?? null),
 
   logout: protectedProcedure.mutation(async ({ ctx }) => {
-    // Revogar refresh token
     await revokeRefreshToken(ctx.user.id);
-
-    // Limpar cookie
-    const cookieOptions = getSessionCookieOptions(ctx.req);
-    ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
+    clearSessionCookie(ctx.res, ctx.req);
     return { success: true } as const;
   }),
 
@@ -215,7 +211,6 @@ export const authRouter = router({
           message: "Login realizado com sucesso",
         };
       } catch (error) {
-        console.error("[Auth] Falha no login:", error instanceof Error ? error.message : error);
         throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
       }
     }),
