@@ -16,7 +16,7 @@ Se `/api/health` retornar 503, a API ainda não está no ar — siga o deploy ab
 
 | Variável | Valor |
 |----------|--------|
-| `DATABASE_URL` | URL MySQL do Railway |
+| `DATABASE_URL` | **Reference:** `DATABASE_URL=${{MySQL.MYSQL_URL}}` (troque `MySQL` pelo nome do seu serviço de banco) |
 | `JWT_SECRET` | string longa aleatória |
 | `NODE_ENV` | `production` |
 | `SEED_ON_START` | `1` (só no primeiro deploy) |
@@ -55,3 +55,10 @@ O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_
 | `apk` | `http://192.168.1.5:3000` | LAN / dev em casa |
 | `preview` | `https://api-staging.afuagro.com.br` | Testadores externos |
 | `production` | `https://api.afuagro.com.br` | Loja / produção |
+
+## Erros comuns (Railway)
+
+| Erro | Causa | Correção |
+|------|--------|----------|
+| `DATABASE_URL is required` | Reference errada ou vazia | Use `DATABASE_URL=${{MySQL.MYSQL_URL}}` (não `DATABASE_URL` do MySQL) |
+| `ECONNREFUSED 127.0.0.1:3306` | URL aponta para localhost | Apague e recrie com reference `MYSQL_URL` |
