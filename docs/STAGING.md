@@ -60,5 +60,5 @@ O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_
 
 | Erro | Causa | Correção |
 |------|--------|----------|
-| `DATABASE_URL is required` | Reference errada ou vazia | Use `DATABASE_URL=${{MySQL.MYSQL_URL}}` (não `DATABASE_URL` do MySQL) |
+| `ER_TABLE_EXISTS_ERROR` | Migration duplicada / deploy parcial | Redeploy após atualizar o repo; ou no MySQL Console: `SHOW TABLES;` e confira se `push_tokens` existe |
 | `ECONNREFUSED 127.0.0.1:3306` | URL aponta para localhost | Apague e recrie com reference `MYSQL_URL` |
