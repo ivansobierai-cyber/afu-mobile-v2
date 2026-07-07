@@ -19,3 +19,10 @@ export function isAuthDisabled(): boolean {
 
   return explicit === true;
 }
+
+/** Botões de login demo — visíveis em dev ou com EXPO_PUBLIC_SHOW_DEMO_LOGIN=1 (ex.: profile apk). */
+export function isDemoLoginEnabled(): boolean {
+  const explicit = readEnvFlag(process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN);
+  if (explicit !== null) return explicit;
+  return typeof __DEV__ !== "undefined" && __DEV__;
+}

@@ -34,6 +34,7 @@ const QUICK_ACTIONS: QuickAction[] = [
   { label: "Suporte", icon: "wrench.fill", color: "#1565C0", route: "/mais/suporte" },
   { label: "Análise Solo", icon: "flask.fill", color: "#E65100", route: "/mais/analise-fitotecnica" },
   { label: "Relatórios", icon: "doc.fill", color: "#2D6A4F", route: "/mais/relatorios" },
+  { label: "Marketplace", icon: "cart.fill", color: "#D97706", route: "/mais/marketplace" },
 ];
 
 export default function DashboardScreen() {
@@ -48,6 +49,10 @@ export default function DashboardScreen() {
   const { data: analises = [], isLoading: loadingAn } = trpc.secondaryData.analises.list.useQuery();
   const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery();
   const { data: eventos = [], isLoading: loadingEv } = trpc.coreData.calendario.list.useQuery();
+  const { data: produtosMarketplace = [] } = trpc.secondaryData.marketplace.list.useQuery(
+    { status: "disponivel", limit: 100 },
+    { enabled: isAuthenticated },
+  );
 
   const isLoading = loadingProp || loadingCult || loadingDiag || loadingAn || loadingRel || loadingEv;
 
@@ -59,6 +64,7 @@ export default function DashboardScreen() {
       utils.secondaryData.analises.list.invalidate(),
       utils.secondaryData.relatorios.list.invalidate(),
       utils.coreData.calendario.list.invalidate(),
+      utils.secondaryData.marketplace.list.invalidate(),
     ]);
   };
 
@@ -77,6 +83,7 @@ export default function DashboardScreen() {
     { label: "Análises", value: analises.length, icon: "flask.fill", color: "#E65100", route: "/mais/analise-fitotecnica" },
     { label: "Laudos", value: relatorios.length, icon: "doc.fill", color: "#2D6A4F", route: "/mais/relatorios" },
     { label: "Eventos", value: eventos.length, icon: "calendar", color: "#D97706", route: "/mais/calendario" },
+    { label: "Marketplace", value: isAuthenticated ? produtosMarketplace.length : "—", icon: "cart.fill", color: "#D97706", route: "/mais/marketplace" },
   ];
 
   const styles = StyleSheet.create({
@@ -129,7 +136,7 @@ export default function DashboardScreen() {
         </View>
 
         <View style={{ paddingHorizontal: 20, marginTop: -16 }}>
-          {/* Stats — 6 cards clicáveis */}
+          {/* Stats — cards clicáveis */}
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
             {statCards.map((card) => (
               <TouchableOpacity
@@ -157,7 +164,7 @@ export default function DashboardScreen() {
             </>
           )}
 
-          {/* Ações Rápidas — 8 ações */}
+          {/* Ações Rápidas */}
           <Text style={styles.sectionTitle}>Ações Rápidas</Text>
           <View style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", marginBottom: 24 }}>
             {QUICK_ACTIONS.map((action) => (

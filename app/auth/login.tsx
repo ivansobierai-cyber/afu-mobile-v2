@@ -9,6 +9,7 @@ import { useAuthAPI } from '@/hooks/use-auth-api';
 import { useSession } from '@/hooks/use-session';
 import { useColors } from '@/hooks/use-colors';
 import { startOAuthLogin } from '@/constants/oauth';
+import { isDemoLoginEnabled } from '@/shared/dev-auth';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -148,6 +149,7 @@ export default function LoginScreen() {
                   variant="primary"
                 />
 
+                {isDemoLoginEnabled() && (
                 <View style={{ gap: 10 }}>
                   <RNText style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
                     Acesso rapido para teste
@@ -165,12 +167,15 @@ export default function LoginScreen() {
                     variant="outline"
                   />
                 </View>
+                )}
 
+                {isDemoLoginEnabled() && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
                   <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                   <RNText style={{ marginHorizontal: 12, color: colors.muted, fontSize: 13 }}>OU</RNText>
                   <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                 </View>
+                )}
 
                 <AuthButton
                   label="Entrar com OAuth"
