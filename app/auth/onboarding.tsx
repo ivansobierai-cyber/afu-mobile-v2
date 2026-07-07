@@ -58,8 +58,17 @@ export default function OnboardingScreen() {
 
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        <ScrollView contentContainerStyle={{ padding: 24 }}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 16 : 0}
+      >
+        <ScrollView
+          contentContainerStyle={{ padding: 24, flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={{ alignItems: "center", marginBottom: 28 }}>
             <Text style={{ fontSize: 40, marginBottom: 12 }}>🌿</Text>
             <Text style={{ fontSize: 24, fontWeight: "800", color: colors.foreground, textAlign: "center" }}>

@@ -92,12 +92,16 @@ export default function ForgotPasswordScreen() {
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
         >
+          <View style={{ paddingHorizontal: 20 }}>
           <AuthCard
             title="Recuperar Senha"
             subtitle="Digite seu e-mail para receber um link de recuperação"
@@ -130,6 +134,7 @@ export default function ForgotPasswordScreen() {
                   setError(null);
                 }}
                 keyboardType="email-address"
+                autoComplete="email"
                 icon="✉️"
                 editable={!loading && !success}
               />
@@ -188,6 +193,7 @@ export default function ForgotPasswordScreen() {
               />
             </View>
           </AuthCard>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>

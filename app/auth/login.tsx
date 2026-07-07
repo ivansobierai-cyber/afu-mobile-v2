@@ -66,6 +66,19 @@ export default function LoginScreen() {
     }
   };
 
+  const handleQuickLogin = async (nextEmail: string, nextPassword: string) => {
+    clearError();
+    setEmail(nextEmail);
+    setPassword(nextPassword);
+    const result = await loginAPI({ email: nextEmail, password: nextPassword });
+
+    if (result.success) {
+      router.replace('/(tabs)');
+    } else if (result.error) {
+      setErrors({ email: result.error.message });
+    }
+  };
+
   const handleOAuthLogin = async () => {
     try {
       await startOAuthLogin();
@@ -76,8 +89,17 @@ export default function LoginScreen() {
 
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={{ paddingHorizontal: 20 }}>
             <AuthCard
               title="Bem-vindo de Volta"
@@ -95,6 +117,7 @@ export default function LoginScreen() {
                   }}
                   error={errors.email}
                   keyboardType="email-address"
+                  autoComplete="email"
                   editable={!apiLoading}
                 />
 
@@ -108,6 +131,7 @@ export default function LoginScreen() {
                   }}
                   error={errors.password}
                   secureTextEntry
+                  autoComplete="password"
                   editable={!apiLoading}
                 />
 
@@ -123,6 +147,24 @@ export default function LoginScreen() {
                   disabled={apiLoading}
                   variant="primary"
                 />
+
+                <View style={{ gap: 10 }}>
+                  <RNText style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
+                    Acesso rapido para teste
+                  </RNText>
+                  <AuthButton
+                    label="Entrar com Demo Produtor"
+                    onPress={() => handleQuickLogin('demo@afuagro.com.br', 'Demo@1234')}
+                    disabled={apiLoading}
+                    variant="outline"
+                  />
+                  <AuthButton
+                    label="Entrar com Demo Comprador"
+                    onPress={() => handleQuickLogin('comprador@afuagro.com.br', 'Demo@1234')}
+                    disabled={apiLoading}
+                    variant="outline"
+                  />
+                </View>
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
                   <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />

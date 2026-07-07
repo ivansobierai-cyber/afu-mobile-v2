@@ -12,6 +12,7 @@ interface AuthTextInputProps {
   icon?: string;
   error?: string;
   editable?: boolean;
+  autoComplete?: 'off' | 'email' | 'password';
 }
 
 /**
@@ -34,6 +35,7 @@ export function AuthTextInput({
   icon,
   error,
   editable = true,
+  autoComplete = 'off',
 }: AuthTextInputProps) {
   const colors = useColors();
   const [showPassword, setShowPassword] = useState(!secureTextEntry);
@@ -61,6 +63,11 @@ export function AuthTextInput({
           secureTextEntry={secureTextEntry && !showPassword}
           keyboardType={keyboardType}
           editable={editable}
+          autoCorrect={false}
+          autoCapitalize="none"
+          autoComplete={autoComplete}
+          textContentType="none"
+          importantForAutofill="no"
           className="flex-1 text-foreground text-base"
           style={{ color: colors.foreground }}
         />

@@ -20,6 +20,15 @@
         "EXPO_PUBLIC_API_BASE_URL": "https://api-staging.afuagro.com.br"
       }
     },
+    "apk": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_BASE_URL": "http://192.168.1.5:3000"
+      }
+    },
     "production": {
       "autoIncrement": true,
       "env": {

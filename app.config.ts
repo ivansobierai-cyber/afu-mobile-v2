@@ -36,6 +36,7 @@ const config: ExpoConfig = {
     eas: {
       projectId: "a1dfdf25-6741-4df3-b724-cabb3aab3174",
     },
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
   },
   version: "1.0.0",
   orientation: "portrait",
@@ -122,6 +123,7 @@ const config: ExpoConfig = {
         android: {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,
+          usesCleartextTraffic: true,
         },
       },
     ],

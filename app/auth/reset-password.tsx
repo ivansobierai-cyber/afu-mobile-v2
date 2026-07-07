@@ -144,7 +144,12 @@ export default function ResetPasswordScreen() {
   if (!tokenValid) {
     return (
       <ScreenContainer>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ paddingHorizontal: 20 }}>
           <AuthCard title="Link Expirado" subtitle="O link de recuperação não é mais válido" icon="⚠️">
             <View className="mb-6 p-4 bg-error/10 rounded-lg border border-error">
               <RNText className="text-error text-sm font-semibold">{error}</RNText>
@@ -173,6 +178,7 @@ export default function ResetPasswordScreen() {
               />
             </View>
           </AuthCard>
+          </View>
         </ScrollView>
       </ScreenContainer>
     );
@@ -183,12 +189,16 @@ export default function ResetPasswordScreen() {
     <ScreenContainer>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1 }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
         >
+          <View style={{ paddingHorizontal: 20 }}>
           <AuthCard
             title="Redefinir Senha"
             subtitle="Digite sua nova senha"
@@ -214,6 +224,7 @@ export default function ResetPasswordScreen() {
                   setErrors(newErrors);
                 }}
                 secureTextEntry
+                autoComplete="password"
                 icon="🔐"
                 error={errors.newPassword}
               />
@@ -229,6 +240,7 @@ export default function ResetPasswordScreen() {
                   setErrors(newErrors);
                 }}
                 secureTextEntry
+                autoComplete="password"
                 icon="🔐"
                 error={errors.confirmPassword}
               />
@@ -262,6 +274,7 @@ export default function ResetPasswordScreen() {
               />
             </View>
           </AuthCard>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>

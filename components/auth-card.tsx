@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, ScrollView } from 'react-native';
+import { View, Text } from 'react-native';
 
 interface AuthCardProps {
   title: string;
@@ -19,11 +19,7 @@ interface AuthCardProps {
  */
 export function AuthCard({ title, subtitle, children, icon }: AuthCardProps) {
   return (
-    <ScrollView
-      contentContainerStyle={{ flexGrow: 1 }}
-      showsVerticalScrollIndicator={false}
-      className="flex-1 px-6 py-8"
-    >
+    <View className="px-6 py-8">
       {/* Ícone */}
       {icon && <Text className="text-6xl text-center mb-4">{icon}</Text>}
 
@@ -36,7 +32,7 @@ export function AuthCard({ title, subtitle, children, icon }: AuthCardProps) {
       )}
 
       {/* Conteúdo */}
-      <View className="flex-1">{children}</View>
-    </ScrollView>
+      <View>{children}</View>
+    </View>
   );
 }

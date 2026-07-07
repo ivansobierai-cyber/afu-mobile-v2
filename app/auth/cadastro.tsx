@@ -106,7 +106,18 @@ export default function CadastroScreen() {
   if (step === 'profile') {
     return (
       <ScreenContainer>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+          style={{ flex: 1 }}
+        >
+          <ScrollView
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={{ paddingHorizontal: 20 }}>
           <AuthCard
             title="Qual é seu perfil?"
             subtitle="Escolha o tipo de usuário que melhor descreve você"
@@ -149,15 +160,27 @@ export default function CadastroScreen() {
               />
             </View>
           </AuthCard>
-        </ScrollView>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </ScreenContainer>
     );
   }
 
   return (
     <ScreenContainer>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} showsVerticalScrollIndicator={false}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 16 : 0}
+        style={{ flex: 1 }}
+      >
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', paddingVertical: 20 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={{ paddingHorizontal: 20 }}>
           <AuthCard
             title="Crie sua conta"
             subtitle={`Perfil selecionado: ${PROFILE_TYPES.find((p) => p.id === selectedProfile)?.label}`}
@@ -189,6 +212,7 @@ export default function CadastroScreen() {
                   setErrors(newErrors);
                 }}
                 keyboardType="email-address"
+                autoComplete="email"
                 icon="✉️"
                 error={errors.email}
               />
@@ -219,6 +243,7 @@ export default function CadastroScreen() {
                   setErrors(newErrors);
                 }}
                 secureTextEntry
+                autoComplete="password"
                 icon="🔐"
                 error={errors.password}
               />
@@ -234,6 +259,7 @@ export default function CadastroScreen() {
                   setErrors(newErrors);
                 }}
                 secureTextEntry
+                autoComplete="password"
                 icon="🔐"
                 error={errors.confirmPassword}
               />
@@ -276,6 +302,7 @@ export default function CadastroScreen() {
               />
             </View>
           </AuthCard>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>

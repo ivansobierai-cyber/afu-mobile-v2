@@ -25,11 +25,12 @@
     "weather:alerts": "tsx scripts/run-weather-alerts.ts",
     "eas:android:dev": "eas build --platform android --profile development",
     "eas:android:preview": "eas build --platform android --profile preview",
+    "eas:android:apk": "eas build --platform android --profile apk",
     "eas:android:prod": "eas build --platform android --profile production",
     "eas:ios:preview": "eas build --platform ios --profile preview",
     "eas:ios:prod": "eas build --platform ios --profile production",
-    "android": "expo start --android",
-    "ios": "expo start --ios",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
     "qr": "node scripts/generate_qr.mjs"
   },
   "dependencies": {
