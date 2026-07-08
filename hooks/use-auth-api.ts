@@ -87,6 +87,7 @@ export function useAuthAPI() {
 
         // CORREÇÃO P3: Invalidar cache tRPC para forçar re-fetch de auth.session
         await queryClient.invalidateQueries({ queryKey: [['auth', 'session']] });
+        await queryClient.refetchQueries({ queryKey: [['auth', 'session']] });
         console.log('[useAuthAPI] Cache tRPC invalidado após login');
 
         return {
@@ -162,6 +163,7 @@ export function useAuthAPI() {
 
         // CORREÇÃO P3: Invalidar cache tRPC para forçar re-fetch de auth.session
         await queryClient.invalidateQueries({ queryKey: [['auth', 'session']] });
+        await queryClient.refetchQueries({ queryKey: [['auth', 'session']] });
         console.log('[useAuthAPI] Cache tRPC invalidado após signup');
 
         return {

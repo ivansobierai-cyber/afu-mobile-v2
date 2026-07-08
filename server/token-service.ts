@@ -41,7 +41,7 @@ export async function createAccessToken(
 
   const token = await new SignJWT({
     openId,
-    appId: ENV.appId,
+    appId: ENV.appId || "afu-mobile",
     name,
     tokenType: 'access',
   } as AccessTokenPayload)

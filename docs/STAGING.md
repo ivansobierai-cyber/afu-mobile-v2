@@ -18,6 +18,7 @@ Se `/api/health` retornar 503, a API ainda não está no ar — siga o deploy ab
 |----------|--------|
 | `DATABASE_URL` | **Reference:** `DATABASE_URL=${{MySQL.MYSQL_URL}}` (troque `MySQL` pelo nome do seu serviço de banco) |
 | `JWT_SECRET` | string longa aleatória |
+| `VITE_APP_ID` | `afu-mobile` (opcional, recomendado) |
 | `NODE_ENV` | `production` |
 | `SEED_ON_START` | `1` (só no primeiro deploy) |
 

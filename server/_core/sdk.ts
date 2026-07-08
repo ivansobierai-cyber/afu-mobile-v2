@@ -6,6 +6,7 @@ import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
+import { verifyAccessToken } from "../token-service";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -232,15 +233,36 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
-    // Regular authentication flow
     const authHeader = req.headers.authorization || req.headers.Authorization;
-    let token: string | undefined;
+    let bearerToken: string | undefined;
     if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice("Bearer ".length).trim();
+      bearerToken = authHeader.slice("Bearer ".length).trim();
     }
 
     const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = token || cookies.get(COOKIE_NAME);
+    const sessionCookie = bearerToken || cookies.get(COOKIE_NAME);
+
+    if (!sessionCookie) {
+      throw ForbiddenError("Invalid session cookie");
+    }
+
+    // Login e-mail/senha emite access tokens (token-service), não cookies OAuth
+    if (bearerToken) {
+      const accessPayload = await verifyAccessToken(bearerToken);
+      if (accessPayload) {
+        const signedInAt = new Date();
+        const user = await db.getUserByOpenId(accessPayload.openId);
+        if (!user) {
+          throw ForbiddenError("User not found");
+        }
+        await db.upsertUser({
+          openId: user.openId,
+          lastSignedIn: signedInAt,
+        });
+        return user;
+      }
+    }
+
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {
