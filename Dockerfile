@@ -11,7 +11,7 @@ COPY package.json package-lock.json ./
 COPY server ./server
 COPY shared ./shared
 COPY drizzle ./drizzle
-COPY scripts/start-api-production.sh ./scripts/
+COPY scripts ./scripts
 COPY drizzle.config.ts tsconfig.json ./
 RUN npm run build
 EXPOSE 3000

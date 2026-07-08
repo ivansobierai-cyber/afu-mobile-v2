@@ -37,9 +37,9 @@ npx drizzle-kit migrate
 
 if [ "$SEED_ON_START" = "1" ]; then
   echo "[api] Running demo seeds..."
-  npm run seed || true
-  npm run seed:marketplace || true
-  npm run seed:comprador || true
+  npm run seed
+  npm run seed:marketplace
+  npm run seed:comprador
 fi
 
 echo "[api] Starting server on port ${PORT:-3000}..."
