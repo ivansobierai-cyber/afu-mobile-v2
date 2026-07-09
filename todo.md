@@ -418,7 +418,7 @@
 ## MVP 1.0 — Planta Saudável — ENTREGA FINAL (03/07/2026)
 
 ### Escopo concluído
-- [x] Dashboard: 6 stats clicáveis + 8 ações rápidas + últimos diagnósticos
+- [x] Dashboard: 7 stat cards + 9 ações rápidas + WeatherCard
 - [x] Diagnóstico IA: foto → análise → salvar → laudo PDF → histórico com deep link `?historico=1`
 - [x] CRUD Propriedades / Terrenos / Cultivos via tRPC + MySQL (validação de área plantada)
 - [x] Calendário agrícola (CRUD eventos)
@@ -426,7 +426,7 @@
 - [x] Análise fitotécnica
 - [x] Materiais didáticos (lista pública tRPC)
 - [x] Suporte técnico (MVP com chat/chamado/dúvida/visita)
-- [x] Autenticação: welcome → login-new/cadastro-new → onboarding → tabs
+- [x] Autenticação: welcome → login / cadastro → onboarding → tabs
 - [x] AuthGuard + RouteGuard protegendo rotas
 - [x] Recuperação de senha (forgot/reset)
 - [x] TypeScript 0 erros (`npm run check`)
@@ -488,9 +488,27 @@ EXPO_PUBLIC_DEV_SKIP_AUTH=1 DEV_SKIP_AUTH=1 pnpm dev
 npm run db:push
 ```
 
-## Próximos passos — v3 / roadmap
-1. **Marketplace rural** — fluxo completo comprador/parceiro (pedido + pagamento)
-2. **Geolocalização** — mapa de propriedades e talhões
-3. **Integração clima** — API meteorológica em tempo real por propriedade
-4. **Push remoto** — FCM/APNs além de notificações locais
-5. **Integrar `queueMutation`** em todos os formulários CRUD core
+## Próximos passos — v3 / roadmap (atualizado 08/07/2026)
+
+### Concluído no código (verificado)
+- [x] **Geolocalização** — GPS em propriedades, mapa geral (`app/propriedades/mapa.tsx`)
+- [x] **Clima** — Open-Meteo por propriedade, WeatherCard no dashboard, alertas automáticos
+- [x] **Push remoto** — register/unregister FCM, notificações de pedido marketplace
+- [x] **Marketplace P4.1** — catálogo, carrinho, checkout, pedidos, painel vendedor, PIX demo
+- [x] **Staging Railway** — API Docker, seeds, login 4G validado
+- [x] **Auth Android + staging** — layout login, Bearer token (`sdk.ts`), profiles EAS `apk`/`preview`
+- [x] **Home marketplace** — stat card + ação rápida
+
+### Parcial
+- [~] **Marketplace pagamento** — PIX demo apenas; Mercado Pago / PIX real pendente
+- [~] **Offline queueMutation** — em propriedades, cultivos, terrenos, calendário; faltam outros formulários
+- [~] **Testes Vitest** — 220 passando; 2 suites falham import (`auth-flow`, `resend-email`)
+
+### Pendente para usuários finais
+- [ ] Homologação beta completa no APK staging (marketplace + cadastro + diagnóstico)
+- [ ] API produção (`api.afuagro.com.br`) + MySQL dedicado
+- [ ] Domínio CNAME `api-staging.afuagro.com.br`
+- [ ] Credenciais prod: FCM (Expo), SendGrid, OAuth (opcional)
+- [ ] Build `eas:android:prod` + Play Store (track internal → beta → production)
+- [ ] Remover/ocultar login demo em build `production` (já condicional via `isDemoLoginEnabled`)
+- [ ] Corrigir 2 suites de teste com falha de import

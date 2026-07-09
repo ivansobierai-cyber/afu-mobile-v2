@@ -21,8 +21,9 @@ Arquivos: `hooks/use-auth-api.ts`, `hooks/use-session.ts`, `app/_layout.tsx` (Au
 
 ### 1. Dashboard (`app/(tabs)/index.tsx`)
 
-- 6 stat cards clicáveis (propriedades, cultivos, diagnósticos, análises, laudos, eventos)
-- 8 ações rápidas (diagnóstico, propriedades, histórico, calendário, materiais, suporte, análise solo, relatórios)
+- 7 stat cards clicáveis (propriedades, cultivos, diagnósticos, análises, laudos, eventos, marketplace)
+- 9 ações rápidas (inclui marketplace, clima, diagnóstico, etc.)
+- WeatherCard quando propriedade tem GPS
 - Dados via tRPC; pull-to-refresh invalida queries
 
 ### 2. Diagnóstico IA (`app/(tabs)/diagnostico.tsx`)

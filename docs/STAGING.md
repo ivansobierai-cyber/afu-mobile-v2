@@ -55,8 +55,9 @@ O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_
 |---------|-----|-----|
 | `apk` | `http://192.168.1.5:3000` | LAN / dev em casa |
 | `preview` | `https://afu-mobile-v2-production.up.railway.app` | Testadores externos (4G) |
-| `preview-custom` | `https://api-staging.afuagro.com.br` | Após configurar CNAME no DNS |
-| `production` | `https://api.afuagro.com.br` | Loja / produção |
+| `production` | `https://api.afuagro.com.br` | Loja / produção (API ainda não deployada) |
+
+> Domínio customizado `api-staging.afuagro.com.br`: configurar CNAME no DNS apontando para o domínio Railway quando quiser URL de marca no APK.
 
 ## Erros comuns (Railway)
 

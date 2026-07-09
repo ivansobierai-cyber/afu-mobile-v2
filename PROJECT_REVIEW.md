@@ -1,20 +1,21 @@
 # Revisão do Projeto AFU Mobile — MVP 1.0 "Planta Saudável"
 
-Data: 03 de julho de 2026
+Data: 08 de julho de 2026 (revisão de progresso v3 + staging)
 
 ---
 
 ## Resumo Executivo
 
-MVP 1.0 concluído e funcional. Stack: **Expo Router + React Native + tRPC + Drizzle ORM + MySQL**.
+MVP 1.0 concluído. **P3 (geo, clima, push, offline)** e **P4.1 (marketplace comprador)** implementados no código. **API staging no Railway** no ar e login validado em 4G.
 
 | Métrica | Status |
 |---------|--------|
 | **TypeScript** | 0 erros (`npm run check`) |
-| **Testes** | 252 passando (Vitest) |
-| **Auth** | Email/senha + OAuth, JWT + refresh token |
-| **Dados** | tRPC end-to-end (nenhum AsyncStorage para dados core) |
-| **Dev Server** | Metro :8081 + API :3000 |
+| **Testes** | 220 passando · 2 suites com falha de import (`auth-flow`, `resend-email`) |
+| **Auth** | Email/senha + OAuth, JWT + refresh token, Bearer em staging |
+| **Dados** | tRPC end-to-end (dados core via API, não AsyncStorage) |
+| **API staging** | `https://afu-mobile-v2-production.up.railway.app` — health OK |
+| **APK staging** | Profile EAS `preview` — login demo validado em 4G |
 
 ---
 
@@ -67,11 +68,11 @@ EXPO_PUBLIC_DEV_SKIP_AUTH=1 DEV_SKIP_AUTH=1 npm run dev
 
 | Tela | Status | Dados |
 |------|--------|-------|
-| Dashboard | OK | tRPC (6 queries: propriedades, cultivos, eventos, relatórios, análises, diagnósticos) |
-| Propriedades | OK | tRPC CRUD + detalhe com terrenos |
+| Dashboard | OK | 7 stat cards + 9 ações rápidas + WeatherCard (clima na fazenda) |
+| Propriedades | OK | tRPC CRUD + GPS + mapa (`propriedades/mapa.tsx`) |
 | Cultivos | OK | tRPC CRUD + validação de área plantada ≤ terreno |
 | Diagnóstico IA | OK | Foto → análise IA → salvar → laudo PDF → histórico |
-| Mais | OK | Menu hub com ~80 submodules + logout |
+| Mais | OK | Menu hub com ~80 submodules + marketplace + logout |
 
 ### Módulos (via tRPC)
 
@@ -90,7 +91,8 @@ EXPO_PUBLIC_DEV_SKIP_AUTH=1 DEV_SKIP_AUTH=1 npm run dev
 
 | Funcionalidade | Status |
 |----------------|--------|
-| Login email/senha | OK |
+| Login email/senha | OK (staging 4G validado jul/2026) |
+| Login layout Android | OK (ScrollView único, sem autofill quebrando toque) |
 | Cadastro com seleção de perfil | OK |
 | OAuth (Google/Apple) | OK (callback dedicado) |
 | Recuperação de senha | OK (SendGrid + token) |
@@ -141,13 +143,50 @@ app/_layout.tsx (Root Stack + AuthGuard)
 - [x] Sync offline para dados core (`lib/offline/core-mutation-queue.ts`)
 - [x] ADMIN_OFFLINE_GUIDE.md atualizado (conteúdos + core sync)
 
-## Pendente (v3 / roadmap)
+## v3 / P3 — Concluído no código (verificado 08/07/2026)
 
-- [ ] Marketplace rural — fluxo completo comprador/parceiro
-- [ ] Geolocalização — mapa de propriedades
-- [ ] Integração clima — API meteorológica por propriedade
-- [ ] Push remoto (FCM/APNs)
-- [ ] Integrar `queueMutation` em todos os formulários CRUD
+| Item | Status | Evidência |
+|------|--------|-----------|
+| Geolocalização + mapa | **Concluído** | `app/propriedades/mapa.tsx`, GPS em `propriedades.tsx`, `lib/geo/coordinates.ts` |
+| Clima por propriedade | **Concluído** | `server/routers/weather-router.ts`, `components/weather-card.tsx`, alertas em `lib/weather/alerts.ts` |
+| Push remoto FCM/APNs | **Concluído** | `server/routers/push-router.ts`, `components/push-notification-manager.tsx`, notif. marketplace em `server/services/marketplace-notifications.ts` |
+| Offline `queueMutation` | **Parcial** | Integrado em propriedades, cultivos, terrenos, calendário via `useRunCoreMutation` — não em todos os formulários |
+| Alertas climáticos automáticos | **Concluído** | `server/_core/scheduled-routes.ts`, `scripts/run-weather-alerts.ts` |
+
+## P4 — Marketplace (verificado 08/07/2026)
+
+| Item | Status | Evidência |
+|------|--------|-----------|
+| Catálogo + busca + categorias | **Concluído** | `app/mais/marketplace.tsx`, `secondaryData.marketplace.list` |
+| Carrinho + checkout | **Concluído** | `hooks/use-marketplace-cart.ts`, `components/marketplace-checkout.tsx` |
+| Pedidos + timeline | **Concluído** | `components/marketplace-pedido-detail.tsx`, `marketplace-pedido-timeline.tsx` |
+| Painel vendedor | **Concluído** | `components/marketplace-vendedor-panel.tsx` |
+| PIX / pagamento | **Parcial (demo)** | Botão "Pagar com PIX (demo)" — sem gateway real (Mercado Pago) |
+| Card na home | **Concluído** | Stat card + ação rápida em `app/(tabs)/index.tsx` |
+
+## Staging e deploy (jul/2026)
+
+| Item | Status |
+|------|--------|
+| Dockerfile + Railway | Concluído — `Dockerfile`, `scripts/start-api-production.sh` |
+| API staging online | Concluído — `afu-mobile-v2-production.up.railway.app` |
+| Login staging 4G | Concluído — fix Bearer token em `server/_core/sdk.ts` |
+| EAS profile `preview` | Concluído — aponta para API Railway |
+| EAS profile `apk` | Concluído — LAN `192.168.1.5:3000` |
+| Domínio `api-staging.afuagro.com.br` | Pendente — CNAME no DNS |
+| API produção `api.afuagro.com.br` | Pendente |
+| Play Store (AAB `production`) | Pendente |
+
+## Pendente para liberação a usuários
+
+1. **Homologação beta** — marketplace comprador/vendedor, cadastro real, diagnóstico IA no APK staging
+2. **API produção** — deploy dedicado + MySQL prod (sem `SEED_ON_START`)
+3. **Pagamento real** — Mercado Pago / PIX de produção no marketplace
+4. **Credenciais prod** — FCM (Expo dashboard), SendGrid (recuperação de senha)
+5. **Build produção** — `npm run eas:android:prod` + submit Play Store
+6. **Offline completo** — `useRunCoreMutation` nos formulários restantes
+7. **Testes** — corrigir 2 suites Vitest com falha de import
+8. **Docs** — OAuth/SendGrid em staging (variáveis vazias no Railway hoje)
 
 ---
 
@@ -168,4 +207,7 @@ npm run test
 ```
 
 App web: `http://localhost:8081`
-API: `http://localhost:3000`
+API local: `http://localhost:3000`
+API staging: `https://afu-mobile-v2-production.up.railway.app`
+
+Guia staging: [docs/STAGING.md](docs/STAGING.md)
