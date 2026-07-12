@@ -54,7 +54,6 @@ function AuthGuard() {
     const inOAuthGroup = root === "oauth";
     const isProtectedRoute = PROTECTED_ROUTE_GROUPS.has(root ?? "");
     const authScreen = segments.at(1);
-    const authScreen = (segments as string[])[1];
 
     // Rotas públicas de auth (login, cadastro, recuperação)
     const isPublicAuthScreen =
