@@ -6,12 +6,16 @@ import { useCallback, useMemo, useState } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { WeatherCard } from "@/components/weather-card";
 import { DashboardStatCard, DashboardStatCell, DashboardStatGrid } from "@/components/dashboard-stat-card";
+import { DashboardCardsModal } from "@/components/dashboard-cards-modal";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useSession } from "@/hooks/use-session";
+import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
+import { useDashboardCards, type DashboardCardId } from "@/hooks/use-dashboard-cards";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
+import type { ComponentProps } from "react";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#2E7D32", planejado: "#EF6C00", colhido: "#6B7C6E", perdido: "#C62828",
@@ -20,12 +24,42 @@ const STATUS_LABELS: Record<string, string> = {
   em_andamento: "Em andamento", planejado: "Planejado", colhido: "Colhido", perdido: "Perdido",
 };
 
+type IconName = ComponentProps<typeof IconSymbol>["name"];
+
+type StatItem = {
+  id: DashboardCardId;
+  label: string;
+  value: number | string;
+  icon: IconName;
+  color: string;
+  route: string;
+  accent?: boolean;
+  hint?: string;
+  badge?: number;
+  badgeColor?: string;
+};
+
+function isEventTodayOrTomorrow(date: Date | string | null | undefined): boolean {
+  if (!date) return false;
+  const eventDate = new Date(date);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const d = new Date(eventDate);
+  d.setHours(0, 0, 0, 0);
+  return d.getTime() === today.getTime() || d.getTime() === tomorrow.getTime();
+}
+
 export default function DashboardScreen() {
   const colors = useColors();
   const router = useRouter();
   const utils = trpc.useUtils();
   const { isAuthenticated, perfil } = useSession();
+  const { isOnline, pending } = useCoreOfflineSync();
+  const { cards, moveCard, toggleVisible, resetCards } = useDashboardCards();
   const [refreshing, setRefreshing] = useState(false);
+  const [cardsModalOpen, setCardsModalOpen] = useState(false);
 
   const { data: propriedades = [], isLoading: loadingProp } = trpc.coreData.propriedades.list.useQuery();
   const { data: cultivos = [], isLoading: loadingCult } = trpc.coreData.cultivos.list.useQuery();
@@ -43,26 +77,6 @@ export default function DashboardScreen() {
     offset: 0,
   });
 
-  const isInitialLoading = loadingProp && propriedades.length === 0;
-
-  const refresh = useCallback(async () => {
-    setRefreshing(true);
-    try {
-      await Promise.all([
-        utils.coreData.propriedades.list.invalidate(),
-        utils.coreData.cultivos.list.invalidate(),
-        utils.diagnostico.historico.invalidate(),
-        utils.secondaryData.analises.list.invalidate(),
-        utils.secondaryData.relatorios.list.invalidate(),
-        utils.coreData.calendario.list.invalidate(),
-        utils.secondaryData.marketplace.list.invalidate(),
-        utils.materiaisParceiros.materiais.list.invalidate(),
-      ]);
-    } finally {
-      setRefreshing(false);
-    }
-  }, [utils]);
-
   const cultivosAtivos = useMemo(
     () => cultivos.filter((c) => c.status === "em_andamento"),
     [cultivos],
@@ -75,15 +89,23 @@ export default function DashboardScreen() {
     [propriedades],
   );
 
-  const propriedadesComGps = useMemo(
-    () => propriedades.filter((p) =>
-      hasValidCoordinates(parseCoordinate(p.latitude), parseCoordinate(p.longitude)),
-    ),
-    [propriedades],
+  const { data: weather } = trpc.weather.byPropriedade.useQuery(
+    { propriedadeId: propriedadeComGps?.id ?? 0 },
+    { enabled: !!propriedadeComGps, staleTime: 10 * 60 * 1000 },
   );
 
   const eventosPendentes = useMemo(
     () => eventos.filter((e) => e.status === "pendente" || e.status === "em_andamento").length,
+    [eventos],
+  );
+
+  const eventosHojeAmanha = useMemo(
+    () =>
+      eventos.filter(
+        (e) =>
+          (e.status === "pendente" || e.status === "em_andamento") &&
+          isEventTodayOrTomorrow(e.dataProgramada),
+      ).length,
     [eventos],
   );
 
@@ -100,21 +122,144 @@ export default function DashboardScreen() {
     [eventos],
   );
 
+  const isInitialLoading = loadingProp && propriedades.length === 0;
   const labTotal = diagnosticos.length + analises.length + relatorios.length;
-  const climaValue = propriedadesComGps.length > 0 ? propriedadesComGps.length : "—";
+  const climaValue = propriedadeComGps
+    ? weather?.current?.temperature != null
+      ? `${Math.round(weather.current.temperature)}°C`
+      : "…"
+    : "—";
   const materiaisValue = loadingMat ? "…" : (materiaisData?.total ?? "—");
 
-  const statItems = [
-    { label: "Propriedades", value: propriedades.length, icon: "house.fill" as const, color: MODULE_COLORS.propriedades, route: "/(tabs)/propriedades" },
-    { label: "Cultivos", value: cultivos.length, icon: "leaf.fill" as const, color: MODULE_COLORS.cultivos, route: "/(tabs)/cultivos", hint: `${cultivosAtivos.length} ativos` },
-    { label: "Diagnóstico", value: diagnosticos.length, icon: "camera.fill" as const, color: MODULE_COLORS.diagnostico, route: "/(tabs)/diagnostico" },
-    { label: "Laboratório", value: labTotal, icon: "flask.fill" as const, color: MODULE_COLORS.laboratorio, route: "/mais/laboratorio", accent: true },
-    { label: "Laudos", value: relatorios.length, icon: "doc.fill" as const, color: MODULE_COLORS.laudos, route: "/mais/relatorios" },
-    { label: "Eventos", value: eventosPendentes, icon: "calendar" as const, color: MODULE_COLORS.eventos, route: "/mais/calendario", hint: `${eventos.length} total` },
-    { label: "Marketplace", value: isAuthenticated ? produtosMarketplace.length : "—", icon: "cart.fill" as const, color: MODULE_COLORS.marketplace, route: "/mais/marketplace" },
-    { label: "Clima", value: climaValue, icon: "cloud.fill" as const, color: MODULE_COLORS.clima, route: "/mais/tempo", hint: propriedadesComGps.length > 0 ? "com GPS" : "sem GPS" },
-    { label: "Materiais", value: materiaisValue, icon: "books.vertical.fill" as const, color: MODULE_COLORS.materiais, route: "/mais/materiais" },
-  ];
+  const statItemsMap = useMemo<Record<DashboardCardId, StatItem>>(
+    () => ({
+      propriedades: {
+        id: "propriedades",
+        label: "Propriedades",
+        value: propriedades.length,
+        icon: "house.fill",
+        color: MODULE_COLORS.propriedades,
+        route: "/(tabs)/propriedades",
+      },
+      cultivos: {
+        id: "cultivos",
+        label: "Cultivos",
+        value: cultivos.length,
+        icon: "leaf.fill",
+        color: MODULE_COLORS.cultivos,
+        route: "/(tabs)/cultivos",
+        hint: `${cultivosAtivos.length} ativos`,
+      },
+      diagnostico: {
+        id: "diagnostico",
+        label: "Diagnóstico",
+        value: diagnosticos.length,
+        icon: "camera.fill",
+        color: MODULE_COLORS.diagnostico,
+        route: "/(tabs)/diagnostico",
+      },
+      laboratorio: {
+        id: "laboratorio",
+        label: "Laboratório",
+        value: labTotal,
+        icon: "flask.fill",
+        color: MODULE_COLORS.laboratorio,
+        route: "/mais/laboratorio",
+        accent: true,
+      },
+      laudos: {
+        id: "laudos",
+        label: "Laudos",
+        value: relatorios.length,
+        icon: "doc.fill",
+        color: MODULE_COLORS.laudos,
+        route: "/mais/relatorios",
+      },
+      eventos: {
+        id: "eventos",
+        label: "Eventos",
+        value: eventosPendentes,
+        icon: "calendar",
+        color: MODULE_COLORS.eventos,
+        route: "/mais/calendario",
+        hint: `${eventos.length} total`,
+        badge: eventosHojeAmanha,
+        badgeColor: MODULE_COLORS.eventos,
+      },
+      marketplace: {
+        id: "marketplace",
+        label: "Marketplace",
+        value: isAuthenticated ? produtosMarketplace.length : "—",
+        icon: "cart.fill",
+        color: MODULE_COLORS.marketplace,
+        route: "/mais/marketplace",
+      },
+      clima: {
+        id: "clima",
+        label: "Clima",
+        value: climaValue,
+        icon: "cloud.fill",
+        color: MODULE_COLORS.clima,
+        route: "/mais/tempo",
+        hint: propriedadeComGps ? weather?.current?.weatherLabel : "sem GPS",
+      },
+      materiais: {
+        id: "materiais",
+        label: "Materiais",
+        value: materiaisValue,
+        icon: "books.vertical.fill",
+        color: MODULE_COLORS.materiais,
+        route: "/mais/materiais",
+      },
+    }),
+    [
+      propriedades.length,
+      cultivos.length,
+      cultivosAtivos.length,
+      diagnosticos.length,
+      labTotal,
+      relatorios.length,
+      eventosPendentes,
+      eventos.length,
+      eventosHojeAmanha,
+      isAuthenticated,
+      produtosMarketplace.length,
+      climaValue,
+      propriedadeComGps,
+      weather?.current?.weatherLabel,
+      materiaisValue,
+    ],
+  );
+
+  const visibleStatItems = useMemo(
+    () =>
+      cards
+        .filter((c) => c.visible)
+        .map((c) => statItemsMap[c.id])
+        .filter(Boolean),
+    [cards, statItemsMap],
+  );
+
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([
+        utils.coreData.propriedades.list.invalidate(),
+        utils.coreData.cultivos.list.invalidate(),
+        utils.diagnostico.historico.invalidate(),
+        utils.secondaryData.analises.list.invalidate(),
+        utils.secondaryData.relatorios.list.invalidate(),
+        utils.coreData.calendario.list.invalidate(),
+        utils.secondaryData.marketplace.list.invalidate(),
+        utils.materiaisParceiros.materiais.list.invalidate(),
+        propriedadeComGps
+          ? utils.weather.byPropriedade.invalidate({ propriedadeId: propriedadeComGps.id })
+          : Promise.resolve(),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [utils, propriedadeComGps]);
 
   const styles = StyleSheet.create({
     header: {
@@ -137,6 +282,18 @@ export default function DashboardScreen() {
       paddingHorizontal: 10,
       paddingVertical: 5,
     },
+    offlineChip: {
+      backgroundColor: "#C62828",
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
+    pendingChip: {
+      backgroundColor: "#EF6C00",
+      borderRadius: 20,
+      paddingHorizontal: 10,
+      paddingVertical: 5,
+    },
     panel: {
       paddingHorizontal: 16,
       marginTop: 16,
@@ -149,6 +306,15 @@ export default function DashboardScreen() {
     },
     sectionTitle: { fontSize: 17, fontWeight: "700", color: colors.foreground },
     sectionLink: { fontSize: 14, color: colors.primary, fontWeight: "600" },
+    ctaBanner: {
+      backgroundColor: MODULE_COLORS.diagnostico,
+      borderRadius: 14,
+      padding: 14,
+      flexDirection: "row",
+      alignItems: "center",
+      gap: 12,
+      marginBottom: 16,
+    },
     cultivoCard: {
       backgroundColor: colors.surface,
       borderRadius: 14,
@@ -166,6 +332,16 @@ export default function DashboardScreen() {
       alignItems: "center",
       borderWidth: 1,
       borderColor: colors.border,
+    },
+    settingsBtn: {
+      width: 36,
+      height: 36,
+      borderRadius: 10,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      alignItems: "center",
+      justifyContent: "center",
     },
   });
 
@@ -222,40 +398,87 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          {isAuthenticated && propriedades.length > 0 && (
-            <View style={styles.summaryRow}>
-              <View style={styles.summaryChip}>
-                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: "600" }}>
-                  {propriedades.length} propriedade{propriedades.length !== 1 ? "s" : ""}
+          <View style={styles.summaryRow}>
+            {!isOnline && (
+              <View style={styles.offlineChip}>
+                <Text style={{ fontSize: 11, color: "#FFFFFF", fontWeight: "700" }}>Offline</Text>
+              </View>
+            )}
+            {pending > 0 && (
+              <View style={styles.pendingChip}>
+                <Text style={{ fontSize: 11, color: "#FFFFFF", fontWeight: "700" }}>
+                  {pending} pendente{pending !== 1 ? "s" : ""}
                 </Text>
               </View>
-              <View style={styles.summaryChip}>
-                <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: "600" }}>
-                  {cultivosAtivos.length} cultivo{cultivosAtivos.length !== 1 ? "s" : ""} ativo{cultivosAtivos.length !== 1 ? "s" : ""}
-                </Text>
-              </View>
-              {eventosPendentes > 0 && (
+            )}
+            {isAuthenticated && propriedades.length > 0 && (
+              <>
                 <View style={styles.summaryChip}>
                   <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: "600" }}>
-                    {eventosPendentes} evento{eventosPendentes !== 1 ? "s" : ""} pendente{eventosPendentes !== 1 ? "s" : ""}
+                    {propriedades.length} propriedade{propriedades.length !== 1 ? "s" : ""}
                   </Text>
                 </View>
-              )}
-            </View>
-          )}
+                <View style={styles.summaryChip}>
+                  <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: "600" }}>
+                    {cultivosAtivos.length} cultivo{cultivosAtivos.length !== 1 ? "s" : ""} ativo{cultivosAtivos.length !== 1 ? "s" : ""}
+                  </Text>
+                </View>
+                {eventosPendentes > 0 && (
+                  <View style={styles.summaryChip}>
+                    <Text style={{ fontSize: 11, color: "rgba(255,255,255,0.9)", fontWeight: "600" }}>
+                      {eventosPendentes} evento{eventosPendentes !== 1 ? "s" : ""} pendente{eventosPendentes !== 1 ? "s" : ""}
+                    </Text>
+                  </View>
+                )}
+              </>
+            )}
+          </View>
         </View>
 
         <View style={styles.panel}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Painel</Text>
-            {(loadingProp || loadingCult || loadingDiag) && !refreshing ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : null}
+            <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              {(loadingProp || loadingCult || loadingDiag) && !refreshing ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : null}
+              <TouchableOpacity
+                style={styles.settingsBtn}
+                onPress={() => setCardsModalOpen(true)}
+                accessibilityLabel="Personalizar painel"
+              >
+                <IconSymbol name="gear" size={18} color={colors.muted} />
+              </TouchableOpacity>
+            </View>
           </View>
 
+          <TouchableOpacity
+            style={styles.ctaBanner}
+            onPress={() => router.push("/(tabs)/diagnostico" as any)}
+            activeOpacity={0.85}
+          >
+            <View
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                backgroundColor: "rgba(255,255,255,0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              <IconSymbol name="camera.fill" size={22} color="#FFFFFF" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 15, fontWeight: "700", color: "#FFFFFF" }}>Novo Diagnóstico</Text>
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>Foto + IA fitossanitária</Text>
+            </View>
+            <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.8)" />
+          </TouchableOpacity>
+
           <DashboardStatGrid>
-            {statItems.map((item) => (
-              <DashboardStatCell key={item.label}>
+            {visibleStatItems.map((item) => (
+              <DashboardStatCell key={item.id}>
                 <DashboardStatCard
                   label={item.label}
                   value={item.value}
@@ -263,6 +486,8 @@ export default function DashboardScreen() {
                   color={item.color}
                   variant={item.accent ? "accent" : "default"}
                   hint={item.hint}
+                  badge={item.badge}
+                  badgeColor={item.badgeColor}
                   onPress={() => router.push(item.route as any)}
                 />
               </DashboardStatCell>
@@ -464,6 +689,15 @@ export default function DashboardScreen() {
           )}
         </View>
       </ScrollView>
+
+      <DashboardCardsModal
+        visible={cardsModalOpen}
+        cards={cards}
+        onClose={() => setCardsModalOpen(false)}
+        onMove={moveCard}
+        onToggleVisible={toggleVisible}
+        onReset={resetCards}
+      />
     </ScreenContainer>
   );
 }

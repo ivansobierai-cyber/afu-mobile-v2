@@ -22,6 +22,8 @@ type DashboardStatCardProps = {
   onPress: () => void;
   variant?: "default" | "accent";
   hint?: string;
+  badge?: number;
+  badgeColor?: string;
 };
 
 export function DashboardStatCard({
@@ -32,6 +34,8 @@ export function DashboardStatCard({
   onPress,
   variant = "default",
   hint,
+  badge,
+  badgeColor,
 }: DashboardStatCardProps) {
   const colors = useColors();
   const isAccent = variant === "accent";
@@ -49,8 +53,18 @@ export function DashboardStatCard({
       onPress={onPress}
       activeOpacity={0.75}
       accessibilityRole="button"
-      accessibilityLabel={`${label}: ${value}${hint ? `, ${hint}` : ""}`}
+      accessibilityLabel={`${label}: ${value}${hint ? `, ${hint}` : ""}${badge ? `, ${badge} alertas` : ""}`}
     >
+      {badge !== undefined && badge > 0 ? (
+        <View
+          style={[
+            styles.badge,
+            { backgroundColor: badgeColor ?? color },
+          ]}
+        >
+          <Text style={styles.badgeText}>{badge > 9 ? "9+" : badge}</Text>
+        </View>
+      ) : null}
       <View
         style={[
           styles.iconWrap,
@@ -118,6 +132,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
     elevation: 2,
+    position: "relative",
+  },
+  badge: {
+    position: "absolute",
+    top: 6,
+    right: 6,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 1,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
   iconWrap: {
     width: 32,
