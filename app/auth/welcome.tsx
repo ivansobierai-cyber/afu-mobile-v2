@@ -22,7 +22,7 @@ export default function WelcomeScreen() {
         {/* Logo e Branding */}
         <View className="flex-1 items-center justify-center gap-6 mb-12">
           <View className="w-24 h-24 bg-primary rounded-full items-center justify-center mb-4">
-            <IconSymbol name="sprout.fill" size={48} color="#FFFFFF" />
+            <IconSymbol name={"sprout.fill" as any} size={48} color="#FFFFFF" />
           </View>
 
           <Text className="text-4xl font-bold text-foreground text-center">
