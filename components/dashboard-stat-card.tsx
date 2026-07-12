@@ -39,6 +39,8 @@ export function DashboardStatCard({
 }: DashboardStatCardProps) {
   const colors = useColors();
   const isAccent = variant === "accent";
+  const tintBg = `${color}22`;
+  const tintBorder = `${color}44`;
 
   return (
     <TouchableOpacity
@@ -46,8 +48,8 @@ export function DashboardStatCard({
         styles.card,
         {
           minHeight: DASHBOARD_LAYOUT.cardMinHeight,
-          backgroundColor: isAccent ? color : colors.surface,
-          borderColor: isAccent ? color : colors.border,
+          backgroundColor: isAccent ? color : tintBg,
+          borderColor: isAccent ? color : tintBorder,
         },
       ]}
       onPress={onPress}

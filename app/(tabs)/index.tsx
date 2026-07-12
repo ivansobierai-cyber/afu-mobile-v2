@@ -7,6 +7,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { WeatherCard } from "@/components/weather-card";
 import { DashboardStatCard, DashboardStatCell, DashboardStatGrid } from "@/components/dashboard-stat-card";
 import { DashboardCardsModal } from "@/components/dashboard-cards-modal";
+import { PlantaSaudavelHubCard } from "@/components/planta-saudavel-hub-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useSession } from "@/hooks/use-session";
@@ -165,7 +166,6 @@ export default function DashboardScreen() {
         icon: "flask.fill",
         color: MODULE_COLORS.laboratorio,
         route: "/mais/laboratorio",
-        accent: true,
       },
       laudos: {
         id: "laudos",
@@ -306,15 +306,6 @@ export default function DashboardScreen() {
     },
     sectionTitle: { fontSize: 17, fontWeight: "700", color: colors.foreground },
     sectionLink: { fontSize: 14, color: colors.primary, fontWeight: "600" },
-    ctaBanner: {
-      backgroundColor: MODULE_COLORS.diagnostico,
-      borderRadius: 14,
-      padding: 14,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 12,
-      marginBottom: 16,
-    },
     cultivoCard: {
       backgroundColor: colors.surface,
       borderRadius: 14,
@@ -452,29 +443,11 @@ export default function DashboardScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
-            style={styles.ctaBanner}
-            onPress={() => router.push("/(tabs)/diagnostico" as any)}
-            activeOpacity={0.85}
-          >
-            <View
-              style={{
-                width: 40,
-                height: 40,
-                borderRadius: 12,
-                backgroundColor: "rgba(255,255,255,0.15)",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <IconSymbol name="camera.fill" size={22} color="#FFFFFF" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontSize: 15, fontWeight: "700", color: "#FFFFFF" }}>Novo Diagnóstico</Text>
-              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>Foto + IA fitossanitária</Text>
-            </View>
-            <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.8)" />
-          </TouchableOpacity>
+          <PlantaSaudavelHubCard
+            diagnosticos={diagnosticos.length}
+            analises={analises.length}
+            laudos={relatorios.length}
+          />
 
           <DashboardStatGrid>
             {visibleStatItems.map((item) => (
