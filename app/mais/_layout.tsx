@@ -12,6 +12,7 @@ export default function MaisLayout() {
       <Stack.Screen name="perfil" />
       <Stack.Screen name="administracao" />
       <Stack.Screen name="analise-fitotecnica" />
+      <Stack.Screen name="laboratorio" />
       <Stack.Screen name="relatorios" />
       <Stack.Screen name="parceiros" />
       <Stack.Screen name="marketplace" />

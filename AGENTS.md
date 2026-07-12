@@ -2,24 +2,45 @@
 
 ## Cursor Cloud specific instructions
 
-Single product: AFU Agro "Planta Saudável" — Expo (React Native + web) frontend and Express/tRPC/Drizzle backend in one repo. Standard commands (dev, test, lint, check, seed) are in `package.json` scripts and documented in `README.md`.
+This is an Expo SDK 54 app (Expo Router + tRPC + Drizzle ORM) with an Express API and a
+MySQL database. See `README.md` for the full setup/run reference and `server/README.md` for
+backend details. Notes below are the non-obvious, environment-specific bits for cloud agents.
 
 ### Services
 
-| Service | How to run | Port |
-|---------|-----------|------|
-| MySQL 8 | `sudo service mysql start` (see caveat below) | 3306 |
-| API (Express + tRPC) | `npm run dev:server` | 3000 |
-| Web (Expo/Metro) | `npm run dev:metro` | 8081 |
+| Service | Command | Port | Notes |
+|---------|---------|------|-------|
+| MySQL 8 | `sudo service mysql start` | 3306 | Installed natively (not Docker). DB `afu_mobile`, user `afu`/`afu_local_dev`. |
+| API (Express + tRPC) | `npm run dev:server` | 3000 | Hot-reloads via `tsx watch`. |
+| Metro web | `npm run dev:metro` | 8081 | Web build; first bundle takes ~20-25s. |
+| Both together | `npm run dev` | 3000 + 8081 | Runs API + Metro concurrently. |
 
-`npm run dev` starts API + web together.
+### Startup caveats (non-obvious)
 
-### Non-obvious caveats
+- **MySQL is native, not Docker.** The repo's `npm run db:up` uses Docker Compose, but Docker
+  is not available in this environment. MySQL 8 is installed via apt and must be started with
+  `sudo service mysql start` (it does not auto-start on VM boot). Do NOT run `npm run db:up`.
+- **`.env` is required and gitignored.** Copy `cp .env.example .env` and set a `JWT_SECRET`.
+  The default `DATABASE_URL` (`mysql://afu:afu_local_dev@127.0.0.1:3306/afu_mobile`) already
+  matches the local MySQL user/db, so no edits are needed there.
+- After starting a fresh DB, apply schema then seed: `npm run db:push` then `npm run seed`
+  (optionally `npm run seed:marketplace` and `npm run seed:comprador`). Seeds are idempotent.
+- **Demo logins** (web at http://localhost:8081): `demo@afuagro.com.br` / `Demo@1234` (producer)
+  and `comprador@afuagro.com.br` / `Demo@1234` (marketplace buyer). The login screen also has
+  "Entrar com Demo Produtor/Comprador" quick-access buttons.
+  Auth is email/password (JWT), not OAuth. The `OAUTH_SERVER_URL is not configured` log on
+  server start is expected and harmless for local dev.
+- tRPC endpoints use superjson: manual POSTs must wrap the input as `{"json": {...}}`, e.g.
+  `curl -X POST localhost:3000/api/trpc/auth.login -H 'Content-Type: application/json' -d '{"json":{"email":"...","password":"..."}}'`.
+- Optional external services (Forge LLM for AI diagnosis, SendGrid, Manus OAuth, Expo push) are
+  not configured; the app degrades gracefully without them. Weather uses the public Open-Meteo
+  API (no key).
 
-- **Docker is NOT available in this VM.** MySQL 8 is installed directly via apt instead. `npm run db:up` / `db:down` / `db:reset` (docker compose) will NOT work here. Start the DB with `sudo service mysql start` (it is not auto-started on boot). The database `afu_mobile` and user `afu`/`afu_local_dev` already exist, matching `DATABASE_URL` in `.env.example`; root password is `root`.
-- `.env` at the repo root is required by the API and drizzle-kit but is gitignored. If missing, `cp .env.example .env` works as-is (defaults match the local MySQL). Set a real `JWT_SECRET` value (any long random string).
-- After changing `drizzle/schema.ts`, run `npm run db:push`. Seeds (`npm run seed`, `seed:marketplace`, `seed:comprador`) are idempotent.
-- Demo accounts (after seeding): `demo@afuagro.com.br` / `Demo@1234` (producer) and `comprador@afuagro.com.br` / `Demo@1234` (marketplace buyer). The login screen also has "Entrar com Demo Produtor/Comprador" quick-access buttons.
-- tRPC endpoints use superjson: manual POSTs must wrap the input as `{"json": {...}}`, e.g. `curl -X POST localhost:3000/api/trpc/auth.login -H 'Content-Type: application/json' -d '{"json":{"email":"...","password":"..."}}'`.
-- Pre-existing failures on `main` (not environment issues): `npm run check` reports 2 TS errors (`app/_layout.tsx`, `app/auth/welcome.tsx`); `npm run lint` reports ~64 errors (mostly `react/no-unescaped-entities`); 2 vitest suites (`tests/auth-flow.test.ts`, `tests/resend-email.test.ts`) fail on an `expo-modules-core` mocking issue. The remaining 220 tests pass.
-- Optional external services (Forge LLM for AI diagnosis, SendGrid, Manus OAuth, Expo push) are not configured; the app degrades gracefully without them. Weather uses the public Open-Meteo API (no key).
+### Lint / test / build / typecheck
+
+- `npm run lint`, `npm run check` (tsc), `npm run test` (Vitest). These commands run fine, but
+  the repo currently has pre-existing lint errors, 2 `tsc` errors (`app/_layout.tsx`,
+  `app/auth/welcome.tsx`), and 2 Vitest suites that fail on `expo-modules-core` mocking
+  (`auth-flow.test.ts`, `resend-email.test.ts`). These are not environment issues.
+- Native builds (`eas:*`, `expo run:android/ios`) require EAS/device and are out of scope in
+  the cloud VM; use the web target for verification.
