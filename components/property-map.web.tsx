@@ -1,14 +1,14 @@
+import { createElement } from "react";
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   Linking,
   StyleSheet,
   type ViewStyle,
 } from "react-native";
 import { useColors } from "@/hooks/use-colors";
-import { formatCoordinates, openStreetMapUrl, staticMapUrl } from "@/lib/geo/coordinates";
+import { formatCoordinates, openStreetMapEmbedUrl, openStreetMapUrl } from "@/lib/geo/coordinates";
 import type { MapMarker } from "./property-map-types";
 
 interface PropertyMapProps {
@@ -16,6 +16,21 @@ interface PropertyMapProps {
   height?: number;
   style?: ViewStyle;
   onMarkerPress?: (marker: MapMarker) => void;
+}
+
+function OsmMapEmbed({ src, height }: { src: string; height: number }) {
+  return createElement("iframe", {
+    src,
+    title: "Mapa da propriedade",
+    loading: "lazy",
+    style: {
+      width: "100%",
+      height,
+      border: "0",
+      display: "block",
+      pointerEvents: "none",
+    },
+  });
 }
 
 export function PropertyMap({ markers, height = 220, style, onMarkerPress }: PropertyMapProps) {
@@ -37,7 +52,7 @@ export function PropertyMap({ markers, height = 220, style, onMarkerPress }: Pro
     );
   }
 
-  const url = staticMapUrl(markers);
+  const embedUrl = openStreetMapEmbedUrl(markers);
   const primary = markers[0];
   const mapsUrl = openStreetMapUrl(primary.latitude, primary.longitude);
 
@@ -53,8 +68,8 @@ export function PropertyMap({ markers, height = 220, style, onMarkerPress }: Pro
       }}
       style={[{ height, borderRadius: 12, overflow: "hidden" }, style]}
     >
-      {url ? (
-        <Image source={{ uri: url }} style={{ width: "100%", height: "100%" }} resizeMode="cover" />
+      {embedUrl ? (
+        <OsmMapEmbed src={embedUrl} height={height} />
       ) : (
         <View style={[styles.empty, { height: "100%", backgroundColor: colors.surface, borderColor: colors.border }]}>
           <Text style={{ color: colors.muted }}>Mapa indisponível</Text>

@@ -20,15 +20,41 @@ export function openStreetMapUrl(latitude: number, longitude: number): string {
   return `https://www.openstreetmap.org/?mlat=${latitude}&mlon=${longitude}#map=15/${latitude}/${longitude}`;
 }
 
-export function staticMapUrl(
+/** Bbox + embed URL for web preview (staticmap.openstreetmap.de is offline). */
+export function openStreetMapEmbedUrl(
   markers: Array<{ latitude: number; longitude: number }>,
-  width = 600,
-  height = 300,
 ): string | null {
   if (markers.length === 0) return null;
-  const center = markers[0];
-  const markerParam = markers.map((m) => `${m.latitude},${m.longitude},red`).join("|");
-  return `https://staticmap.openstreetmap.de/staticmap.php?center=${center.latitude},${center.longitude}&zoom=10&size=${width}x${height}&markers=${markerParam}`;
+
+  let minLat = markers[0].latitude;
+  let maxLat = markers[0].latitude;
+  let minLon = markers[0].longitude;
+  let maxLon = markers[0].longitude;
+
+  for (const marker of markers) {
+    minLat = Math.min(minLat, marker.latitude);
+    maxLat = Math.max(maxLat, marker.latitude);
+    minLon = Math.min(minLon, marker.longitude);
+    maxLon = Math.max(maxLon, marker.longitude);
+  }
+
+  const latPad = Math.max((maxLat - minLat) * 0.25, 0.015);
+  const lonPad = Math.max((maxLon - minLon) * 0.25, 0.015);
+  const south = minLat - latPad;
+  const north = maxLat + latPad;
+  const west = minLon - lonPad;
+  const east = maxLon + lonPad;
+  const primary = markers[0];
+
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${west},${south},${east},${north}&layer=mapnik&marker=${primary.latitude}%2C${primary.longitude}`;
+}
+
+export function staticMapUrl(
+  markers: Array<{ latitude: number; longitude: number }>,
+  _width = 600,
+  _height = 300,
+): string | null {
+  return openStreetMapEmbedUrl(markers);
 }
 
 export function parseCoordinateInput(value: string): number | undefined {
