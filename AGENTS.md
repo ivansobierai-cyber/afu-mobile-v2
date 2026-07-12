@@ -30,6 +30,9 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
   "Entrar com Demo Produtor/Comprador" quick-access buttons.
   Auth is email/password (JWT), not OAuth. The `OAUTH_SERVER_URL is not configured` log on
   server start is expected and harmless for local dev.
+- **Restart Metro after installing new npm dependencies.** A running `npm run dev:metro` does
+  not pick up packages added by `npm install` (module resolution errors persist); stop and
+  rerun `npm run dev` after dependency changes.
 - tRPC endpoints use superjson: manual POSTs must wrap the input as `{"json": {...}}`, e.g.
   `curl -X POST localhost:3000/api/trpc/auth.login -H 'Content-Type: application/json' -d '{"json":{"email":"...","password":"..."}}'`.
 - Optional external services (Forge LLM for AI diagnosis, SendGrid, Manus OAuth, Expo push) are
