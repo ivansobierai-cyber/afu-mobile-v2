@@ -1,9 +1,11 @@
-import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
+import { useEffect } from "react";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { usePermission } from "@/components/route-guard";
+import { useSession } from "@/hooks/use-session";
 
 type MenuItem = {
   title: string;
@@ -730,7 +732,25 @@ const MENU_SECTIONS: MenuSection[] = [
 export default function MaisScreen() {
   const colors = useColors();
   const router = useRouter();
+  const { canAccessMaisTab, loading } = useSession();
   const { canAccess: isAdmin } = usePermission({ requireAdmin: true });
+
+  useEffect(() => {
+    if (loading || canAccessMaisTab) return;
+    router.replace("/(tabs)" as any);
+  }, [canAccessMaisTab, loading, router]);
+
+  if (loading) {
+    return (
+      <ScreenContainer className="items-center justify-center">
+        <ActivityIndicator size="large" color={colors.primary} />
+      </ScreenContainer>
+    );
+  }
+
+  if (!canAccessMaisTab) {
+    return null;
+  }
 
   // Filtra seções e itens com base na permissão do usuário
   const visibleSections = MENU_SECTIONS

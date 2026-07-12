@@ -32,6 +32,8 @@ export type UseSessionResult = {
   user: SessionUser | null;
   perfil: SessionPerfil | null;
   isAdmin: boolean;
+  /** Acesso à aba "Mais" e hub de módulos do painel principal */
+  canAccessMaisTab: boolean;
   isAuthenticated: boolean;
   onboardingPendente: boolean;
   contaSuspensa: boolean;
@@ -50,6 +52,7 @@ export function useSession(): UseSessionResult {
   const user = (data?.user as SessionUser | null | undefined) ?? null;
   const perfil = (data?.perfil as SessionPerfil | null | undefined) ?? null;
   const isAdmin = data?.isAdmin ?? false;
+  const canAccessMaisTab = isAdmin || perfil?.tipoUsuario === "administrador";
   const isAuthenticated = !!user;
   const onboardingPendente = isAuthenticated && !perfil;
   const contaSuspensa = perfil?.status === "suspenso";
@@ -58,6 +61,7 @@ export function useSession(): UseSessionResult {
     user,
     perfil,
     isAdmin,
+    canAccessMaisTab,
     isAuthenticated,
     onboardingPendente,
     contaSuspensa,

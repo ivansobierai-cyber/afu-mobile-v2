@@ -2,9 +2,15 @@ import { View, Text, ScrollView } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { AuthButton } from "@/components/auth-button";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useColors } from "@/hooks/use-colors";
+import type { ComponentProps } from "react";
+
+type FeatureIcon = ComponentProps<typeof IconSymbol>["name"];
 
 export default function WelcomeScreen() {
   const router = useRouter();
+  const colors = useColors();
 
   return (
     <ScreenContainer className="justify-between py-8">
@@ -15,22 +21,18 @@ export default function WelcomeScreen() {
       >
         {/* Logo e Branding */}
         <View className="flex-1 items-center justify-center gap-6 mb-12">
-          {/* Logo */}
           <View className="w-24 h-24 bg-primary rounded-full items-center justify-center mb-4">
-            <Text className="text-5xl">🌱</Text>
+            <IconSymbol name="sprout.fill" size={48} color="#FFFFFF" />
           </View>
 
-          {/* Título */}
           <Text className="text-4xl font-bold text-foreground text-center">
             AFU Agro
           </Text>
 
-          {/* Subtítulo */}
           <Text className="text-base text-muted text-center px-4 leading-relaxed">
             Analisador Fitotécnico Universal — Diagnóstico inteligente para suas plantas
           </Text>
 
-          {/* Descrição */}
           <View className="bg-primary/10 rounded-lg p-4 mx-4 mt-4">
             <Text className="text-sm text-foreground text-center leading-relaxed">
               Análise de doenças, pragas e deficiências nutricionais com inteligência artificial.
@@ -41,10 +43,10 @@ export default function WelcomeScreen() {
 
         {/* Features */}
         <View className="gap-3 mb-12">
-          <FeatureItem icon="📸" title="Análise por Foto" description="Tire uma foto e obtenha diagnóstico instantâneo" />
-          <FeatureItem icon="📊" title="Histórico Completo" description="Acompanhe o histórico de diagnósticos" />
-          <FeatureItem icon="🌾" title="Múltiplos Cultivos" description="Gerencie várias propriedades e cultivos" />
-          <FeatureItem icon="📚" title="Materiais Didáticos" description="Acesse guias e recomendações técnicas" />
+          <FeatureItem icon="camera.fill" title="Análise por Foto" description="Tire uma foto e obtenha diagnóstico instantâneo" />
+          <FeatureItem icon="chart.bar.fill" title="Histórico Completo" description="Acompanhe o histórico de diagnósticos" />
+          <FeatureItem icon="leaf.fill" title="Múltiplos Cultivos" description="Gerencie várias propriedades e cultivos" />
+          <FeatureItem icon="books.vertical.fill" title="Materiais Didáticos" description="Acesse guias e recomendações técnicas" />
         </View>
       </ScrollView>
 
@@ -52,38 +54,39 @@ export default function WelcomeScreen() {
       <View className="gap-3">
         <AuthButton
           label="Entrar"
-          onPress={() => router.push('/auth/login')}
+          onPress={() => router.push("/auth/login")}
           variant="primary"
           size="large"
-          icon="👤"
+          iconName="person.fill"
         />
         <AuthButton
           label="Criar Conta"
-          onPress={() => router.push('/auth/cadastro')}
+          onPress={() => router.push("/auth/cadastro")}
           variant="outline"
           size="large"
-          icon="✨"
+          iconName="star.fill"
         />
       </View>
     </ScreenContainer>
   );
 }
 
-/**
- * Componente auxiliar para exibir features
- */
 function FeatureItem({
   icon,
   title,
   description,
 }: {
-  icon: string;
+  icon: FeatureIcon;
   title: string;
   description: string;
 }) {
+  const colors = useColors();
+
   return (
     <View className="flex-row gap-3 px-4 py-3 bg-surface rounded-lg items-start">
-      <Text className="text-2xl mt-1">{icon}</Text>
+      <View className="mt-1">
+        <IconSymbol name={icon} size={24} color={colors.primary} />
+      </View>
       <View className="flex-1">
         <Text className="font-semibold text-foreground">{title}</Text>
         <Text className="text-xs text-muted mt-1">{description}</Text>

@@ -1,9 +1,10 @@
 // Fallback for using MaterialIcons on Android and web.
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import glyphMap from "@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialIcons.json";
 import { SymbolWeight, SymbolViewProps } from "expo-symbols";
 import { ComponentProps } from "react";
-import { OpaqueColorValue, type StyleProp, type TextStyle } from "react-native";
+import { OpaqueColorValue, Platform, Text, type StyleProp, type TextStyle } from "react-native";
 
 type IconMapping = Record<SymbolViewProps["name"], ComponentProps<typeof MaterialIcons>["name"]>;
 type IconSymbolName = keyof typeof MAPPING;
@@ -129,5 +130,37 @@ export function IconSymbol({
   style?: StyleProp<TextStyle>;
   weight?: SymbolWeight;
 }) {
-  return <MaterialIcons color={color} size={size} name={MAPPING[name]} style={style} />;
+  const materialName = MAPPING[name] ?? "help-outline";
+
+  if (Platform.OS === "web") {
+    const glyph = (glyphMap as Record<string, number>)[materialName];
+    if (glyph == null) {
+      return (
+        <Text style={[{ fontSize: size, color: color as string, lineHeight: size }, style as TextStyle]}>
+          ?
+        </Text>
+      );
+    }
+
+    return (
+      <Text
+        style={[
+          {
+            fontFamily: "material",
+            fontSize: size,
+            color: color as string,
+            lineHeight: size,
+            width: size,
+            height: size,
+            textAlign: "center",
+          },
+          style as TextStyle,
+        ]}
+      >
+        {String.fromCodePoint(glyph)}
+      </Text>
+    );
+  }
+
+  return <MaterialIcons color={color} size={size} name={materialName} style={style} />;
 }

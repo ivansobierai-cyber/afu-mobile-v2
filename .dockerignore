@@ -5,13 +5,11 @@ dist
 .github
 android
 ios
-app
-components
-assets
 tests
 *.md
 .env
 .env.*
 !.env.example
+!.env.oci.example
 terminals
 .cursor

@@ -1,0 +1,23 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "npm run build:web:preview",
+  "outputDirectory": "dist",
+  "framework": null,
+  "installCommand": "npm ci",
+  "headers": [
+    {
+      "source": "/assets/(.*\\.ttf)",
+      "headers": [{ "key": "Content-Type", "value": "font/ttf" }]
+    },
+    {
+      "source": "/assets/(.*\\.woff2)",
+      "headers": [{ "key": "Content-Type", "value": "font/woff2" }]
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/((?!_expo|assets|.*\\..*).*)",
+      "destination": "/index.html"
+    }
+  ]
+}

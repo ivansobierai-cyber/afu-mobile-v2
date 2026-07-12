@@ -1,81 +1,130 @@
-import React from 'react';
-import { TouchableOpacity, Text, ActivityIndicator } from 'react-native';
-import { useColors } from '@/hooks/use-colors';
+import React from "react";
+import {
+  ActivityIndicator,
+  Platform,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  type ViewStyle,
+} from "react-native";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { useColors } from "@/hooks/use-colors";
+import type { ComponentProps } from "react";
 
 interface AuthButtonProps {
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'outline';
-  size?: 'small' | 'medium' | 'large';
+  variant?: "primary" | "secondary" | "outline";
+  size?: "small" | "medium" | "large";
   loading?: boolean;
   disabled?: boolean;
   icon?: string;
+  iconName?: ComponentProps<typeof IconSymbol>["name"];
 }
 
-/**
- * AuthButton — Botão reutilizável para formulários de autenticação
- *
- * Variantes:
- * - primary: Botão principal (verde)
- * - secondary: Botão secundário (cinza)
- * - outline: Botão com borda (transparente)
- *
- * Tamanhos:
- * - small: Botão pequeno
- * - medium: Botão médio
- * - large: Botão grande (padrão)
- */
 export function AuthButton({
   label,
   onPress,
-  variant = 'primary',
-  size = 'large',
+  variant = "primary",
+  size = "large",
   loading = false,
   disabled = false,
   icon,
+  iconName,
 }: AuthButtonProps) {
   const colors = useColors();
-
-  // Estilos por variante
-  const variantStyles = {
-    primary: 'bg-primary',
-    secondary: 'bg-muted',
-    outline: 'border border-primary bg-transparent',
-  };
-
-  // Estilos por tamanho
-  const sizeStyles = {
-    small: 'px-4 py-2',
-    medium: 'px-6 py-3',
-    large: 'px-8 py-4',
-  };
-
-  // Estilos de texto por variante
-  const textColorStyles = {
-    primary: 'text-white',
-    secondary: 'text-white',
-    outline: 'text-primary',
-  };
-
   const isDisabled = disabled || loading;
+  const isWeb = Platform.OS === "web";
+  const iconColor =
+    variant === "outline" ? colors.primary : "#FFFFFF";
+
+  const variantStyles = {
+    primary: "bg-primary",
+    secondary: "bg-muted",
+    outline: "border border-primary bg-transparent",
+  };
+
+  const sizeStyles = {
+    small: "px-4 py-2",
+    medium: "px-6 py-3",
+    large: "px-8 py-4",
+  };
+
+  const textColorStyles = {
+    primary: "text-white",
+    secondary: "text-white",
+    outline: "text-primary",
+  };
+
+  const webButtonStyle: ViewStyle | undefined = isWeb
+    ? {
+        borderRadius: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        flexDirection: "row",
+        gap: 8,
+        paddingHorizontal: size === "small" ? 16 : size === "medium" ? 24 : 32,
+        paddingVertical: size === "small" ? 8 : size === "medium" ? 12 : 16,
+        opacity: isDisabled ? 0.5 : 1,
+        ...(variant === "primary"
+          ? { backgroundColor: colors.primary }
+          : variant === "secondary"
+            ? { backgroundColor: colors.muted }
+            : {
+                backgroundColor: "transparent",
+                borderWidth: 1,
+                borderColor: colors.primary,
+              }),
+      }
+    : undefined;
+
+  const webTextColor =
+    variant === "outline" ? colors.primary : "#FFFFFF";
 
   return (
     <TouchableOpacity
       onPress={onPress}
       disabled={isDisabled}
-      className={`rounded-lg items-center justify-center flex-row gap-2 ${variantStyles[variant]} ${sizeStyles[size]} ${
-        isDisabled ? 'opacity-50' : 'opacity-100'
-      }`}
+      className={
+        isWeb
+          ? undefined
+          : `rounded-lg items-center justify-center flex-row gap-2 ${variantStyles[variant]} ${sizeStyles[size]} ${
+              isDisabled ? "opacity-50" : "opacity-100"
+            }`
+      }
+      style={webButtonStyle}
       activeOpacity={0.8}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'outline' ? colors.primary : 'white'} />
+        <ActivityIndicator color={variant === "outline" ? colors.primary : "white"} />
       ) : (
         <>
-          {icon && <Text className="text-lg">{icon}</Text>}
-          <Text className={`font-semibold text-base ${textColorStyles[variant]}`}>{label}</Text>
+          {iconName ? (
+            <IconSymbol name={iconName} size={20} color={iconColor} />
+          ) : icon ? (
+            isWeb ? (
+              <Text style={styles.webIcon}>{icon}</Text>
+            ) : (
+              <Text className="text-lg">{icon}</Text>
+            )
+          ) : null}
+          {isWeb ? (
+            <Text style={[styles.webLabel, { color: webTextColor }]}>{label}</Text>
+          ) : (
+            <Text className={`font-semibold text-base ${textColorStyles[variant]}`}>{label}</Text>
+          )}
         </>
       )}
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  webIcon: {
+    fontSize: 18,
+  },
+  webLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});

@@ -5,10 +5,12 @@ import { Platform } from "react-native";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useSession } from "@/hooks/use-session";
 
 export default function TabLayout() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { canAccessMaisTab } = useSession();
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
   const tabBarHeight = 60 + bottomPadding;
 
@@ -66,6 +68,7 @@ export default function TabLayout() {
         name="mais"
         options={{
           title: "Mais",
+          href: canAccessMaisTab ? undefined : null,
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="ellipsis" color={color} />,
         }}
       />
