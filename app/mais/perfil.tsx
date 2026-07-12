@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, TextInput, Alert, ActivityIndicator, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenHeader, ScreenHeaderIconButton } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuthAPI } from "@/hooks/use-auth-api";
@@ -161,35 +162,19 @@ export default function PerfilScreen() {
 
   return (
     <ScreenContainer>
-      <View
-        style={{
-          backgroundColor: colors.primary,
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 20,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-        }}
-      >
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>Meu Perfil</Text>
-        </View>
-        <TouchableOpacity
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-          onPress={() => {
-            if (editing) {
-              setForm(perfil);
-            }
-            setEditing(!editing);
-          }}
-        >
-          <IconSymbol name={editing ? "xmark" : "pencil"} size={20} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Meu Perfil"
+        right={
+          <ScreenHeaderIconButton
+            icon={editing ? "xmark" : "pencil"}
+            accessibilityLabel={editing ? "Cancelar edição" : "Editar perfil"}
+            onPress={() => {
+              if (editing) setForm(perfil);
+              setEditing(!editing);
+            }}
+          />
+        }
+      />
 
       <ScrollView contentContainerStyle={{ padding: 20 }} showsVerticalScrollIndicator={false}>
         {/* Avatar */}

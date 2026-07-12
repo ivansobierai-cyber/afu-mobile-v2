@@ -16,8 +16,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenHeader } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 
 type TipoFiltro = "todos" | "video" | "audio" | "apostila" | "guia" | "checklist" | "infografico";
@@ -93,15 +95,12 @@ export default function MateriaisScreen() {
 
     return (
       <ScreenContainer>
-        <View style={{ backgroundColor: cfg.color, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => setDetalhe(null)}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#FFFFFF" }} numberOfLines={2}>{detalhe.titulo}</Text>
-            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>{cfg.label}</Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title={detalhe.titulo}
+          subtitle={cfg.label}
+          accentColor={cfg.color}
+          onBack={() => setDetalhe(null)}
+        />
 
         <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
           {/* Badges */}
@@ -180,18 +179,11 @@ export default function MateriaisScreen() {
   // ── Lista principal ────────────────────────────────────────────────────────
   return (
     <ScreenContainer>
-      {/* Header */}
-      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 24, flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>Materiais Didáticos</Text>
-          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>
-            {isLoading ? "Carregando..." : `${total} conteúdo${total !== 1 ? "s" : ""} disponível${total !== 1 ? "is" : ""}`}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Materiais"
+        subtitle={isLoading ? "Carregando..." : `${total} conteúdo${total !== 1 ? "s" : ""} disponível${total !== 1 ? "is" : ""}`}
+        accentColor={MODULE_COLORS.materiais}
+      />
 
       {/* Filtros */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ paddingHorizontal: 16, paddingVertical: 14, maxHeight: 60 }}>
