@@ -35,5 +35,8 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
   the repo currently has pre-existing lint errors and 2 Vitest suites that fail on
   `expo-modules-core` mocking (`auth-flow.test.ts`, `resend-email.test.ts`). These are not
   environment issues.
+  the repo currently has pre-existing lint errors, 2 `tsc` errors (`app/_layout.tsx`,
+  `app/auth/welcome.tsx`), and 2 Vitest suites that fail on `expo-modules-core` mocking
+  (`auth-flow.test.ts`, `resend-email.test.ts`). These are not environment issues.
 - Native builds (`eas:*`, `expo run:android/ios`) require EAS/device and are out of scope in
   the cloud VM; use the web target for verification.

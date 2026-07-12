@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
+import NetInfo from "@react-native-community/netinfo";
 import {
   CoreMutationItem,
   enqueueCoreMutation,
@@ -129,6 +130,7 @@ export function useCoreOfflineSync() {
     }
 
     const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+    const unsubscribe = NetInfo.addEventListener((state) => {
       const online = state.isConnected === true && state.isInternetReachable !== false;
       if (online) {
         handleOnline();
@@ -138,6 +140,7 @@ export function useCoreOfflineSync() {
     });
 
     void NetInfo.fetch().then((state: NetInfoState) => {
+    void NetInfo.fetch().then((state) => {
       const online = state.isConnected === true && state.isInternetReachable !== false;
       setIsOnline(online);
       if (online) void syncNow();
