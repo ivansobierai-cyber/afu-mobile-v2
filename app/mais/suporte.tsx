@@ -13,8 +13,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenHeader, ScreenHeaderIconButton } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 
 type AbaSuporte = "chat" | "chamado" | "duvida" | "visita";
@@ -200,19 +202,16 @@ export default function SuporteScreen() {
   return (
     <ScreenContainer>
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-        {/* Header */}
-        <View style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>Suporte Técnico</Text>
-            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>Atendimento especializado</Text>
-          </View>
-          <View style={{ backgroundColor: "#22C55E", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-            <Text style={{ fontSize: 11, fontWeight: "700", color: "#FFFFFF" }}>Online</Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title="Suporte"
+          subtitle="Atendimento especializado"
+          accentColor={MODULE_COLORS.suporte}
+          right={
+            <View style={{ backgroundColor: "#22C55E", borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: "#FFFFFF" }}>Online</Text>
+            </View>
+          }
+        />
 
         {/* Abas */}
         <View style={{ flexDirection: "row", backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>

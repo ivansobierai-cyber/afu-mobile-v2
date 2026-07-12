@@ -10,8 +10,10 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { WeatherCard } from "@/components/weather-card";
+import { ScreenHeader } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import { hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
 
@@ -50,25 +52,11 @@ export default function TempoScreen() {
 
   return (
     <ScreenContainer>
-      <View
-        style={{
-          backgroundColor: "#0288D1",
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 20,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 20, fontWeight: "700", color: "#FFFFFF" }}>Clima em Tempo Real</Text>
-          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }}>Open-Meteo · por propriedade</Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Clima"
+        subtitle="Open-Meteo · por propriedade"
+        accentColor={MODULE_COLORS.clima}
+      />
 
       {isLoading ? (
         <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
