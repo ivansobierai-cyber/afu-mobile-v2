@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Platform } from "react-native";
+import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import {
   CoreMutationItem,
   enqueueCoreMutation,
@@ -127,8 +128,22 @@ export function useCoreOfflineSync() {
       };
     }
 
-    // Native: assume online; fila ainda funciona em falhas de rede
-    setIsOnline(true);
+    const unsubscribe = NetInfo.addEventListener((state: NetInfoState) => {
+      const online = state.isConnected === true && state.isInternetReachable !== false;
+      if (online) {
+        handleOnline();
+      } else {
+        handleOffline();
+      }
+    });
+
+    void NetInfo.fetch().then((state: NetInfoState) => {
+      const online = state.isConnected === true && state.isInternetReachable !== false;
+      setIsOnline(online);
+      if (online) void syncNow();
+    });
+
+    return () => unsubscribe();
   }, [refreshPending, syncNow]);
 
   return {

@@ -28,10 +28,27 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
 - **Demo login** (web at http://localhost:8081): `demo@afuagro.com.br` / `Demo@1234`.
   Auth is email/password (JWT), not OAuth. The `OAUTH_SERVER_URL is not configured` log on
   server start is expected and harmless for local dev.
+  (optionally `npm run seed:marketplace` and `npm run seed:comprador`). Seeds are idempotent.
+- **Demo logins** (web at http://localhost:8081): `demo@afuagro.com.br` / `Demo@1234` (producer)
+  and `comprador@afuagro.com.br` / `Demo@1234` (marketplace buyer). The login screen also has
+  "Entrar com Demo Produtor/Comprador" quick-access buttons.
+  Auth is email/password (JWT), not OAuth. The `OAUTH_SERVER_URL is not configured` log on
+  server start is expected and harmless for local dev.
+- **Restart Metro after installing new npm dependencies.** A running `npm run dev:metro` does
+  not pick up packages added by `npm install` (module resolution errors persist); stop and
+  rerun `npm run dev` after dependency changes.
+- tRPC endpoints use superjson: manual POSTs must wrap the input as `{"json": {...}}`, e.g.
+  `curl -X POST localhost:3000/api/trpc/auth.login -H 'Content-Type: application/json' -d '{"json":{"email":"...","password":"..."}}'`.
+- Optional external services (Forge LLM for AI diagnosis, SendGrid, Manus OAuth, Expo push) are
+  not configured; the app degrades gracefully without them. Weather uses the public Open-Meteo
+  API (no key).
 
 ### Lint / test / build / typecheck
 
 - `npm run lint`, `npm run check` (tsc), `npm run test` (Vitest). These commands run fine, but
+  the repo currently has pre-existing lint errors and 2 Vitest suites that fail on
+  `expo-modules-core` mocking (`auth-flow.test.ts`, `resend-email.test.ts`). These are not
+  environment issues.
   the repo currently has pre-existing lint errors, 2 `tsc` errors (`app/_layout.tsx`,
   `app/auth/welcome.tsx`), and 2 Vitest suites that fail on `expo-modules-core` mocking
   (`auth-flow.test.ts`, `resend-email.test.ts`). These are not environment issues.

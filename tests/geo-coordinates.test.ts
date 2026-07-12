@@ -36,9 +36,10 @@ describe("geo coordinates", () => {
     expect(staticMapUrl([])).toBeNull();
   });
 
-  it("staticMapUrl monta URL com marcadores", () => {
+  it("staticMapUrl monta URL de embed OSM com marcadores", () => {
     const url = staticMapUrl([{ latitude: -21.17, longitude: -47.81 }]);
-    expect(url).toContain("staticmap.openstreetmap.de");
+    expect(url).toContain("openstreetmap.org/export/embed.html");
     expect(url).toContain("-21.17");
+    expect(url).toContain("-47.81");
   });
 });

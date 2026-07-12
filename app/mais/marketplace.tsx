@@ -12,8 +12,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenHeader } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 import { MarketplaceVendedorPanel } from "@/components/marketplace-vendedor-panel";
 import { MarketplaceCheckout } from "@/components/marketplace-checkout";
@@ -267,29 +269,12 @@ export default function MarketplaceScreen() {
     const catColor = CATEGORIA_COLORS[detailProduto.categoria];
     return (
       <ScreenContainer>
-        <View
-          style={{
-            backgroundColor: catColor,
-            paddingHorizontal: 20,
-            paddingTop: 16,
-            paddingBottom: 20,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <TouchableOpacity onPress={() => setDetailProduto(null)}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#FFFFFF" }} numberOfLines={2}>
-              {detailProduto.nome}
-            </Text>
-            <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>
-              {CATEGORIA_LABELS[detailProduto.categoria]}
-            </Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title={detailProduto.nome}
+          subtitle={CATEGORIA_LABELS[detailProduto.categoria]}
+          accentColor={catColor}
+          onBack={() => setDetailProduto(null)}
+        />
         <ScrollView contentContainerStyle={{ padding: 20 }}>
           {detailProduto.preco != null && (
             <View
@@ -369,27 +354,11 @@ export default function MarketplaceScreen() {
 
   return (
     <ScreenContainer>
-      <View
-        style={{
-          backgroundColor: "#D97706",
-          paddingHorizontal: 20,
-          paddingTop: 16,
-          paddingBottom: 20,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 12,
-        }}
-      >
-        <TouchableOpacity onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>Marketplace</Text>
-          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>
-            Insumos, serviços e equipamentos
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Marketplace"
+        subtitle="Insumos, serviços e equipamentos"
+        accentColor={MODULE_COLORS.marketplace}
+      />
 
       <View
         style={{
@@ -402,7 +371,7 @@ export default function MarketplaceScreen() {
         {(["produtos", "carrinho", "pedidos", "vender"] as const).map((tab) => (
           <TouchableOpacity
             key={tab}
-            style={[styles.abaBtn, { borderBottomColor: aba === tab ? "#D97706" : "transparent" }]}
+            style={[styles.abaBtn, { borderBottomColor: aba === tab ? MODULE_COLORS.marketplace : "transparent" }]}
             onPress={() => setAba(tab)}
           >
             <Text

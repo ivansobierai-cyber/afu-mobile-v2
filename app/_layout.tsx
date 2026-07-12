@@ -21,6 +21,7 @@ import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { CoreOfflineSyncManager } from "@/components/core-offline-sync-manager";
 import { PushNotificationManager } from "@/components/push-notification-manager";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -52,7 +53,7 @@ function AuthGuard() {
     const inAuthGroup = root === "auth";
     const inOAuthGroup = root === "oauth";
     const isProtectedRoute = PROTECTED_ROUTE_GROUPS.has(root ?? "");
-    const authScreen = segments[1];
+    const authScreen = segments.at(1);
 
     // Rotas públicas de auth (login, cadastro, recuperação)
     const isPublicAuthScreen =
@@ -174,6 +175,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth" />
           </Stack>
           <StatusBar style="auto" />
+          <SpeedInsights />
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>

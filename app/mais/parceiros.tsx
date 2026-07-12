@@ -17,8 +17,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenHeader } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 
 type TipoParceiro = "laboratorio" | "cooperativa" | "consultoria" | "revendedor" | "instituicao" | "outro";
@@ -86,15 +88,12 @@ export default function ParceirosScreen() {
 
     return (
       <ScreenContainer>
-        <View style={{ backgroundColor: cfg.color, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => setDetalhe(null)}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 18, fontWeight: "700", color: "#FFFFFF" }} numberOfLines={2}>{detalhe.nome}</Text>
-            <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>{cfg.label}</Text>
-          </View>
-        </View>
+        <ScreenHeader
+          title={detalhe.nome}
+          subtitle={cfg.label}
+          accentColor={cfg.color}
+          onBack={() => setDetalhe(null)}
+        />
 
         <ScrollView contentContainerStyle={{ padding: 20, gap: 12 }}>
           {/* Localização */}
@@ -186,18 +185,11 @@ export default function ParceirosScreen() {
   // ── Lista principal ────────────────────────────────────────────────────────
   return (
     <ScreenContainer>
-      {/* Header */}
-      <View style={{ backgroundColor: "#8B5CF6", paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, flexDirection: "row", alignItems: "center", gap: 12 }}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>Parceiros</Text>
-          <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>
-            {isLoading ? "Carregando..." : `${total} parceiro${total !== 1 ? "s" : ""} ativo${total !== 1 ? "s" : ""}`}
-          </Text>
-        </View>
-      </View>
+      <ScreenHeader
+        title="Parceiros"
+        subtitle={isLoading ? "Carregando..." : `${total} parceiro${total !== 1 ? "s" : ""} ativo${total !== 1 ? "s" : ""}`}
+        accentColor={MODULE_COLORS.materiais}
+      />
 
       {/* Busca */}
       <View style={{ paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4 }}>

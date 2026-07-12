@@ -2,12 +2,11 @@
 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import glyphMap from "@expo/vector-icons/build/vendor/react-native-vector-icons/glyphmaps/MaterialIcons.json";
-import { SymbolWeight, SymbolViewProps } from "expo-symbols";
+import { SymbolWeight } from "expo-symbols";
 import { ComponentProps } from "react";
 import { OpaqueColorValue, Platform, Text, type StyleProp, type TextStyle } from "react-native";
 
-type IconMapping = Record<SymbolViewProps["name"], ComponentProps<typeof MaterialIcons>["name"]>;
-type IconSymbolName = keyof typeof MAPPING;
+type MaterialIconName = ComponentProps<typeof MaterialIcons>["name"];
 
 /**
  * SF Symbols to Material Icons mappings for AFU app
@@ -41,6 +40,8 @@ const MAPPING = {
   "sun.max.fill": "wb-sunny",
   "cloud.rain.fill": "grain",
   "thermometer": "device-thermostat",
+  "thermometer.medium": "device-thermostat",
+  "sparkles": "auto-awesome",
   "exclamationmark.triangle.fill": "warning",
   "checkmark.circle.fill": "check-circle",
   "xmark.circle.fill": "cancel",
@@ -113,7 +114,9 @@ const MAPPING = {
   "map": "map",
   "qrcode": "qr-code",
   "banknote.fill": "payments",
-} as unknown as IconMapping;
+} as const satisfies Record<string, MaterialIconName>;
+
+export type IconSymbolName = keyof typeof MAPPING;
 
 /**
  * An icon component that uses native SF Symbols on iOS, and Material Icons on Android and web.

@@ -5,8 +5,10 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenHeader, ScreenHeaderIconButton } from "@/components/screen-header";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 import { openLaudoHtml } from "@/lib/laudo-html";
 
@@ -141,17 +143,18 @@ export default function RelatoriosScreen() {
 
   return (
     <ScreenContainer>
-      <View style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>Relatórios e Laudos</Text>
-        </View>
-        <TouchableOpacity style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }} onPress={() => { setForm(EMPTY_FORM); setModalVisible(true); }}>
-          <IconSymbol name="plus" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Laudos"
+        subtitle="Relatórios e documentos técnicos"
+        accentColor={MODULE_COLORS.laudos}
+        right={
+          <ScreenHeaderIconButton
+            icon="plus"
+            accessibilityLabel="Novo relatório"
+            onPress={() => { setForm(EMPTY_FORM); setModalVisible(true); }}
+          />
+        }
+      />
 
       {/* Filtro de status */}
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }} contentContainerStyle={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8, flexDirection: "row" }}>
