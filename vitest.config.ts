@@ -11,5 +11,6 @@ export default defineConfig({
   test: {
     environment: "node",
     setupFiles: ["./vitest.setup.ts"],
+    exclude: ["**/node_modules/**", "**/afu-mobile-v2/**"],
   },
 });
