@@ -1,10 +1,12 @@
 import React, { useState } from "react";
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
+import { ScrollView, Text, View, TouchableOpacity, TextInput, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { trpc } from "@/lib/trpc";
 
 const TABS = [
   { id: "homologacao", label: "Homologação" },
+  { id: "piloto", label: "Piloto" },
   { id: "escopo", label: "Escopo" },
   { id: "funcionalidades", label: "Funcionalidades" },
   { id: "ia", label: "IA & Métricas" },
@@ -74,6 +76,29 @@ export default function TestesCampoScreen() {
   const colors = useColors();
   const [activeTab, setActiveTab] = useState("homologacao");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [nome, setNome] = useState("");
+  const [email, setEmail] = useState("");
+  const [regiao, setRegiao] = useState("");
+  const [cultura, setCultura] = useState("");
+  const [notaNps, setNotaNps] = useState("8");
+  const [comentario, setComentario] = useState("");
+  const [participanteId, setParticipanteId] = useState<number | null>(null);
+
+  const utils = trpc.useUtils();
+  const { data: resumo } = trpc.piloto.metricas.resumo.useQuery();
+  const createParticipante = trpc.piloto.participantes.create.useMutation({
+    onSuccess: (r) => {
+      setParticipanteId(r.id);
+      utils.piloto.metricas.resumo.invalidate();
+      Alert.alert("Sucesso", "Participante cadastrado no piloto.");
+    },
+  });
+  const submitFeedback = trpc.piloto.feedback.submit.useMutation({
+    onSuccess: () => {
+      utils.piloto.metricas.resumo.invalidate();
+      Alert.alert("Obrigado", "Feedback registrado.");
+    },
+  });
 
   const toggle = (key: SectionKey) => {
     setExpanded((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -146,8 +171,8 @@ export default function TestesCampoScreen() {
               { item: "CI GitHub Actions (lint, tsc, test)", ok: true },
               { item: "Deploy Vercel web verde", ok: true },
               { item: "Vitest — suites auth-flow e resend-email", ok: true },
-              { item: "Onboarding 10 produtores piloto", ok: false },
-              { item: "Coleta NPS e feedback campo", ok: false },
+              { item: "Onboarding 10 produtores piloto", ok: (resumo?.totalParticipantes ?? 0) >= 1 },
+              { item: "Coleta NPS e feedback campo", ok: (resumo?.totalFeedback ?? 0) >= 1 },
             ].map((row) => (
               <View
                 key={row.item}
@@ -171,6 +196,68 @@ export default function TestesCampoScreen() {
                 Após 7/10 itens críticos OK, iniciar recrutamento de 10–50 produtores, questionário NPS e ajustes de IA com agrônomo responsável.
               </Text>
             </View>
+          </View>
+        )}
+
+        {/* ─── PILOTO (Etapa 29) ─── */}
+        {activeTab === "piloto" && (
+          <View className="pb-8 gap-3">
+            <View style={{ backgroundColor: "#2E7D3215", borderRadius: 12, padding: 12 }}>
+              <Text style={{ color: "#1B5E20", fontWeight: "700" }}>Resumo do piloto</Text>
+              <Text className="text-xs text-muted mt-1">
+                Participantes: {resumo?.totalParticipantes ?? 0} · Feedbacks: {resumo?.totalFeedback ?? 0} · NPS médio: {resumo?.mediaNps ?? 0}
+              </Text>
+            </View>
+
+            <Text className="text-sm font-bold text-foreground">Cadastrar participante</Text>
+            {(["nome", "email", "regiao", "cultura"] as const).map((field) => (
+              <TextInput
+                key={field}
+                placeholder={field === "nome" ? "Nome completo" : field === "email" ? "E-mail" : field === "regiao" ? "Região" : "Cultura principal"}
+                value={field === "nome" ? nome : field === "email" ? email : field === "regiao" ? regiao : cultura}
+                onChangeText={field === "nome" ? setNome : field === "email" ? setEmail : field === "regiao" ? setRegiao : setCultura}
+                style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, color: colors.foreground }}
+              />
+            ))}
+            <TouchableOpacity
+              onPress={() => createParticipante.mutate({ nome, email: email || null, regiao: regiao || null, cultura: cultura || null })}
+              style={{ backgroundColor: "#2E7D32", borderRadius: 12, padding: 14, alignItems: "center" }}
+              disabled={!nome.trim() || createParticipante.isPending}
+            >
+              <Text className="text-white font-bold">Cadastrar no piloto</Text>
+            </TouchableOpacity>
+
+            {participanteId != null && (
+              <View className="gap-2 mt-4">
+                <Text className="text-sm font-bold text-foreground">Enviar feedback (NPS 0–10)</Text>
+                <TextInput
+                  placeholder="Nota NPS"
+                  keyboardType="number-pad"
+                  value={notaNps}
+                  onChangeText={setNotaNps}
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, color: colors.foreground }}
+                />
+                <TextInput
+                  placeholder="Comentário (opcional)"
+                  value={comentario}
+                  onChangeText={setComentario}
+                  multiline
+                  style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, color: colors.foreground, minHeight: 80 }}
+                />
+                <TouchableOpacity
+                  onPress={() =>
+                    submitFeedback.mutate({
+                      participanteId,
+                      notaNps: Math.min(10, Math.max(0, Number(notaNps) || 0)),
+                      comentario: comentario || null,
+                    })
+                  }
+                  style={{ backgroundColor: "#1565C0", borderRadius: 12, padding: 14, alignItems: "center" }}
+                >
+                  <Text className="text-white font-bold">Enviar feedback</Text>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
 

@@ -299,6 +299,14 @@ const MENU_SECTIONS: MenuSection[] = [
         color: "#2E7D32",
         badge: "Etapa 29",
       },
+      {
+        title: "Banco Agronômico Avançado",
+        subtitle: "Catálogo · Clima · Nutrientes · Pragas · IA",
+        icon: "leaf.fill",
+        route: "/mais/banco-agronomico",
+        color: "#00695C",
+        badge: "Etapa 30",
+      },
     ],
   },
   {

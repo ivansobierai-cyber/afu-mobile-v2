@@ -11,6 +11,8 @@ import { coreDataRouter } from "./routers/core-data-router";
 import { secondaryDataRouter } from "./routers/secondary-data-router";
 import { weatherRouter } from "./routers/weather-router";
 import { pushRouter } from "./routers/push-router";
+import { bancoAgronomicoRouter } from "./routers/banco-agronomico-router";
+import { pilotoRouter } from "./routers/piloto-router";
 
 const diagnosticoRouter = router({
   historico: protectedProcedure.query(async ({ ctx }) => {
@@ -410,6 +412,8 @@ export const appRouter = router({
   secondaryData: secondaryDataRouter,
   weather: weatherRouter,
   push: pushRouter,
+  bancoAgronomico: bancoAgronomicoRouter,
+  piloto: pilotoRouter,
 });
 
 export type AppRouter = typeof appRouter;

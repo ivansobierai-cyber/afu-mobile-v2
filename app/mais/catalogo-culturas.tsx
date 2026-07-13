@@ -23,6 +23,44 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { CULTURAS } from "@/lib/mock-data";
 import type { Cultura } from "@/shared/types";
 import { useState, useMemo } from "react";
+import { trpc } from "@/lib/trpc";
+import { ActivityIndicator } from "react-native";
+
+type CatalogoItem = Cultura & { dbId?: number };
+
+function mapDbToCultura(row: {
+  id: number;
+  slug: string;
+  nomePopular: string;
+  nomeCientifico: string | null;
+  familiaBotanica: string | null;
+  categoria: string | null;
+  descricao: string | null;
+  cicloProdutivoMin: number | null;
+  cicloProdutivoMax: number | null;
+  fasesFenologicas: string[];
+  tipoSolo: string | null;
+  epocasPlantio: string[];
+  produtividadeMedia: string | null;
+}): CatalogoItem {
+  return {
+    id: row.slug,
+    dbId: row.id,
+    nomePopular: row.nomePopular,
+    nomeCientifico: row.nomeCientifico ?? "",
+    familiaBotanica: row.familiaBotanica ?? "",
+    categoria: (row.categoria ?? "outros") as Cultura["categoria"],
+    descricao: row.descricao ?? "",
+    cicloProdutivoMin: row.cicloProdutivoMin ?? 0,
+    cicloProdutivoMax: row.cicloProdutivoMax ?? 0,
+    fasesFenologicas: row.fasesFenologicas ?? [],
+    tipoSolo: row.tipoSolo ?? "",
+    epocasPlantio: row.epocasPlantio ?? [],
+    produtividadeMedia: row.produtividadeMedia ?? "",
+    temperaturaMin: undefined,
+    temperaturaMax: undefined,
+  };
+}
 
 // ─── Mapeamento de categorias ─────────────────────────────────────────────────
 const CATEGORIA_CONFIG: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
@@ -249,10 +287,22 @@ export default function CatalogoCulturasScreen() {
   const router = useRouter();
   const [busca, setBusca] = useState("");
   const [categoriaFiltro, setCategoriaFiltro] = useState<string>("todas");
-  const [culturaSelecionada, setCulturaSelecionada] = useState<Cultura | null>(null);
+  const [culturaSelecionada, setCulturaSelecionada] = useState<CatalogoItem | null>(null);
+
+  const { data: catalogoDb = [], isLoading } = trpc.bancoAgronomico.catalogo.list.useQuery(
+    { busca: busca || undefined },
+    { retry: 1 },
+  );
+
+  const culturasBase: CatalogoItem[] = useMemo(() => {
+    if (catalogoDb.length > 0) {
+      return catalogoDb.map(mapDbToCultura);
+    }
+    return CULTURAS;
+  }, [catalogoDb]);
 
   const culturasFiltradas = useMemo(() => {
-    return CULTURAS.filter((c) => {
+    return culturasBase.filter((c) => {
       const matchBusca =
         !busca ||
         c.nomePopular.toLowerCase().includes(busca.toLowerCase()) ||
@@ -261,15 +311,23 @@ export default function CatalogoCulturasScreen() {
       const matchCategoria = categoriaFiltro === "todas" || c.categoria === categoriaFiltro;
       return matchBusca && matchCategoria;
     });
-  }, [busca, categoriaFiltro]);
+  }, [culturasBase, busca, categoriaFiltro]);
 
   const categoriasCom = useMemo(() => {
-    const counts: Record<string, number> = { todas: CULTURAS.length };
-    CULTURAS.forEach((c) => {
+    const counts: Record<string, number> = { todas: culturasBase.length };
+    culturasBase.forEach((c) => {
       counts[c.categoria] = (counts[c.categoria] ?? 0) + 1;
     });
     return counts;
-  }, []);
+  }, [culturasBase]);
+
+  const handlePress = (item: CatalogoItem) => {
+    if (item.dbId != null) {
+      router.push(`/mais/cultura-catalogo/${item.dbId}` as any);
+      return;
+    }
+    setCulturaSelecionada(item);
+  };
 
   return (
     <ScreenContainer>
@@ -282,7 +340,7 @@ export default function CatalogoCulturasScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 22, fontWeight: "800", color: "#FFFFFF" }}>Catálogo Botânico</Text>
             <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.75)", marginTop: 2 }}>
-              {CULTURAS.length} culturas · Dados agronômicos completos
+              {culturasBase.length} culturas · {catalogoDb.length > 0 ? "MySQL (Etapa 30)" : "fallback local"}
             </Text>
           </View>
         </View>
@@ -355,11 +413,16 @@ export default function CatalogoCulturasScreen() {
       </View>
 
       {/* Lista */}
+      {isLoading ? (
+        <View style={{ padding: 40, alignItems: "center" }}>
+          <ActivityIndicator size="large" color="#1B4332" />
+        </View>
+      ) : (
       <FlatList
         data={culturasFiltradas}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <CulturaCard cultura={item} onPress={() => setCulturaSelecionada(item)} />
+          <CulturaCard cultura={item} onPress={() => handlePress(item)} />
         )}
         contentContainerStyle={{ padding: 16, gap: 12 }}
         showsVerticalScrollIndicator={false}
@@ -375,8 +438,9 @@ export default function CatalogoCulturasScreen() {
           </View>
         }
       />
+      )}
 
-      {/* Modal de detalhe */}
+      {/* Modal de detalhe (fallback mock) */}
       {culturaSelecionada && (
         <CulturaDetailModal
           cultura={culturaSelecionada}

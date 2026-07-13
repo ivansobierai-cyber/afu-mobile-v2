@@ -191,6 +191,7 @@ export const culturas = mysqlTable("culturas", {
     "perdido",
   ]).default("em_andamento"),
   observacoes: text("observacoes"),
+  culturaCatalogoId: int("culturaCatalogoId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -615,3 +616,121 @@ export const pushTokens = mysqlTable(
 
 export type PushToken = typeof pushTokens.$inferSelect;
 export type InsertPushToken = typeof pushTokens.$inferInsert;
+
+// ─────────────────────────────────────────────
+// BANCO AGRONÔMICO AVANÇADO (Etapa 30)
+// ─────────────────────────────────────────────
+export const culturasCatalogo = mysqlTable("culturas_catalogo", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nomePopular: varchar("nomePopular", { length: 150 }).notNull(),
+  nomeCientifico: varchar("nomeCientifico", { length: 200 }),
+  familiaBotanica: varchar("familiaBotanica", { length: 100 }),
+  categoria: varchar("categoria", { length: 50 }),
+  descricao: text("descricao"),
+  cicloProdutivoMin: int("cicloProdutivoMin"),
+  cicloProdutivoMax: int("cicloProdutivoMax"),
+  fasesFenologicas: text("fasesFenologicas"),
+  tipoSolo: text("tipoSolo"),
+  epocasPlantio: text("epocasPlantio"),
+  produtividadeMedia: varchar("produtividadeMedia", { length: 100 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CulturaCatalogo = typeof culturasCatalogo.$inferSelect;
+export type InsertCulturaCatalogo = typeof culturasCatalogo.$inferInsert;
+
+export const climaCultura = mysqlTable("clima_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  temperaturaMin: decimal("temperaturaMin", { precision: 5, scale: 1 }),
+  temperaturaMax: decimal("temperaturaMax", { precision: 5, scale: 1 }),
+  precipitacaoMin: int("precipitacaoMin"),
+  precipitacaoMax: int("precipitacaoMax"),
+  necessidadeLuz: text("necessidadeLuz"),
+});
+
+export const irrigacaoCultura = mysqlTable("irrigacao_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  metodoRecomendado: varchar("metodoRecomendado", { length: 100 }),
+  laminaAgua: varchar("laminaAgua", { length: 100 }),
+  frequencia: varchar("frequencia", { length: 150 }),
+});
+
+export const nutrientesCultura = mysqlTable("nutrientes_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  nutriente: varchar("nutriente", { length: 10 }).notNull(),
+  tipo: mysqlEnum("tipo", ["macro", "micro"]).notNull(),
+  exigencia: varchar("exigencia", { length: 50 }),
+  observacoes: text("observacoes"),
+});
+
+export const geneticaCultura = mysqlTable("genetica_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  geracao: mysqlEnum("geracao", ["G1", "G2", "G3", "G4", "G5"]).notNull(),
+  descricao: text("descricao"),
+});
+
+export const pragasCatalogo = mysqlTable("pragas_catalogo", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 150 }).notNull(),
+  nomeCientifico: varchar("nomeCientifico", { length: 200 }),
+  nivelRisco: mysqlEnum("nivelRisco", ["baixo", "medio", "alto", "critico"]).default("medio"),
+  sintomas: text("sintomas"),
+  controle: text("controle"),
+});
+
+export const doencasCatalogo = mysqlTable("doencas_catalogo", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 150 }).notNull(),
+  nomeCientifico: varchar("nomeCientifico", { length: 200 }),
+  nivelRisco: mysqlEnum("nivelRisco", ["baixo", "medio", "alto", "critico"]).default("medio"),
+  sintomas: text("sintomas"),
+  controle: text("controle"),
+});
+
+export const controlePragasCultura = mysqlTable("controle_pragas_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  pragaCatalogoId: int("pragaCatalogoId"),
+  doencaCatalogoId: int("doencaCatalogoId"),
+});
+
+// ─────────────────────────────────────────────
+// PILOTO CAMPO (Etapa 29)
+// ─────────────────────────────────────────────
+export const pilotoParticipantes = mysqlTable("piloto_participantes", {
+  id: int("id").autoincrement().primaryKey(),
+  nome: varchar("nome", { length: 200 }).notNull(),
+  email: varchar("email", { length: 320 }),
+  regiao: varchar("regiao", { length: 100 }),
+  cultura: varchar("cultura", { length: 100 }),
+  status: mysqlEnum("status", ["ativo", "inativo"]).default("ativo").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const pilotoFeedback = mysqlTable("piloto_feedback", {
+  id: int("id").autoincrement().primaryKey(),
+  participanteId: int("participanteId").notNull(),
+  notaNps: int("notaNps").notNull(),
+  comentario: text("comentario"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export const pilotoMetricas = mysqlTable("piloto_metricas", {
+  id: int("id").autoincrement().primaryKey(),
+  tipo: varchar("tipo", { length: 50 }).notNull(),
+  valor: decimal("valor", { precision: 10, scale: 2 }),
+  metadata: text("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PilotoParticipante = typeof pilotoParticipantes.$inferSelect;
+export type InsertPilotoParticipante = typeof pilotoParticipantes.$inferInsert;
+export type PilotoFeedback = typeof pilotoFeedback.$inferSelect;
+export type InsertPilotoFeedback = typeof pilotoFeedback.$inferInsert;

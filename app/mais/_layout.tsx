@@ -86,6 +86,9 @@ export default function MaisLayout() {
       <Stack.Screen name="admin-parceiros" />
       <Stack.Screen name="admin-dashboard" />
       <Stack.Screen name="catalogo-culturas" />
+      <Stack.Screen name="cultura-catalogo/[id]" />
+      <Stack.Screen name="estrutura-organizacional" />
+      <Stack.Screen name="kpis" />
     </Stack>
   );
 }
