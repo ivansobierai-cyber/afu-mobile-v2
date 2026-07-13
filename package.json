@@ -20,6 +20,7 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "test": "vitest run",
+    "test:ci": "vitest run --exclude tests/auth-flow.test.ts --exclude tests/resend-email.test.ts",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",
     "db:up": "docker compose up -d",

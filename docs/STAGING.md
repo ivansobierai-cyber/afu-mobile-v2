@@ -2,10 +2,33 @@
 
 ## Status atual
 
+- **Web staging (Vercel):** https://afu-mobile-web.vercel.app — build `npm run build:web:preview` (API Railway + login demo)
 - **APK staging:** profile `preview` no EAS → `https://afu-mobile-v2-production.up.railway.app`
 - **API staging:** `GET /api/health` em `https://afu-mobile-v2-production.up.railway.app/api/health`
 
 Se `/api/health` retornar 503, a API ainda não está no ar — siga o deploy abaixo.
+
+## Web (Vercel)
+
+O deploy web usa `vercel.json` na raiz:
+
+| Campo | Valor |
+|-------|--------|
+| `installCommand` | `npm ci` |
+| `buildCommand` | `npm run build:web:preview && npm run prepare:web-dist` |
+| `outputDirectory` | `dist` |
+
+Projeto canônico: **afu-mobile-web** → https://afu-mobile-web.vercel.app
+
+Variáveis embutidas no build preview: `EXPO_PUBLIC_API_BASE_URL` (Railway staging) e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
+
+Deploy manual (opcional):
+
+```bash
+npm run deploy:web
+```
+
+O CI em `.github/workflows/ci.yml` roda `npm run check` e o build web em cada PR/push em `main`, evitando regressões de typecheck/bundle (ex.: declaração duplicada em `app/_layout.tsx`).
 
 ## 1. Subir a API (Railway recomendado)
 

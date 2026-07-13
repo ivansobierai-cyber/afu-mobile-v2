@@ -175,7 +175,7 @@ export default function RootLayout() {
             <Stack.Screen name="auth" />
           </Stack>
           <StatusBar style="auto" />
-          <SpeedInsights />
+          {Platform.OS === "web" ? <SpeedInsights /> : null}
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
