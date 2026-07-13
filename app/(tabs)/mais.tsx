@@ -6,6 +6,13 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { usePermission } from "@/components/route-guard";
 import { useSession } from "@/hooks/use-session";
+import { etapaBadgeForRoute } from "@/constants/afu-etapas";
+
+/** Badge canônico por rota; preserva Admin/Novo; remove numeração incorreta no menu Admin. */
+function resolveMenuBadge(item: MenuItem): string | undefined {
+  if (item.badge === "Admin" || item.badge === "Novo") return item.badge;
+  return etapaBadgeForRoute(item.route);
+}
 
 type MenuItem = {
   title: string;
@@ -176,6 +183,121 @@ const MENU_SECTIONS: MenuSection[] = [
         route: "/mais/guia-componentes",
         color: "#E65100",
         badge: "Etapa 16",
+      },
+    ],
+  },
+  {
+    title: "Etapas 17–21 · Governança",
+    items: [
+      {
+        title: "Estrutura Organizacional",
+        subtitle: "Equipe MVP · Papéis · RACI · Parceiros",
+        icon: "person.2.fill",
+        route: "/mais/estrutura-organizacional",
+        color: "#455A64",
+        badge: "Etapa 17",
+      },
+      {
+        title: "Indicadores (KPIs)",
+        subtitle: "Métricas MVP · Staging · Piloto etapa 29",
+        icon: "chart.bar.fill",
+        route: "/mais/kpis",
+        color: "#37474F",
+        badge: "Etapa 18",
+      },
+      {
+        title: "Governança & DevOps",
+        subtitle: "Segurança · LGPD · CI/CD · Conformidade",
+        icon: "shield.fill",
+        route: "/mais/governanca-devops",
+        color: "#37474F",
+        badge: "Etapa 19",
+      },
+      {
+        title: "Plano Mestre AFU 1.0 → 5.0",
+        subtitle: "Roadmap · Cronograma · Equipes · Financeiro",
+        icon: "map.fill",
+        route: "/mais/plano-mestre",
+        color: "#1B5E20",
+        badge: "Etapa 20",
+      },
+      {
+        title: "Execução Real — MVP 1.0",
+        subtitle: "Sprints · Entregas · Stack real · Critérios MVP",
+        icon: "hammer.fill",
+        route: "/mais/execucao-mvp",
+        color: "#0D47A1",
+        badge: "Etapa 21",
+      },
+    ],
+  },
+  {
+    title: "Etapas 22–29 · Implementação",
+    items: [
+      {
+        title: "Design System AFU",
+        subtitle: "Marca · Cores · Tipografia · Componentes",
+        icon: "paintbrush.fill",
+        route: "/mais/design-system",
+        color: "#1B5E20",
+        badge: "Etapa 22",
+      },
+      {
+        title: "Protótipos UX/UI — MVP 1.0",
+        subtitle: "Fluxos · Mobile · Portal · Admin",
+        icon: "rectangle.on.rectangle",
+        route: "/mais/prototipos-ux",
+        color: "#4A148C",
+        badge: "Etapa 23",
+      },
+      {
+        title: "Backend API — MVP 1.0",
+        subtitle: "Express · tRPC · MySQL · Drizzle · JWT",
+        icon: "server.rack",
+        route: "/mais/backend-nestjs",
+        color: "#B71C1C",
+        badge: "Etapa 24",
+      },
+      {
+        title: "App Planta Saudável",
+        subtitle: "Expo 54 · Tabs · Diagnóstico IA · CRUD",
+        icon: "leaf.fill",
+        route: "/mais/app-react-native",
+        color: "#1B5E20",
+        badge: "Etapa 25",
+      },
+      {
+        title: "Portal Web do Produtor",
+        subtitle: "Expo Web · PWA · JWT · Diagnóstico",
+        icon: "globe",
+        route: "/mais/portal-web-v2",
+        color: "#0D47A1",
+        badge: "Etapa 26",
+      },
+      {
+        title: "Painel Administrativo AFU",
+        subtitle: "Dashboard · RBAC · CRUD · Auditoria",
+        icon: "gearshape.2.fill",
+        route: "/mais/painel-admin",
+        color: "#37474F",
+        badge: "Etapa 27",
+        requireAdmin: true,
+      },
+      {
+        title: "Deploy Beta — Homologação",
+        subtitle: "Railway · Vercel · CI · Staging",
+        icon: "server.rack",
+        route: "/mais/deploy-beta",
+        color: "#0D47A1",
+        badge: "Etapa 28",
+      },
+      {
+        title: "Testes de Campo — Piloto",
+        subtitle: "50 produtores · IA 85%+ · Satisfação 4,5+",
+        icon: "leaf.fill",
+        route: "/mais/testes-campo",
+        color: "#2E7D32",
+        badge: "Etapa 29",
       },
     ],
   },
@@ -811,7 +933,9 @@ export default function MaisScreen() {
         {visibleSections.map((section) => (
           <View key={section.title}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.items.map((item) => (
+            {section.items.map((item) => {
+              const badge = resolveMenuBadge(item);
+              return (
               <TouchableOpacity
                 key={item.route}
                 style={styles.menuCard}
@@ -825,9 +949,9 @@ export default function MaisScreen() {
                     <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
                       {item.title}
                     </Text>
-                    {item.badge && (
+                    {badge && (
                       <View style={{ backgroundColor: item.color, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
-                        <Text style={{ fontSize: 10, fontWeight: "800", color: "#FFFFFF" }}>{item.badge}</Text>
+                        <Text style={{ fontSize: 10, fontWeight: "800", color: "#FFFFFF" }}>{badge}</Text>
                       </View>
                     )}
                     {item.requireAdmin && (
@@ -842,7 +966,8 @@ export default function MaisScreen() {
                 </View>
                 <IconSymbol name="chevron.right" size={16} color={colors.muted} />
               </TouchableOpacity>
-            ))}
+            );
+            })}
           </View>
         ))}
 

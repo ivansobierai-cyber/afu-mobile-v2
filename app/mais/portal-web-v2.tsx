@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 
 const TABS = [
   { id: "tecnologia", label: "Tecnologia" },
@@ -128,8 +129,7 @@ export default function PortalWebV2Screen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
-
-        {/* ─── TECNOLOGIA ─── */}
+        <AfuStackBanner note="Portal web entregue via Expo export (mesmo codebase do app), hospedado na Vercel — não é um projeto Next.js separado." />
         {activeTab === "tecnologia" && (
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">Stack Tecnológica</Text>

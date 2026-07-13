@@ -4,6 +4,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { RelatedLinks } from "@/components/related-links";
 import { RELATED_LINKS_MAP } from "@/constants/related-links-map";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 
 const TABS = ["Estrutura", "Tabelas Core", "Agronômico", "Relações", "Performance"];
 
@@ -36,6 +37,7 @@ export default function BancoDadosSchemaScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Schema de referência cita PostgreSQL/Prisma. O banco em produção staging usa MySQL 8 com Drizzle ORM (drizzle/schema)." />
         {tab === 0 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#004D4015", borderWidth: 1, borderColor: "#004D4030" }} className="rounded-xl p-4">

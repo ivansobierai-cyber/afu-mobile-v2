@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { formatCooldownTime, getCooldownMessage } from '../hooks/use-resend-email';
+import { formatCooldownTime, getCooldownMessage } from '@/lib/auth/resend-cooldown';
 
 /**
  * Testes para Reenvio de E-mail com Cooldown

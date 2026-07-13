@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 
 const TABS = [
   { id: "infra", label: "Infraestrutura" },
@@ -128,8 +129,7 @@ export default function DeployBetaScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
-
-        {/* ─── INFRAESTRUTURA ─── */}
+        <AfuStackBanner note="Homologação real: API no Railway, web no Vercel, CI em GitHub Actions. Docker Compose é referência futura, não o deploy atual." />
         {activeTab === "infra" && (
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">Infraestrutura de Ambientes</Text>

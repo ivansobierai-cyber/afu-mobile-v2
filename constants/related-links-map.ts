@@ -139,4 +139,18 @@ export const RELATED_LINKS_MAP: Record<string, RelatedLink[]> = {
     { etapa: 15, title: "Fluxos de Usuário",          subtitle: "Componentes em cada fluxo",          route: "/mais/fluxos-usuario",          color: "#00838F", emoji: "🗺️" },
     { etapa: 7,  title: "Arquitetura de Sistema",     subtitle: "Stack que suporta os componentes",   route: "/mais/arquitetura-sistema",     color: "#004D40", emoji: "🏗️" },
   ],
+
+  "/mais/estrutura-organizacional": [
+    { etapa: 18, title: "Indicadores (KPIs)",         subtitle: "Métricas MVP e piloto",              route: "/mais/kpis",                    color: "#37474F", emoji: "📈" },
+    { etapa: 19, title: "Governança & DevOps",        subtitle: "CI/CD e conformidade",               route: "/mais/governanca-devops",       color: "#37474F", emoji: "⚖️" },
+    { etapa: 21, title: "Execução Real MVP",          subtitle: "Sprints e entregas",                 route: "/mais/execucao-mvp",            color: "#0D47A1", emoji: "🔨" },
+    { etapa: 29, title: "Testes de Campo",            subtitle: "Projeto piloto",                     route: "/mais/testes-campo",            color: "#2E7D32", emoji: "🌱" },
+  ],
+
+  "/mais/kpis": [
+    { etapa: 17, title: "Estrutura Organizacional",   subtitle: "Equipe e RACI",                      route: "/mais/estrutura-organizacional", color: "#455A64", emoji: "👥" },
+    { etapa: 28, title: "Deploy Beta",                subtitle: "Homologação staging",                route: "/mais/deploy-beta",             color: "#0D47A1", emoji: "🚀" },
+    { etapa: 29, title: "Testes de Campo",            subtitle: "Piloto com produtores",              route: "/mais/testes-campo",            color: "#2E7D32", emoji: "🌱" },
+    { etapa: 25, title: "App Planta Saudável",        subtitle: "App entregue",                       route: "/mais/app-react-native",        color: "#1B5E20", emoji: "📱" },
+  ],
 };

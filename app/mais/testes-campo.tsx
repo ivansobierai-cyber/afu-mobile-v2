@@ -4,6 +4,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 
 const TABS = [
+  { id: "homologacao", label: "Homologação" },
   { id: "escopo", label: "Escopo" },
   { id: "funcionalidades", label: "Funcionalidades" },
   { id: "ia", label: "IA & Métricas" },
@@ -71,7 +72,7 @@ function Tag({ label, color, bg }: { label: string; color: string; bg: string })
 
 export default function TestesCampoScreen() {
   const colors = useColors();
-  const [activeTab, setActiveTab] = useState("escopo");
+  const [activeTab, setActiveTab] = useState("homologacao");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const toggle = (key: SectionKey) => {
@@ -128,6 +129,50 @@ export default function TestesCampoScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+
+        {/* ─── HOMOLOGAÇÃO STAGING ─── */}
+        {activeTab === "homologacao" && (
+          <View className="pb-8 gap-2">
+            <Text className="text-base font-bold text-foreground mb-1">Checklist de Homologação (pré-piloto)</Text>
+            <Text className="text-xs text-muted mb-4">
+              Validação técnica antes da etapa 29 — campo com produtores reais
+            </Text>
+            {[
+              { item: "Login demo staging (web + API Railway)", ok: true },
+              { item: "CRUD propriedades, cultivos e terrenos", ok: true },
+              { item: "Diagnóstico IA — foto → laudo", ok: true },
+              { item: "Mapa GPS com tiles OSM (web)", ok: true },
+              { item: "Relatórios / laudos PDF", ok: true },
+              { item: "CI GitHub Actions (lint, tsc, test)", ok: true },
+              { item: "Deploy Vercel web verde", ok: true },
+              { item: "Vitest — suites auth-flow e resend-email", ok: true },
+              { item: "Onboarding 10 produtores piloto", ok: false },
+              { item: "Coleta NPS e feedback campo", ok: false },
+            ].map((row) => (
+              <View
+                key={row.item}
+                className="flex-row items-center rounded-xl p-3"
+                style={{
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: row.ok ? "#2E7D3240" : "#F57F1740",
+                }}
+              >
+                <Text className="text-base mr-2">{row.ok ? "✅" : "⏳"}</Text>
+                <Text className="text-xs flex-1 text-foreground">{row.item}</Text>
+                <Text style={{ color: row.ok ? "#2E7D32" : "#F57F17", fontSize: 10, fontWeight: "700" }}>
+                  {row.ok ? "OK" : "Pendente"}
+                </Text>
+              </View>
+            ))}
+            <View style={{ backgroundColor: "#2E7D3215", borderRadius: 12, padding: 12, marginTop: 8 }}>
+              <Text style={{ color: "#1B5E20", fontSize: 12, fontWeight: "700" }}>Próximo passo — Piloto</Text>
+              <Text className="text-xs text-muted mt-1 leading-relaxed">
+                Após 7/10 itens críticos OK, iniciar recrutamento de 10–50 produtores, questionário NPS e ajustes de IA com agrônomo responsável.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* ─── ESCOPO ─── */}
         {activeTab === "escopo" && (

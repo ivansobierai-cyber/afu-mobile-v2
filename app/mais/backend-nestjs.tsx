@@ -3,6 +3,7 @@ import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 
 const TABS = [
   { id: "estrutura", label: "Estrutura" },
@@ -150,8 +151,7 @@ export default function BackendNestjsScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
-
-        {/* ─── ESTRUTURA ─── */}
+        <AfuStackBanner note="Esta tela documenta o plano NestJS original. A API entregue está em server/ com Express + tRPC + MySQL + Drizzle." />
         {activeTab === "estrutura" && (
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">Estrutura do Projeto</Text>

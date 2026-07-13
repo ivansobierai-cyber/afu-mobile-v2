@@ -4,144 +4,93 @@ import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { usePermission } from "@/components/route-guard";
+import {
+  AFU_FASES,
+  AFU_STACK_REAL,
+  etapaProgressPercent,
+  etapas1a29ProgressPercent,
+  etapasDoneOrPartialCount,
+  type AfuEtapa,
+  type EtapaStatus,
+} from "@/constants/afu-etapas";
 
-// ─── Tipos ───────────────────────────────────────────────────────────────────
-type Etapa = {
-  num: number;
-  title: string;
-  route: string | null; // null = sem tela própria (etapas sem rota dedicada)
-  requireAdmin?: boolean;
-};
+type IndiceEtapa = AfuEtapa & { route: string };
 
-type Fase = {
+type IndiceFase = {
   id: string;
   label: string;
   emoji: string;
   color: string;
-  etapas: Etapa[];
+  etapas: IndiceEtapa[];
 };
 
-// ─── Dados ───────────────────────────────────────────────────────────────────
-const FASES: Fase[] = [
-  {
-    id: "estrategia",
-    label: "Estratégia e Negócio",
-    emoji: "🎯",
-    color: "#1565C0",
-    etapas: [
-      { num: 1,  title: "Visão Geral e Proposta de Valor",           route: "/mais/visao-geral" },
-      { num: 2,  title: "Análise de Mercado e Público-Alvo",         route: "/mais/analise-mercado" },
-      { num: 3,  title: "Modelo de Negócio e Monetização",           route: "/mais/modelo-negocio" },
-      { num: 4,  title: "Estratégia de Produto e Roadmap",            route: "/mais/estrategia-produto" },
-      { num: 5,  title: "Plano de Marketing e Go-to-Market",          route: "/mais/plano-marketing" },
-      { num: 6,  title: "Captação e Investimento",                    route: "/mais/captacao-investimento" },
-    ],
-  },
-  {
-    id: "tecnica",
-    label: "Arquitetura Técnica",
-    emoji: "⚙️",
-    color: "#C62828",
-    etapas: [
-      { num: 7,  title: "Arquitetura do Sistema e Stack Tecnológico", route: "/mais/arquitetura-sistema" },
-      { num: 8,  title: "Banco de Dados e Schema",                    route: "/mais/banco-dados-schema" },
-      { num: 9,  title: "API Design — Contratos e Endpoints",         route: "/mais/api-design" },
-      { num: 10, title: "Segurança Técnica e LGPD",                    route: "/mais/seguranca-tecnica" },
-      { num: 11, title: "Infraestrutura Técnica e Cloud",             route: "/mais/infraestrutura-tecnica" },
-      { num: 12, title: "Integrações Técnicas e Parceiros",            route: "/mais/integracoes-tecnicas" },
-    ],
-  },
-  {
-    id: "design",
-    label: "Design e UX/UI",
-    emoji: "🎨",
-    color: "#7B1FA2",
-    etapas: [
-      { num: 13, title: "Design System Base — Cores e Tipografia",    route: "/mais/design-system-base" },
-      { num: 14, title: "Wireframes — App, Web e Admin",               route: "/mais/wireframes" },
-      { num: 15, title: "Fluxos de Usuário e Jornada",                route: "/mais/fluxos-usuario" },
-      { num: 16, title: "Guia de Componentes — Atoms a Organisms",    route: "/mais/guia-componentes" },
-      { num: 22, title: "Design System AFU",                          route: "/mais/design-system" },
-      { num: 23, title: "Protótipos UX/UI Completos",                 route: "/mais/prototipos-ux" },
-    ],
-  },
-  {
-    id: "governanca",
-    label: "Governança e Compliance",
-    emoji: "⚖️",
-    color: "#455A64",
-    etapas: [
-      { num: 17, title: "Estrutura Organizacional e Equipe",          route: "/mais/estrutura-organizacional" },
-      { num: 18, title: "Indicadores de Desempenho (KPIs)",           route: "/mais/kpis" },
-      { num: 19, title: "Governança, Segurança e LGPD",               route: "/mais/governanca-devops" },
-      { num: 20, title: "Plano Mestre de Implementação AFU 1.0→5.0",  route: "/mais/plano-mestre" },
-      { num: 21, title: "Execução Real do Projeto AFU MVP 1.0",       route: "/mais/execucao-mvp" },
-      { num: 46, title: "Arquitetura Final de Software e Infra",      route: "/mais/arquitetura-final" },
-    ],
-  },
-  {
-    id: "implementacao",
-    label: "Implementação do MVP",
-    emoji: "🚀",
-    color: "#2E7D32",
-    etapas: [
-      { num: 24, title: "Backend NestJS — Implementação Real",        route: "/mais/backend-nestjs" },
-      { num: 25, title: "App React Native — Android e iOS",           route: "/mais/app-react-native" },
-      { num: 26, title: "Portal Web do Produtor — Next.js 15",        route: "/mais/portal-web-v2" },
-      { num: 27, title: "Painel Administrativo AFU",                  route: "/mais/painel-admin", requireAdmin: true },
-      { num: 28, title: "Deploy Beta e Homologação (STAGING)",        route: "/mais/deploy-beta" },
-      { num: 29, title: "Testes de Campo e Projeto Piloto",           route: "/mais/testes-campo" },
-    ],
-  },
-  {
-    id: "banco",
-    label: "Banco de Dados Agronômico",
-    emoji: "🌱",
-    color: "#00695C",
-    etapas: [
-      { num: 30, title: "Banco de Dados Agronômico Avançado",         route: "/mais/banco-agronomico" },
-      { num: 31, title: "Culturas Iniciais — 17 Fichas Técnicas",     route: "/mais/culturas-iniciais" },
-      { num: 32, title: "Seed Inicial das Culturas (Prisma)",         route: "/mais/seed-culturas" },
-      { num: 33, title: "Seed de Clima, Irrigação e Nutrientes",      route: "/mais/seed-tecnico" },
-      { num: 34, title: "Pragas, Doenças, Rotação e Genética G1–G5",  route: "/mais/banco-fitossanitario" },
-      { num: 35, title: "AFU GeoClima — Banco Climático Nacional",    route: "/mais/geoclima" },
-      { num: 36, title: "AFU Solos — Banco Nacional de Solos",        route: "/mais/afu-solos" },
-      { num: 37, title: "AFU Genoma Vegetal e Melhoramento Genético", route: "/mais/genoma-vegetal" },
-      { num: 38, title: "Calendário Agrícola Inteligente",            route: "/mais/calendario-agricola" },
-      { num: 39, title: "AFU Laboratório Digital",                    route: "/mais/laboratorio-digital" },
-      { num: 40, title: "Economia Agrícola e Previsão de Produção",   route: "/mais/economia-agricola" },
-      { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)",          route: "/mais/ia-agronomo" },
-      { num: 42, title: "Satélite, Drones e Geointeligência",         route: "/mais/geointeligencia" },
-      { num: 43, title: "Rede de Sensores IoT e Automação Rural",     route: "/mais/iot-automacao" },
-      { num: 44, title: "Marketplace e Comercialização Agrícola",     route: "/mais/marketplace-agricola" },
-      { num: 45, title: "Centro de Comando NOC Agrícola",             route: "/mais/noc-agricola" },
-    ],
-  },
+const STATUS_META: Record<EtapaStatus, { label: string; color: string }> = {
+  done: { label: "Entregue", color: "#2E7D32" },
+  partial: { label: "Parcial", color: "#F57F17" },
+  doc: { label: "Doc", color: "#1565C0" },
+  pending: { label: "Pendente", color: "#9E9E9E" },
+};
+
+/** Etapas 30–46 — banco agronômico avançado (documentação + rotas) */
+const BANCO_FASE: IndiceFase = {
+  id: "banco",
+  label: "Banco de Dados Agronômico",
+  emoji: "🌱",
+  color: "#00695C",
+  etapas: [
+    { num: 30, title: "Banco de Dados Agronômico Avançado", route: "/mais/banco-agronomico", faseId: "implementacao", status: "partial" },
+    { num: 31, title: "Culturas Iniciais — 17 Fichas Técnicas", route: "/mais/culturas-iniciais", faseId: "implementacao", status: "partial" },
+    { num: 32, title: "Seed Inicial das Culturas", route: "/mais/seed-culturas", faseId: "implementacao", status: "partial" },
+    { num: 33, title: "Seed de Clima, Irrigação e Nutrientes", route: "/mais/seed-tecnico", faseId: "implementacao", status: "partial" },
+    { num: 34, title: "Pragas, Doenças, Rotação e Genética G1–G5", route: "/mais/banco-fitossanitario", faseId: "implementacao", status: "partial" },
+    { num: 35, title: "AFU GeoClima — Banco Climático Nacional", route: "/mais/geoclima", faseId: "implementacao", status: "doc" },
+    { num: 36, title: "AFU Solos — Banco Nacional de Solos", route: "/mais/afu-solos", faseId: "implementacao", status: "doc" },
+    { num: 37, title: "AFU Genoma Vegetal e Melhoramento Genético", route: "/mais/genoma-vegetal", faseId: "implementacao", status: "doc" },
+    { num: 38, title: "Calendário Agrícola Inteligente", route: "/mais/calendario-agricola", faseId: "implementacao", status: "partial" },
+    { num: 39, title: "AFU Laboratório Digital", route: "/mais/laboratorio-digital", faseId: "implementacao", status: "doc" },
+    { num: 40, title: "Economia Agrícola e Previsão de Produção", route: "/mais/economia-agricola", faseId: "implementacao", status: "doc" },
+    { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)", route: "/mais/ia-agronomo", faseId: "implementacao", status: "partial" },
+    { num: 42, title: "Satélite, Drones e Geointeligência", route: "/mais/geointeligencia", faseId: "implementacao", status: "doc" },
+    { num: 43, title: "Rede de Sensores IoT e Automação Rural", route: "/mais/iot-automacao", faseId: "implementacao", status: "doc" },
+    { num: 44, title: "Marketplace e Comercialização Agrícola", route: "/mais/marketplace-agricola", faseId: "implementacao", status: "partial" },
+    { num: 45, title: "Centro de Comando NOC Agrícola", route: "/mais/noc-agricola", faseId: "implementacao", status: "doc" },
+    { num: 46, title: "Arquitetura Final de Software e Infra", route: "/mais/arquitetura-final", faseId: "implementacao", status: "doc" },
+  ],
+};
+
+const FASES: IndiceFase[] = [
+  ...AFU_FASES.map((f) => ({
+    id: f.id,
+    label: f.label,
+    emoji: f.emoji,
+    color: f.color,
+    etapas: f.etapas as IndiceEtapa[],
+  })),
+  BANCO_FASE,
 ];
 
-// ─── Componente ──────────────────────────────────────────────────────────────
+const ALL_ETAPAS = FASES.flatMap((f) => f.etapas);
+
 export default function IndiceGeralScreen() {
   const colors = useColors();
   const router = useRouter();
   const { canAccess: isAdmin } = usePermission({ requireAdmin: true });
   const [expandedFase, setExpandedFase] = useState<string | null>("estrategia");
 
-  // Filtra etapas restritas a admins
   const fasesVisiveis = FASES.map((f) => ({
     ...f,
     etapas: f.etapas.filter((e) => !e.requireAdmin || isAdmin),
   }));
 
-  const totalEtapas = FASES.reduce((acc, f) => acc + f.etapas.length, 0);
-  const etapasComRota = FASES.reduce(
-    (acc, f) => acc + f.etapas.filter((e) => e.route !== null).length,
-    0
+  const totalEtapas = ALL_ETAPAS.length;
+  const progressoMvp = etapas1a29ProgressPercent();
+  const progressoGeral = etapaProgressPercent(ALL_ETAPAS);
+  const entreguesMvp = etapasDoneOrPartialCount(
+    ALL_ETAPAS.filter((e) => e.num <= 29),
   );
-  const progressoGeral = Math.round((etapasComRota / totalEtapas) * 100);
 
   return (
     <ScreenContainer>
-      {/* Header */}
       <View style={{ backgroundColor: "#1B5E20" }} className="px-4 pt-4 pb-3">
         <View className="flex-row items-center gap-3 mb-3">
           <View style={{ backgroundColor: "#2E7D32" }} className="w-10 h-10 rounded-xl items-center justify-center">
@@ -150,25 +99,33 @@ export default function IndiceGeralScreen() {
           <View className="flex-1">
             <Text className="text-white text-base font-bold">Índice Geral AFU</Text>
             <Text style={{ color: "#A5D6A7" }} className="text-xs">
-              46 Etapas · 6 Fases · Documentação Completa
+              46 Etapas · 6 Fases · MVP Planta Saudável
             </Text>
           </View>
         </View>
 
-        {/* Progresso geral */}
         <View style={{ backgroundColor: "rgba(255,255,255,0.12)" }} className="rounded-xl p-3">
           <View className="flex-row justify-between items-center mb-2">
-            <Text className="text-white text-xs font-bold">Progresso Geral</Text>
+            <Text className="text-white text-xs font-bold">Progresso MVP (1–29)</Text>
             <Text style={{ color: "#A5D6A7" }} className="text-xs font-bold">
-              {etapasComRota}/{totalEtapas} etapas · {progressoGeral}%
+              {entreguesMvp}/29 · {progressoMvp}%
             </Text>
           </View>
           <View style={{ backgroundColor: "rgba(255,255,255,0.2)", height: 8, borderRadius: 4, overflow: "hidden" }}>
-            <View style={{ backgroundColor: "#69F0AE", width: `${progressoGeral}%` as any, height: 8, borderRadius: 4 }} />
+            <View style={{ backgroundColor: "#69F0AE", width: `${progressoMvp}%` as `${number}%`, height: 8, borderRadius: 4 }} />
+          </View>
+          <View className="flex-row justify-between items-center mt-3 mb-2">
+            <Text className="text-white text-xs font-bold">Progresso Geral (1–46)</Text>
+            <Text style={{ color: "#A5D6A7" }} className="text-xs font-bold">
+              {totalEtapas} etapas · {progressoGeral}%
+            </Text>
+          </View>
+          <View style={{ backgroundColor: "rgba(255,255,255,0.2)", height: 6, borderRadius: 3, overflow: "hidden" }}>
+            <View style={{ backgroundColor: "#81C784", width: `${progressoGeral}%` as `${number}%`, height: 6, borderRadius: 3 }} />
           </View>
           <View className="flex-row justify-between mt-2">
             {FASES.map((f) => {
-              const pct = Math.round((f.etapas.filter((e) => e.route !== null).length / f.etapas.length) * 100);
+              const pct = etapaProgressPercent(f.etapas);
               return (
                 <View key={f.id} className="items-center" style={{ flex: 1 }}>
                   <Text className="text-white text-xs">{f.emoji}</Text>
@@ -181,12 +138,9 @@ export default function IndiceGeralScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
-        {/* Resumo por fase */}
         <View className="flex-row flex-wrap gap-2 mb-4">
           {FASES.map((f) => {
-            const total = f.etapas.length;
-            const done = f.etapas.filter((e) => e.route !== null).length;
-            const pct = Math.round((done / total) * 100);
+            const pct = etapaProgressPercent(f.etapas);
             return (
               <TouchableOpacity
                 key={f.id}
@@ -196,24 +150,21 @@ export default function IndiceGeralScreen() {
               >
                 <Text className="text-xl mb-1">{f.emoji}</Text>
                 <Text style={{ color: f.color }} className="text-xs font-bold leading-tight">{f.label}</Text>
-                <Text className="text-xs text-muted mt-1">{done}/{total} etapas</Text>
+                <Text className="text-xs text-muted mt-1">{f.etapas.length} etapas · {pct}%</Text>
                 <View style={{ backgroundColor: f.color + "30", height: 4, borderRadius: 2, marginTop: 6, overflow: "hidden" }}>
-                  <View style={{ backgroundColor: f.color, width: `${pct}%` as any, height: 4, borderRadius: 2 }} />
+                  <View style={{ backgroundColor: f.color, width: `${pct}%` as `${number}%`, height: 4, borderRadius: 2 }} />
                 </View>
               </TouchableOpacity>
             );
           })}
         </View>
 
-        {/* Lista de fases com etapas */}
         {fasesVisiveis.map((fase) => {
           const isOpen = expandedFase === fase.id;
-          const done = fase.etapas.filter((e) => e.route !== null).length;
-          const pct = Math.round((done / fase.etapas.length) * 100);
+          const pct = etapaProgressPercent(fase.etapas);
 
           return (
             <View key={fase.id} className="mb-3">
-              {/* Cabeçalho da fase */}
               <TouchableOpacity
                 onPress={() => setExpandedFase(isOpen ? null : fase.id)}
                 style={{ backgroundColor: fase.color, borderRadius: 12 }}
@@ -224,61 +175,74 @@ export default function IndiceGeralScreen() {
                   <Text className="text-white text-sm font-bold">{fase.label}</Text>
                   <View className="flex-row items-center gap-2 mt-1">
                     <View style={{ backgroundColor: "rgba(255,255,255,0.25)", height: 4, borderRadius: 2, flex: 1, overflow: "hidden" }}>
-                      <View style={{ backgroundColor: "#fff", width: `${pct}%` as any, height: 4, borderRadius: 2 }} />
+                      <View style={{ backgroundColor: "#fff", width: `${pct}%` as `${number}%`, height: 4, borderRadius: 2 }} />
                     </View>
-                    <Text style={{ color: "rgba(255,255,255,0.9)" }} className="text-xs">{done}/{fase.etapas.length}</Text>
+                    <Text style={{ color: "rgba(255,255,255,0.9)" }} className="text-xs">{pct}%</Text>
                   </View>
                 </View>
                 <Text className="text-white text-base ml-2">{isOpen ? "▲" : "▼"}</Text>
               </TouchableOpacity>
 
-              {/* Etapas da fase */}
               {isOpen && (
-                <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: fase.color + "30", borderTopWidth: 0, borderBottomLeftRadius: 12, borderBottomRightRadius: 12 }} className="overflow-hidden">
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: fase.color + "30",
+                    borderTopWidth: 0,
+                    borderBottomLeftRadius: 12,
+                    borderBottomRightRadius: 12,
+                  }}
+                  className="overflow-hidden"
+                >
                   {fase.etapas.map((etapa, idx) => {
-                    const hasRoute = etapa.route !== null;
+                    const statusMeta = STATUS_META[etapa.status];
                     const isAdminItem = etapa.requireAdmin === true;
                     return (
                       <TouchableOpacity
                         key={etapa.num}
-                        onPress={() => hasRoute && router.push(etapa.route as any)}
-                        disabled={!hasRoute}
+                        onPress={() => router.push(etapa.route as any)}
                         style={{
                           borderTopWidth: idx > 0 ? 1 : 0,
                           borderTopColor: colors.border,
-                          opacity: hasRoute ? 1 : 0.5,
                         }}
                         className="flex-row items-center px-3 py-3"
                       >
-                        {/* Número */}
                         <View
-                          style={{ backgroundColor: hasRoute ? fase.color : "#9E9E9E", width: 28, height: 28, borderRadius: 14 }}
+                          style={{
+                            backgroundColor: statusMeta.color,
+                            width: 28,
+                            height: 28,
+                            borderRadius: 14,
+                          }}
                           className="items-center justify-center mr-3 flex-shrink-0"
                         >
                           <Text className="text-white text-xs font-bold">{etapa.num}</Text>
                         </View>
 
-                        {/* Título */}
-                        <Text style={{ color: hasRoute ? colors.foreground : colors.muted }} className="text-xs flex-1 leading-relaxed">
+                        <Text style={{ color: colors.foreground }} className="text-xs flex-1 leading-relaxed">
                           {etapa.title}
                         </Text>
 
-                        {/* Badge Admin */}
                         {isAdminItem && isAdmin && (
                           <View style={{ backgroundColor: "#7C3AED20", borderRadius: 8, paddingHorizontal: 5, paddingVertical: 2, marginLeft: 4 }}>
                             <Text style={{ color: "#7C3AED", fontSize: 9, fontWeight: "800" }}>ADMIN</Text>
                           </View>
                         )}
-                        {/* Indicador */}
-                        {hasRoute ? (
-                          <View style={{ backgroundColor: fase.color + "20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
-                            <Text style={{ color: fase.color }} className="text-xs font-bold">→</Text>
-                          </View>
-                        ) : (
-                          <View style={{ backgroundColor: "#9E9E9E20", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
-                            <Text style={{ color: "#9E9E9E" }} className="text-xs">—</Text>
-                          </View>
-                        )}
+
+                        <View
+                          style={{
+                            backgroundColor: statusMeta.color + "20",
+                            borderRadius: 8,
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                            marginLeft: 6,
+                          }}
+                        >
+                          <Text style={{ color: statusMeta.color }} className="text-xs font-bold">
+                            {statusMeta.label}
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                     );
                   })}
@@ -288,27 +252,38 @@ export default function IndiceGeralScreen() {
           );
         })}
 
-        {/* Rodapé com estatísticas */}
         <View style={{ backgroundColor: "#1B5E2015", borderWidth: 1, borderColor: "#1B5E2030" }} className="rounded-xl p-4 mb-8">
-          <Text style={{ color: "#1B5E20" }} className="text-sm font-bold mb-3">📊 Estatísticas do Projeto</Text>
+          <Text style={{ color: "#1B5E20" }} className="text-sm font-bold mb-3">📊 Estatísticas do Projeto (jul/2026)</Text>
           <View className="flex-row flex-wrap gap-2">
             {[
               { k: "46", v: "Etapas totais", cor: "#1B5E20" },
-              { k: "6",  v: "Fases temáticas", cor: "#1565C0" },
-              { k: "17", v: "Culturas no banco", cor: "#2E7D32" },
-              { k: "17", v: "Tabelas PostgreSQL", cor: "#C62828" },
-              { k: "11", v: "Módulos NestJS", cor: "#7B1FA2" },
-              { k: "5",  v: "Plataformas cliente", cor: "#F57F17" },
-              { k: "8",  v: "Serviços Docker", cor: "#0288D1" },
-              { k: "10", v: "Módulos banco agro", cor: "#00695C" },
+              { k: "6", v: "Fases temáticas", cor: "#1565C0" },
+              { k: "29", v: "Etapas MVP 1.0", cor: "#2E7D32" },
+              { k: "MySQL", v: "Banco de dados", cor: "#C62828" },
+              { k: "tRPC", v: "API backend", cor: "#7B1FA2" },
+              { k: "Expo 54", v: "App + Web", cor: "#F57F17" },
+              { k: "3", v: "Ambientes deploy", cor: "#0288D1" },
+              { k: "17+", v: "Culturas no banco", cor: "#00695C" },
             ].map((s) => (
-              <View key={s.k} style={{ backgroundColor: s.cor + "15", borderWidth: 1, borderColor: s.cor + "30", width: "22%" }} className="rounded-xl p-2 items-center">
+              <View
+                key={s.v}
+                style={{ backgroundColor: s.cor + "15", borderWidth: 1, borderColor: s.cor + "30", width: "22%" }}
+                className="rounded-xl p-2 items-center"
+              >
                 <Text style={{ color: s.cor }} className="text-lg font-bold">{s.k}</Text>
                 <Text className="text-xs text-muted text-center leading-tight">{s.v}</Text>
               </View>
             ))}
           </View>
           <View style={{ backgroundColor: "#1B5E2015", borderRadius: 8, padding: 10, marginTop: 12 }}>
+            <Text style={{ color: "#1B5E20" }} className="text-xs font-bold">⚙️ Stack implementada</Text>
+            <Text style={{ color: "#2E7D32" }} className="text-xs mt-1 leading-relaxed">
+              {AFU_STACK_REAL.frontend}{"\n"}
+              {AFU_STACK_REAL.backend} · {AFU_STACK_REAL.database}{"\n"}
+              {AFU_STACK_REAL.auth} · {AFU_STACK_REAL.deploy}
+            </Text>
+          </View>
+          <View style={{ backgroundColor: "#1B5E2015", borderRadius: 8, padding: 10, marginTop: 8 }}>
             <Text style={{ color: "#1B5E20" }} className="text-xs font-bold">🎯 Missão AFU</Text>
             <Text style={{ color: "#2E7D32" }} className="text-xs mt-1 leading-relaxed">
               Democratizar o acesso à tecnologia agronômica de ponta para pequenos e médios produtores rurais do Brasil, oferecendo diagnóstico fitotécnico por IA, banco de dados agronômico completo e ferramentas de gestão integradas.

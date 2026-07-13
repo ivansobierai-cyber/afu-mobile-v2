@@ -43,10 +43,28 @@ vi.mock("expo-secure-store", () => ({
   deleteItemAsync: vi.fn(),
 }));
 
-vi.mock("expo-modules-core", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("expo-modules-core")>();
+vi.mock("expo-modules-core", () => {
+  class MockEventEmitter {
+    addListener() {
+      return { remove: () => undefined };
+    }
+    removeAllListeners() {}
+    emit() {}
+  }
   return {
-    ...actual,
+    EventEmitter: MockEventEmitter,
+    NativeModulesProxy: {},
     requireNativeModule: vi.fn(() => ({})),
+    requireOptionalNativeModule: vi.fn(() => null),
+    CodedError: class CodedError extends Error {},
+    UnavailabilityError: class UnavailabilityError extends Error {},
   };
 });
+
+vi.mock("expo-constants", () => ({
+  default: {
+    expoConfig: { extra: {} },
+    manifest: {},
+    platform: {},
+  },
+}));

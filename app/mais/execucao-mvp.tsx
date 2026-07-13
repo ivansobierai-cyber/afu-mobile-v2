@@ -3,6 +3,15 @@ import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
+
+const ENTREGA_REAL = [
+  { sprint: "01", plano: "Fundação (NestJS/Prisma)", entregue: "Auth JWT, MySQL, tRPC, seeds", status: "done" },
+  { sprint: "02", plano: "Entidades Core", entregue: "CRUD propriedades, cultivos, terrenos", status: "done" },
+  { sprint: "03", plano: "Upload MinIO", entregue: "Upload imagem diagnóstico (Expo)", status: "partial" },
+  { sprint: "04", plano: "Diagnóstico IA", entregue: "Foto → laudo IA (smoke OK)", status: "done" },
+  { sprint: "05", plano: "Relatórios PDF", entregue: "Laudos e relatórios no app", status: "partial" },
+] as const;
 
 const TABS = [
   { id: "monorepo", label: "Monorepo" },
@@ -90,7 +99,7 @@ const SPRINTS = [
     cor: "#2E7D32",
     bg: "#E8F5E9",
     objetivos: ["Criar monorepo", "Configurar banco", "Configurar API", "Configurar autenticação"],
-    entregaveis: ["Login", "Cadastro", "JWT", "PostgreSQL", "Prisma"],
+    entregaveis: ["Login", "Cadastro", "JWT", "MySQL", "Drizzle ORM"],
   },
   {
     key: "sprint2" as SectionKey,
@@ -193,6 +202,23 @@ export default function ExecucaoMvpScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Sprints abaixo misturam plano original e entrega real. Veja o quadro de status antes de cada aba." />
+
+        <View style={{ backgroundColor: "#0D47A112", borderWidth: 1, borderColor: "#0D47A140", borderRadius: 12, padding: 12, marginBottom: 16 }}>
+          <Text style={{ color: "#0D47A1", fontSize: 13, fontWeight: "700", marginBottom: 8 }}>Status de entrega (jul/2026)</Text>
+          {ENTREGA_REAL.map((row) => (
+            <View key={row.sprint} className="flex-row items-center py-1.5 border-b border-gray-100">
+              <Text className="text-xs font-bold w-8" style={{ color: "#0D47A1" }}>S{row.sprint}</Text>
+              <Text className="text-xs text-muted flex-1" numberOfLines={1}>{row.plano}</Text>
+              <Text className="text-xs flex-1 text-foreground" numberOfLines={2}>{row.entregue}</Text>
+              <View style={{ backgroundColor: row.status === "done" ? "#2E7D3220" : "#F57F1720", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                <Text style={{ color: row.status === "done" ? "#2E7D32" : "#F57F17", fontSize: 10, fontWeight: "700" }}>
+                  {row.status === "done" ? "OK" : "Parcial"}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
 
         {/* ─── MONOREPO ─── */}
         {activeTab === "monorepo" && (

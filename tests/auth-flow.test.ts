@@ -1,13 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import * as Auth from '@/lib/_core/auth';
-import { Platform } from 'react-native';
-
-// Mock do Platform
-vi.mock('react-native', () => ({
-  Platform: {
-    OS: 'native',
-  },
-}));
 
 // Mock do SecureStore
 vi.mock('expo-secure-store', () => ({

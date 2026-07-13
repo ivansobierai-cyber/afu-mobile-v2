@@ -261,38 +261,4 @@ export function useResendEmail(
   };
 }
 
-/**
- * Formatar tempo restante para exibição
- *
- * @param seconds - Segundos restantes
- * @returns String formatada (ex: "1:05")
- */
-export function formatCooldownTime(seconds: number): string {
-  const minutes = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-
-  if (minutes > 0) {
-    return `${minutes}:${secs.toString().padStart(2, '0')}`;
-  }
-
-  return `${secs}s`;
-}
-
-/**
- * Obter mensagem de status do cooldown
- *
- * @param cooldownSeconds - Segundos restantes
- * @param maxAttempts - Máximo de tentativas
- * @returns Mensagem de status
- */
-export function getCooldownMessage(
-  cooldownSeconds: number,
-  maxAttempts: number = DEFAULT_MAX_ATTEMPTS
-): string {
-  if (cooldownSeconds > 0) {
-    const time = formatCooldownTime(cooldownSeconds);
-    return `Reenviar em ${time}`;
-  }
-
-  return 'Reenviar E-mail';
-}
+export { formatCooldownTime, getCooldownMessage } from '@/lib/auth/resend-cooldown';
