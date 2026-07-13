@@ -8,9 +8,16 @@
  * API key: Cursor Dashboard → Settings → API Keys
  */
 
-const API_KEY = process.env.CURSOR_API_KEY;
+const API_KEY = process.env.CURSOR_API_KEY?.trim();
 if (!API_KEY) {
-  console.error("Set CURSOR_API_KEY (Cursor Dashboard → API Keys)");
+  console.error("Set CURSOR_API_KEY (Cursor Dashboard → Settings → API Keys)");
+  process.exit(1);
+}
+if (API_KEY === "sua_key" || API_KEY.length < 20) {
+  console.error(
+    "CURSOR_API_KEY inválida. Gere em https://cursor.com/dashboard?tab=settings → API Keys",
+  );
+  console.error("Exemplo: CURSOR_API_KEY=key_xxxxxxxx npm run agents:archive-stale");
   process.exit(1);
 }
 
