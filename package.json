@@ -14,6 +14,7 @@
     "prepare:web-dist": "node scripts/prepare-web-dist.mjs",
     "deploy:web": "npm run build:web:preview && npm run prepare:web-dist && npx vercel deploy dist --prod --yes --project afu-mobile-web",
     "deploy:oci": "bash scripts/oci-deploy.sh",
+    "agents:archive-stale": "node scripts/archive-stale-agents.mjs",
     "build": "esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",
     "check": "tsc --noEmit",
