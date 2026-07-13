@@ -6,7 +6,7 @@ import "dotenv/config";
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import mysql from "mysql2/promise";
-import { CULTURAS, PRAGAS, DOENCAS } from "../lib/mock-data";
+import { TODAS_CULTURAS, PRAGAS, DOENCAS } from "../lib/mock-data";
 import {
   culturasCatalogo,
   climaCultura,
@@ -30,7 +30,9 @@ async function main() {
 
   console.log("[seed-agronomico] Iniciando...");
 
-  for (const cultura of CULTURAS) {
+  console.log(`[seed-agronomico] Culturas fonte: ${TODAS_CULTURAS.length}`);
+
+  for (const cultura of TODAS_CULTURAS) {
     const existing = await db
       .select()
       .from(culturasCatalogo)

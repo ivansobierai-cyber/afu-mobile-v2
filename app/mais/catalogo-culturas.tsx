@@ -5,7 +5,7 @@
  *   - Ciclo produtivo (dias), fases fenológicas
  *   - Exigências climáticas (temperatura, precipitação, luz)
  *   - Tipo de solo, épocas de plantio, produtividade média
- * Fonte: lib/mock-data.ts (CULTURAS)
+ * Fonte: MySQL via tRPC (seed:agronomico) — fallback TODAS_CULTURAS (17 fichas)
  */
 import {
   View,
@@ -20,7 +20,7 @@ import {
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
-import { CULTURAS } from "@/lib/mock-data";
+import { TODAS_CULTURAS } from "@/lib/mock-data";
 import type { Cultura } from "@/shared/types";
 import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
@@ -298,7 +298,7 @@ export default function CatalogoCulturasScreen() {
     if (catalogoDb.length > 0) {
       return catalogoDb.map(mapDbToCultura);
     }
-    return CULTURAS;
+    return TODAS_CULTURAS;
   }, [catalogoDb]);
 
   const culturasFiltradas = useMemo(() => {

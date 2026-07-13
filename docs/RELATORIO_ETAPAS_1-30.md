@@ -22,7 +22,7 @@
 ### Etapa 30 — Banco Agronômico
 - Tabelas: `culturas_catalogo`, `clima_cultura`, `irrigacao_cultura`, `nutrientes_cultura`, `genetica_cultura`, `pragas_catalogo`, `doencas_catalogo`, `controle_pragas_cultura`
 - API: `bancoAgronomico.catalogo.*`, `bancoAgronomico.consulta`
-- Seed: `npm run seed:agronomico`
+- Seed: `npm run seed:agronomico` — **17 culturas** via `TODAS_CULTURAS` (`lib/mock-data.ts`)
 - UI: `catalogo-culturas.tsx` → MySQL; `cultura-catalogo/[id].tsx`
 
 ### Etapa 29 — Piloto
