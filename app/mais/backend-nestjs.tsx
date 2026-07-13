@@ -113,9 +113,9 @@ export default function BackendNestjsScreen() {
             <IconSymbol name="server.rack" size={22} color="#FFFFFF" />
           </View>
           <View className="flex-1">
-            <Text className="text-white text-base font-bold">Backend NestJS — MVP 1.0</Text>
+            <Text className="text-white text-base font-bold">Backend API — MVP 1.0</Text>
             <Text style={{ color: "#EF9A9A" }} className="text-xs">
-              NestJS · TypeScript · PostgreSQL · Prisma · JWT · Docker
+              Express · tRPC · MySQL · Drizzle · JWT
             </Text>
           </View>
           <View style={{ backgroundColor: "#2E7D32" }} className="rounded-full px-2 py-0.5">

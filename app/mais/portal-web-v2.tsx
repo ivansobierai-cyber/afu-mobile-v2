@@ -93,7 +93,7 @@ export default function PortalWebV2Screen() {
           <View className="flex-1">
             <Text className="text-white text-base font-bold">Portal Web do Produtor AFU</Text>
             <Text style={{ color: "#90CAF9" }} className="text-xs">
-              Next.js 15 · React · TypeScript · Tailwind CSS
+              Expo Web export · React Native Web · NativeWind
             </Text>
           </View>
           <View style={{ backgroundColor: "#1B5E20" }} className="rounded-full px-2 py-0.5">

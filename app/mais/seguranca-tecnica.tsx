@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { RelatedLinks } from "@/components/related-links";
 import { RELATED_LINKS_MAP } from "@/constants/related-links-map";
 
@@ -36,6 +37,7 @@ export default function SegurancaTecnicaScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Controles abaixo descrevem o plano corporativo. O MVP usa JWT + bcrypt e perfis básicos em server/." />
         {tab === 0 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#B71C1C15", borderWidth: 1, borderColor: "#B71C1C30" }} className="rounded-xl p-4">

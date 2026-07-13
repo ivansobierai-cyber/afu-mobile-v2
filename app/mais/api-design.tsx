@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { RelatedLinks } from "@/components/related-links";
 import { RELATED_LINKS_MAP } from "@/constants/related-links-map";
 
@@ -36,6 +37,24 @@ export default function ApiDesignScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Documentação abaixo cita REST/WebSocket do plano original. O MVP expõe tRPC em server/routers.ts." />
+        <View
+          style={{
+            backgroundColor: "#311B9212",
+            borderWidth: 1,
+            borderColor: "#311B9240",
+            borderRadius: 12,
+            padding: 12,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#311B92", marginBottom: 6 }}>
+            Stack real MVP — routers tRPC
+          </Text>
+          <Text style={{ fontSize: 11, color: "#4527A0", lineHeight: 18 }}>
+            auth · coreData · secondaryData · culturasPragas · diagnostico · weather · push
+          </Text>
+        </View>
         {tab === 0 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#311B9215", borderWidth: 1, borderColor: "#311B9230" }} className="rounded-xl p-4">

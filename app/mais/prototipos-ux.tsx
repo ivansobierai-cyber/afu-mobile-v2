@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
+import { AfuMvpFooter } from "@/components/afu-mvp-footer";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -978,6 +979,7 @@ export default function PrototiposUxScreen() {
             </View>
           </View>
         )}
+        <AfuMvpFooter etapaNum={23} />
       </ScrollView>
     </ScreenContainer>
   );

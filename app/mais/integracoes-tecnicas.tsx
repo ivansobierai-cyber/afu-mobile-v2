@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { RelatedLinks } from "@/components/related-links";
 import { RELATED_LINKS_MAP } from "@/constants/related-links-map";
 
@@ -36,6 +37,7 @@ export default function IntegracoesTecnicasScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Integrações listadas incluem roadmap futuro. No MVP: LLM (diagnóstico), Open-Meteo (clima) e push notifications." />
         {tab === 0 && (
           <View className="gap-4">
             <View style={{ backgroundColor: "#1B5E2015", borderWidth: 1, borderColor: "#1B5E2030" }} className="rounded-xl p-4">

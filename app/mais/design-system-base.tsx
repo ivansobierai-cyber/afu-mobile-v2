@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { AfuMvpFooter } from "@/components/afu-mvp-footer";
 import { RelatedLinks } from "@/components/related-links";
 import { RELATED_LINKS_MAP } from "@/constants/related-links-map";
 
@@ -196,6 +197,7 @@ export default function DesignSystemBaseScreen() {
             </View>
           </View>
         )}
+        <AfuMvpFooter etapaNum={13} />
         <RelatedLinks links={RELATED_LINKS_MAP["/mais/design-system-base"]} />
       </ScrollView>
     </ScreenContainer>
