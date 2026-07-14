@@ -37,9 +37,24 @@ export default function InfraestruturaScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
-        <AfuStackBanner note="Infraestrutura abaixo cita AWS/Kubernetes. O MVP staging usa Railway (API) e Vercel (web)." />
+        <AfuStackBanner note="Infraestrutura abaixo cita AWS/Kubernetes como visão futura. O MVP staging usa Railway (API), Vercel (web) e MySQL 8 local/cloud." />
         {tab === 0 && (
           <View className="gap-4">
+            <View style={{ backgroundColor: "#1B5E2015", borderWidth: 1, borderColor: "#1B5E2030" }} className="rounded-xl p-4">
+              <Text style={{ color: "#1B5E20" }} className="text-sm font-bold mb-3">✅ MVP staging (jul/2026)</Text>
+              {[
+                { k: "API", v: "Railway — Express + tRPC · /api/health" },
+                { k: "Web", v: "Vercel — Expo export (afu-mobile-web.vercel.app)" },
+                { k: "Banco", v: "MySQL 8 · Drizzle ORM · drizzle/schema.ts" },
+                { k: "Mobile", v: "EAS preview APK · mesmo codebase Expo" },
+                { k: "CI", v: "GitHub Actions — check + build web" },
+              ].map((r) => (
+                <View key={r.k} className="flex-row py-2" style={{ borderBottomWidth: 1, borderBottomColor: "#1B5E2020" }}>
+                  <Text className="text-xs text-muted w-24">{r.k}</Text>
+                  <Text style={{ color: "#1B5E20" }} className="text-xs font-bold flex-1">{r.v}</Text>
+                </View>
+              ))}
+            </View>
             <View style={{ backgroundColor: "#37474F15", borderWidth: 1, borderColor: "#37474F30" }} className="rounded-xl p-4">
               <Text style={{ color: "#37474F" }} className="text-sm font-bold mb-3">☁️ Estratégia Cloud</Text>
               {[
@@ -62,7 +77,7 @@ export default function InfraestruturaScreen() {
               <Text style={{ color: "#37474F" }} className="text-sm font-bold mb-2">🏗️ Serviços AWS Utilizados</Text>
               {[
                 { s: "EC2 / ECS", d: "Containers da aplicação" },
-                { s: "RDS (PostgreSQL)", d: "Banco de dados gerenciado" },
+                { s: "RDS (MySQL 8)", d: "Banco de dados gerenciado (visão futura)" },
                 { s: "ElastiCache (Redis)", d: "Cache e sessões" },
                 { s: "S3", d: "Arquivos, imagens, backups" },
                 { s: "SQS / SNS", d: "Filas e notificações" },
@@ -83,8 +98,8 @@ export default function InfraestruturaScreen() {
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }} className="rounded-xl p-4">
               <Text style={{ color: "#37474F" }} className="text-sm font-bold mb-3">🐳 Docker Compose — Serviços</Text>
               {[
-                { s: "afu-api", img: "afu/api:latest", port: "3000", desc: "Backend NestJS" },
-                { s: "afu-postgres", img: "postgres:16", port: "5432", desc: "Banco de dados" },
+                { s: "afu-api", img: "afu/api:latest", port: "3000", desc: "Express + tRPC (server/)" },
+                { s: "afu-mysql", img: "mysql:8", port: "3306", desc: "MySQL 8 — afu_mobile" },
                 { s: "afu-redis", img: "redis:7-alpine", port: "6379", desc: "Cache e sessões" },
                 { s: "afu-minio", img: "minio/minio", port: "9000", desc: "Object storage" },
                 { s: "afu-nginx", img: "nginx:alpine", port: "80/443", desc: "Reverse proxy" },
@@ -107,9 +122,9 @@ export default function InfraestruturaScreen() {
         {tab === 2 && (
           <View className="gap-4">
             {[
-              { env: "DEV", cor: "#1565C0", desc: "Ambiente local do desenvolvedor", items: ["Docker Compose local", "Banco de dados local", "Hot reload ativo", "Logs verbosos", "Sem rate limiting"] },
-              { env: "STAGING", cor: "#E65100", desc: "Ambiente de homologação (pré-produção)", items: ["AWS ECS (t3.medium)", "RDS PostgreSQL (db.t3.micro)", "Dados anonimizados", "CI/CD automático", "Testes de integração"] },
-              { env: "PROD", cor: "#1B5E20", desc: "Ambiente de produção", items: ["AWS ECS (c5.xlarge)", "RDS PostgreSQL (db.r5.large)", "Multi-AZ (alta disponibilidade)", "Auto Scaling ativo", "SLA 99,9%"] },
+              { env: "DEV", cor: "#1565C0", desc: "Ambiente local do desenvolvedor", items: ["MySQL nativo ou Docker", "npm run dev (API + Metro)", "Hot reload ativo", "Logs verbosos", "Sem rate limiting"] },
+              { env: "STAGING", cor: "#E65100", desc: "Homologação (pré-produção)", items: ["Railway — API staging", "Vercel — web staging", "MySQL Railway", "CI/CD GitHub Actions", "Login demo habilitado"] },
+              { env: "PROD", cor: "#1B5E20", desc: "Ambiente de produção", items: ["Railway (API escalável)", "Vercel (CDN web)", "MySQL gerenciado", "EAS (mobile stores)", "SLA 99,9%"] },
             ].map((e) => (
               <View key={e.env} style={{ backgroundColor: e.cor + "12", borderWidth: 1, borderColor: e.cor + "30" }} className="rounded-xl p-4">
                 <View className="flex-row items-center gap-2 mb-2">

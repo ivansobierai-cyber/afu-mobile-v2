@@ -6,7 +6,7 @@ import { useColors } from "@/hooks/use-colors";
 import { AfuStackBanner } from "@/components/afu-stack-banner";
 
 const ENTREGA_REAL = [
-  { sprint: "01", plano: "Fundação (NestJS/Prisma)", entregue: "Auth JWT, MySQL, tRPC, seeds", status: "done" },
+  { sprint: "01", plano: "Fundação (Express/tRPC)", entregue: "Auth JWT, MySQL, tRPC, seeds", status: "done" },
   { sprint: "02", plano: "Entidades Core", entregue: "CRUD propriedades, cultivos, terrenos", status: "done" },
   { sprint: "03", plano: "Upload MinIO", entregue: "Upload imagem diagnóstico (Expo)", status: "partial" },
   { sprint: "04", plano: "Diagnóstico IA", entregue: "Foto → laudo IA (smoke OK)", status: "done" },
@@ -433,7 +433,7 @@ export default function ExecucaoMvpScreen() {
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">Infraestrutura MVP</Text>
             <Text className="text-xs text-muted mb-4">
-              Docker · PostgreSQL · Redis · MinIO
+              MySQL 8 · Railway · Vercel · Expo (referência Docker abaixo)
             </Text>
 
             <ExpandableSection
@@ -447,11 +447,9 @@ export default function ExecucaoMvpScreen() {
               <View className="bg-gray-900 rounded-xl p-4">
                 <Text className="text-white text-xs font-bold mb-3">docker-compose.yml</Text>
                 {[
-                  { container: "postgres", desc: "Banco de dados principal", porta: "5432", cor: "#64B5F6" },
-                  { container: "api", desc: "Backend NestJS", porta: "3000", cor: "#81C784" },
-                  { container: "web-admin", desc: "Painel administrativo Next.js", porta: "3001", cor: "#FFB74D" },
-                  { container: "web-produtor", desc: "Portal do produtor Next.js", porta: "3002", cor: "#CE93D8" },
-                  { container: "mobile-builder", desc: "Build do app React Native", porta: "8081", cor: "#EF9A9A" },
+                  { container: "mysql", desc: "Banco MySQL 8 (afu_mobile)", porta: "3306", cor: "#64B5F6" },
+                  { container: "api", desc: "Express + tRPC (server/)", porta: "3000", cor: "#81C784" },
+                  { container: "metro", desc: "Expo web (portal + admin)", porta: "8081", cor: "#FFB74D" },
                   { container: "redis", desc: "Cache e filas", porta: "6379", cor: "#80CBC4" },
                   { container: "minio", desc: "Armazenamento de objetos", porta: "9000", cor: "#FFCC80" },
                 ].map((c) => (
@@ -470,8 +468,8 @@ export default function ExecucaoMvpScreen() {
             </ExpandableSection>
 
             <ExpandableSection
-              title="PostgreSQL — Schemas Iniciais"
-              subtitle="7 schemas organizados por domínio"
+              title="MySQL — Tabelas MVP (Drizzle)"
+              subtitle="31 tabelas em drizzle/schema.ts"
               color="#2E7D32"
               sectionKey="postgres"
               expanded={!!expanded.postgres}
@@ -555,7 +553,7 @@ export default function ExecucaoMvpScreen() {
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">API & Backend MVP</Text>
             <Text className="text-xs text-muted mb-4">
-              NestJS · 6 rotas iniciais · IA via API externa
+              Express/tRPC · appRouter · IA via API externa
             </Text>
 
             <ExpandableSection
@@ -591,15 +589,15 @@ export default function ExecucaoMvpScreen() {
 
             <ExpandableSection
               title="Ambiente de Backend"
-              subtitle="NestJS · Docker · PostgreSQL · Redis"
+              subtitle="Express · tRPC · MySQL · Drizzle"
               color="#2E7D32"
               sectionKey="ambiente"
               expanded={!!expanded.ambiente}
               onToggle={toggle}
             >
-              <InfoRow label="Framework" value="NestJS (Node.js)" />
+              <InfoRow label="Framework" value="Express + tRPC (Node.js)" />
               <InfoRow label="Linguagem" value="TypeScript" />
-              <InfoRow label="ORM" value="Prisma + PostgreSQL" />
+              <InfoRow label="ORM" value="Drizzle + MySQL 8" />
               <InfoRow label="Autenticação" value="JWT + Refresh Token" />
               <InfoRow label="Cache" value="Redis" />
               <InfoRow label="Storage" value="MinIO (S3-compatible)" />
@@ -776,7 +774,7 @@ export default function ExecucaoMvpScreen() {
               {[
                 { etapa: "22", titulo: "Sistema de Design AFU", cor: "#2E7D32", desc: "Design system completo: tokens, componentes, guidelines de UI/UX" },
                 { etapa: "23", titulo: "Protótipos UX/UI", cor: "#1565C0", desc: "Wireframes e protótipos interativos de todas as telas" },
-                { etapa: "24", titulo: "Backend NestJS Completo", cor: "#EF6C00", desc: "Todos os módulos da API implementados e testados" },
+                { etapa: "24", titulo: "Backend API MVP", cor: "#EF6C00", desc: "Express/tRPC entregue — auth, CRUD, diagnóstico, piloto, banco agronômico" },
                 { etapa: "25", titulo: "App React Native Funcional", cor: "#6A1B9A", desc: "Aplicativo mobile completo com todas as funcionalidades" },
                 { etapa: "26", titulo: "Portal Web Funcional", cor: "#C62828", desc: "Portal do produtor e admin web em produção" },
                 { etapa: "27", titulo: "Deploy Beta", cor: "#37474F", desc: "Lançamento beta com primeiros produtores reais" },
@@ -805,7 +803,7 @@ export default function ExecucaoMvpScreen() {
                 O AFU entra oficialmente na fase de desenvolvimento real, com escopo definido para construção do MVP, infraestrutura organizada e sprints planejadas para entrega incremental do produto.
               </Text>
               <View className="mt-3 flex-row flex-wrap">
-                {["Monorepo configurado", "5 sprints planejadas", "7 containers Docker", "7 schemas PostgreSQL", "6 rotas API", "3 aplicativos MVP"].map((item) => (
+                {["Monorepo Expo configurado", "5 sprints entregues", "API Railway + web Vercel", "31 tabelas MySQL", "tRPC appRouter", "17 culturas catálogo"].map((item) => (
                   <Tag key={item} label={item} color="#90CAF9" bg="#1565C020" />
                 ))}
               </View>

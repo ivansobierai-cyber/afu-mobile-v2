@@ -48,5 +48,6 @@ npm run seed:agronomico
 ## Pendências pós-MVP
 
 - Piloto com produtores reais (etapa 29 → `done`)
+- Limpeza documental stack legada (etapas 7–28) — jul/2026
 - Etapas 31–46 (expansão banco agronômico)
 - Pagamento marketplace (Mercado Pago)

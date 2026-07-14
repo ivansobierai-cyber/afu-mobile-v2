@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { AfuMvpFooter } from "@/components/afu-mvp-footer";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -172,6 +173,7 @@ export default function GovernancaDevopsScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Seções de infra abaixo misturam visão futura (AWS/Next.js). O MVP entregue usa Railway, Vercel, Expo e MySQL." />
         {/* ─── GOVERNANÇA ─── */}
         {activeTab === "governanca" && (
           <View className="pb-8">
@@ -568,17 +570,17 @@ export default function GovernancaDevopsScreen() {
 
             <ExpandableSection
               title="Ambiente MVP"
-              subtitle="PostgreSQL · Object Storage · API · Frontend"
+              subtitle="MySQL · Railway API · Vercel Web · Expo Mobile"
               color="#2E7D32"
               sectionKey="mvp"
               expanded={!!expanded.mvp}
               onToggle={toggle}
             >
               {[
-                { svc: "PostgreSQL", desc: "Banco de dados relacional gerenciado" },
-                { svc: "Object Storage", desc: "Armazenamento de arquivos e imagens (S3-compatible)" },
-                { svc: "API Server", desc: "NestJS containerizado com Docker" },
-                { svc: "Frontend Web", desc: "Next.js com CDN para assets estáticos" },
+                { svc: "MySQL 8", desc: "Banco relacional — Drizzle ORM (drizzle/schema.ts)" },
+                { svc: "Railway", desc: "API Express + tRPC containerizada" },
+                { svc: "Vercel", desc: "Portal web — Expo export (mesmo monorepo)" },
+                { svc: "EAS", desc: "Builds Android/iOS (preview + production)" },
               ].map((s) => (
                 <InfoRow key={s.svc} label={s.svc} value={s.desc} />
               ))}
@@ -597,7 +599,7 @@ export default function GovernancaDevopsScreen() {
             >
               {[
                 { svc: "Balanceadores de Carga", desc: "Distribuição de tráfego com failover automático" },
-                { svc: "Banco Replicado", desc: "PostgreSQL com réplicas de leitura e failover" },
+                { svc: "Banco Replicado", desc: "MySQL com réplicas de leitura e failover (AFU 2.0+)" },
                 { svc: "Cache", desc: "Redis para sessões, filas e dados frequentes" },
                 { svc: "CDN", desc: "Distribuição global de assets e imagens" },
                 { svc: "Monitoramento", desc: "Prometheus + Grafana + alertas em tempo real" },

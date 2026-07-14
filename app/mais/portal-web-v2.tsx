@@ -177,7 +177,7 @@ export default function PortalWebV2Screen() {
                   { pasta: "components/", desc: "Componentes UI reutilizáveis", cor: "#CE93D8" },
                   { pasta: "modules/", desc: "Módulos de domínio (auth, dashboard, etc.)", cor: "#81C784" },
                   { pasta: "hooks/", desc: "Custom hooks React Query + Zustand", cor: "#FFB74D" },
-                  { pasta: "services/", desc: "Chamadas Axios à API NestJS", cor: "#80CBC4" },
+                  { pasta: "lib/trpc.ts", desc: "Cliente tRPC tipado (API Express)", cor: "#80CBC4" },
                   { pasta: "store/", desc: "Zustand stores globais", cor: "#EF9A9A" },
                   { pasta: "types/", desc: "TypeScript interfaces e tipos", cor: "#B0BEC5" },
                   { pasta: "theme/", desc: "Tokens Tailwind · Cores AFU", cor: "#FFCC80" },

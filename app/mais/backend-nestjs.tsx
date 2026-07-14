@@ -152,11 +152,24 @@ export default function BackendNestjsScreen() {
 
       <ScrollView className="flex-1 px-4 pt-4">
         <AfuStackBanner note="Esta tela documenta o plano NestJS original. A API entregue está em server/ com Express + tRPC + MySQL + Drizzle." />
+
+        <View style={{ backgroundColor: "#1B5E2012", borderWidth: 1, borderColor: "#2E7D3240", borderRadius: 12, padding: 12, marginBottom: 12 }}>
+          <Text style={{ fontSize: 12, fontWeight: "700", color: "#1B5E20", marginBottom: 6 }}>API entregue — server/</Text>
+          {[
+            "server/_core/ — Express, tRPC, JWT, context",
+            "server/routers.ts — appRouter (auth, diagnostico, bancoAgronomico, piloto…)",
+            "server/db-*.ts — Drizzle queries por domínio",
+            "drizzle/schema.ts — MySQL 8 · 31 tabelas",
+          ].map((line) => (
+            <Text key={line} style={{ fontSize: 11, color: "#2E7D32", lineHeight: 18 }}>• {line}</Text>
+          ))}
+        </View>
+
         {activeTab === "estrutura" && (
           <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Estrutura do Projeto</Text>
+            <Text className="text-base font-bold text-foreground mb-1">Estrutura do Projeto (referência NestJS)</Text>
             <Text className="text-xs text-muted mb-4">
-              services/api/ · 11 módulos · Prisma · Config
+              Plano original services/api/ — ver bloco API entregue acima
             </Text>
 
             {/* Árvore de pastas */}
@@ -230,7 +243,7 @@ export default function BackendNestjsScreen() {
             >
               <View className="bg-gray-900 rounded-xl p-4">
                 {[
-                  { key: "DATABASE_URL", desc: "PostgreSQL connection string" },
+                  { key: "DATABASE_URL", desc: "MySQL connection string (mysql://…)" },
                   { key: "JWT_SECRET", desc: "Chave secreta access token" },
                   { key: "JWT_REFRESH_SECRET", desc: "Chave secreta refresh token" },
                   { key: "STORAGE_URL", desc: "URL do MinIO / S3" },
@@ -246,7 +259,7 @@ export default function BackendNestjsScreen() {
             </ExpandableSection>
 
             <ExpandableSection
-              title="Configuração Prisma"
+              title="Schema (referência Prisma → Drizzle)"
               subtitle="prisma/schema.prisma · Conforme Etapa 6"
               color="#1565C0"
               sectionKey="prisma"
@@ -261,7 +274,7 @@ export default function BackendNestjsScreen() {
                 <Text className="text-gray-300 text-xs font-mono ml-2">{"}"}</Text>
                 <Text className="text-purple-400 text-xs font-mono mt-2">datasource</Text>
                 <Text className="text-gray-300 text-xs font-mono ml-2">{"db {"}</Text>
-                <Text className="text-gray-400 text-xs font-mono ml-4">provider = "postgresql"</Text>
+                <Text className="text-gray-400 text-xs font-mono ml-4">provider = "mysql" (Drizzle)</Text>
                 <Text className="text-gray-400 text-xs font-mono ml-4">url = env("DATABASE_URL")</Text>
                 <Text className="text-gray-300 text-xs font-mono ml-2">{"}"}</Text>
                 <Text className="text-gray-500 text-xs mt-2">// 17 modelos conforme Etapa 6</Text>
@@ -512,7 +525,7 @@ export default function BackendNestjsScreen() {
                   { step: "Imagem", desc: "URL da imagem armazenada no MinIO", cor: "#F48FB1" },
                   { step: "API IA", desc: "Chamada à API de visão computacional", cor: "#CE93D8" },
                   { step: "Resultado", desc: "Diagnóstico + confiança + recomendações", cor: "#FFB74D" },
-                  { step: "Banco", desc: "Salvar resultado no PostgreSQL via Prisma", cor: "#64B5F6" },
+                  { step: "Banco", desc: "Salvar resultado no MySQL via Drizzle", cor: "#64B5F6" },
                   { step: "Relatório", desc: "Gerar PDF/JSON automaticamente", cor: "#81C784" },
                 ].map((s, i) => (
                   <View key={s.step} className="items-start mb-1">
@@ -642,7 +655,7 @@ export default function BackendNestjsScreen() {
 
             <ExpandableSection
               title="Docker Compose MVP"
-              subtitle="4 serviços: api · postgres · redis · minio"
+              subtitle="Referência: api · mysql (dev local)"
               color="#2E7D32"
               sectionKey="compose"
               expanded={!!expanded.compose}
@@ -650,8 +663,8 @@ export default function BackendNestjsScreen() {
             >
               <View className="gap-2">
                 {[
-                  { svc: "api", desc: "NestJS · Porta 3000 · depends_on: postgres", cor: "#EF9A9A", port: "3000" },
-                  { svc: "postgres", desc: "PostgreSQL 16 · Porta 5432 · volume: pgdata", cor: "#64B5F6", port: "5432" },
+                  { svc: "api", desc: "Express/tRPC · Porta 3000 · depends_on: mysql", cor: "#EF9A9A", port: "3000" },
+                  { svc: "mysql", desc: "MySQL 8 · Porta 3306 · afu_mobile", cor: "#64B5F6", port: "3306" },
                   { svc: "redis", desc: "Redis 7 · Porta 6379 · Cache e filas", cor: "#FFB74D", port: "6379" },
                   { svc: "minio", desc: "MinIO · Porta 9000 · Armazenamento de imagens", cor: "#81C784", port: "9000" },
                 ].map((s) => (
@@ -753,7 +766,7 @@ export default function BackendNestjsScreen() {
               <View style={{ backgroundColor: "#1B5E20" }} className="rounded-xl p-4 mt-3">
                 <Text className="text-white text-xs font-bold mb-1">Resultado da Etapa 24</Text>
                 <Text style={{ color: "#A5D6A7" }} className="text-xs leading-5">
-                  O AFU passa a possuir a especificação técnica completa do backend NestJS e está pronto para implementação efetiva do código do MVP 1.0.
+                  O AFU possui a API MVP entregue em server/ (Express + tRPC + MySQL/Drizzle). A especificação NestJS abaixo permanece como referência histórica.
                 </Text>
               </View>
             </ExpandableSection>

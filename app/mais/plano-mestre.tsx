@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { AfuMvpFooter } from "@/components/afu-mvp-footer";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -261,6 +262,7 @@ export default function PlanoMestreScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Cronograma e equipes abaixo referem o plano original. O MVP 1.0 entregue usa Express/tRPC, MySQL/Drizzle, Expo e Vercel." />
 
         {/* ─── ROADMAP ─── */}
         {activeTab === "roadmap" && (
@@ -360,8 +362,8 @@ export default function PlanoMestreScreen() {
             >
               {[
                 { fase: "Fase 1", nome: "Infraestrutura", prazo: "30 dias", cor: "#64B5F6", desc: "Configuração de servidores, banco de dados, CI/CD e ambientes DEV/STAGING/PROD." },
-                { fase: "Fase 2", nome: "Backend", prazo: "60 dias", cor: "#81C784", desc: "API NestJS, autenticação JWT, módulos principais e integrações de banco." },
-                { fase: "Fase 3", nome: "Aplicativos", prazo: "60 dias", cor: "#FFB74D", desc: "App mobile React Native, portal web Next.js e painel administrativo." },
+                { fase: "Fase 2", nome: "Backend", prazo: "60 dias", cor: "#81C784", desc: "API Express + tRPC, JWT, routers principais e Drizzle/MySQL." },
+                { fase: "Fase 3", nome: "Aplicativos", prazo: "60 dias", cor: "#FFB74D", desc: "App Expo/React Native, portal web (Expo export/Vercel) e admin." },
                 { fase: "Fase 4", nome: "IA Inicial", prazo: "60 dias", cor: "#CE93D8", desc: "Módulo de diagnóstico por imagem, banco de conhecimento e assistente IA." },
                 { fase: "Fase 5", nome: "Testes", prazo: "30 dias", cor: "#EF9A9A", desc: "Testes unitários, integração, carga, segurança e usabilidade." },
                 { fase: "Fase 6", nome: "Piloto", prazo: "60 dias", cor: "#80CBC4", desc: "Implantação com primeiros 100 produtores, coleta de feedback e ajustes." },
@@ -489,8 +491,8 @@ export default function PlanoMestreScreen() {
                   cor: "#2E7D32",
                   bg: "#E8F5E9",
                   membros: [
-                    { cargo: "Backend Developer", resp: "API NestJS, banco de dados, integrações" },
-                    { cargo: "Frontend Web", resp: "Next.js, portal do produtor, admin" },
+                    { cargo: "Backend Developer", resp: "API tRPC, MySQL/Drizzle, integrações" },
+                    { cargo: "Frontend Web", resp: "Expo web, portal Vercel, admin" },
                     { cargo: "Mobile Developer", resp: "React Native, app iOS e Android" },
                     { cargo: "UX/UI Designer", resp: "Design system, protótipos, usabilidade" },
                   ],
@@ -501,7 +503,7 @@ export default function PlanoMestreScreen() {
                   bg: "#FFF3E0",
                   membros: [
                     { cargo: "Especialista IA", resp: "Modelos de ML, banco de conhecimento, prompts" },
-                    { cargo: "DBA", resp: "PostgreSQL, otimização, backups, migrações" },
+                    { cargo: "DBA", resp: "MySQL 8, otimização, backups, migrações Drizzle" },
                   ],
                 },
                 {
@@ -901,8 +903,8 @@ export default function PlanoMestreScreen() {
               {[
                 "Fundação (Etapa 1)",
                 "Arquitetura Técnica (Etapa 4)",
-                "Banco de Dados / Prisma (Etapas 3, 6)",
-                "API Backend (Etapa 5)",
+                "Banco de Dados / Drizzle (Etapas 8, 30)",
+                "API Backend tRPC (Etapa 9, 24)",
                 "Autenticação & Permissões (Etapa 7)",
                 "Aplicativos Mobile e Web (Etapas 8, 9, 10)",
                 "Módulo de IA (Etapa 11)",
@@ -937,7 +939,7 @@ export default function PlanoMestreScreen() {
                 PRÓXIMA FASE — Etapa 21
               </Text>
               <Text className="text-green-200 text-xs leading-5">
-                Execução Real do Projeto — criação do repositório, estrutura de código, design UI/UX, banco PostgreSQL, backend NestJS, aplicativo React Native e portal Web para iniciar o desenvolvimento efetivo do AFU MVP 1.0.
+                Execução Real do Projeto — monorepo Expo, API Express/tRPC, MySQL/Drizzle, app React Native, portal web Vercel e banco agronômico com 17 culturas no MVP 1.0.
               </Text>
             </View>
 

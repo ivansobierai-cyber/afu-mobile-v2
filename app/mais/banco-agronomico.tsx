@@ -675,8 +675,8 @@ export default function BancoAgronomico() {
         {/* ─── SCHEMA ─── */}
         {activeTab === "schema" && (
           <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Schema Prisma</Text>
-            <Text className="text-xs text-muted mb-4">Modelos completos · Relações · Tipos de dados</Text>
+            <Text className="text-base font-bold text-foreground mb-1">Schema Drizzle (referência)</Text>
+            <Text className="text-xs text-muted mb-4">Implementação em drizzle/schema.ts · MySQL 8 · 31 tabelas MVP</Text>
 
             <ExpandableSection title="Modelos Principais" subtitle="CulturaAvancada · CultivoAvancado · Terreno" color="#1B5E20" sectionKey="schema1" expanded={!!expanded.schema1} onToggle={toggle}>
               <View style={{ backgroundColor: "#1A1A2E" }} className="rounded-xl p-3">

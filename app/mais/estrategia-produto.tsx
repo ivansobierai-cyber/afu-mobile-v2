@@ -87,7 +87,7 @@ export default function EstrategiaProdutoScreen() {
             <View style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }} className="rounded-xl p-4">
               <Text style={{ color: "#E65100" }} className="text-sm font-bold mb-3">🎯 Matriz de Prioridades (MoSCoW)</Text>
               {[
-                { p: "Must Have", cor: "#C62828", items: ["Diagnóstico por foto", "Banco de 17 culturas", "App Android/iOS", "Backend NestJS", "Autenticação JWT"] },
+                { p: "Must Have", cor: "#C62828", items: ["Diagnóstico por foto", "Banco de 17 culturas", "App Android/iOS", "Backend Express/tRPC", "Autenticação JWT"] },
                 { p: "Should Have", cor: "#E65100", items: ["Portal web do produtor", "Calendário agrícola", "Relatórios PDF", "Notificações push"] },
                 { p: "Could Have", cor: "#1565C0", items: ["Laboratório digital", "Marketplace básico", "Sensores IoT", "WhatsApp bot"] },
                 { p: "Won't Have (v1)", cor: "#9E9E9E", items: ["Drones", "Satélite NDVI", "América Latina", "Multilíngue"] },

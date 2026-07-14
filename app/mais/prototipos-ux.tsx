@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { AfuMvpFooter } from "@/components/afu-mvp-footer";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -164,6 +165,7 @@ export default function PrototiposUxScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner />
 
         {/* ─── FLUXOS ─── */}
         {activeTab === "fluxos" && (
@@ -972,9 +974,9 @@ export default function PrototiposUxScreen() {
 
             {/* Próxima etapa */}
             <View style={{ backgroundColor: "#1B5E20" }} className="rounded-xl p-4 mt-2">
-              <Text className="text-white text-xs font-bold mb-2">Próxima Etapa — 24</Text>
+              <Text className="text-white text-xs font-bold mb-2">Etapa 24 — Entregue</Text>
               <Text style={{ color: "#A5D6A7" }} className="text-xs leading-5">
-                Implementação Backend NestJS Real: módulos, autenticação JWT, Prisma, PostgreSQL, APIs REST, upload de imagens, geração de relatórios e integração inicial com IA.
+                Backend API real em server/: Express + tRPC, JWT, MySQL/Drizzle, upload de imagens, diagnóstico IA, relatórios PDF e routers piloto/banco agronômico.
               </Text>
             </View>
           </View>

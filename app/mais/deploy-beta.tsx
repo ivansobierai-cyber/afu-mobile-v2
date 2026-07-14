@@ -93,7 +93,7 @@ export default function DeployBetaScreen() {
           <View className="flex-1">
             <Text className="text-white text-base font-bold">Deploy Beta — Homologação AFU</Text>
             <Text style={{ color: "#90CAF9" }} className="text-xs">
-              Docker Compose · CI/CD · STAGING · Testes Integrados
+              Railway · Vercel · EAS · CI GitHub Actions
             </Text>
           </View>
           <View style={{ backgroundColor: "#1B5E20" }} className="rounded-full px-2 py-0.5">
@@ -134,7 +134,7 @@ export default function DeployBetaScreen() {
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">Infraestrutura de Ambientes</Text>
             <Text className="text-xs text-muted mb-4">
-              3 ambientes · 8 serviços · Docker Compose
+              3 ambientes · Railway + Vercel (staging ativo)
             </Text>
 
             <ExpandableSection
@@ -155,7 +155,7 @@ export default function DeployBetaScreen() {
                 {
                   env: "STAGING",
                   desc: "Testes integrados · Validação técnica · Pilotos",
-                  detalhe: "Espelho da produção · Dados sintéticos · CI/CD automático",
+                  detalhe: "API Railway · Web Vercel · MySQL · CI automático",
                   cor: "#FFB74D",
                 },
                 {
@@ -191,14 +191,10 @@ export default function DeployBetaScreen() {
             >
               <View className="flex-row flex-wrap gap-2">
                 {[
-                  { svc: "PostgreSQL", cor: "#64B5F6" },
-                  { svc: "Redis", cor: "#EF9A9A" },
-                  { svc: "MinIO", cor: "#FFB74D" },
-                  { svc: "API AFU", cor: "#81C784" },
-                  { svc: "Web Admin", cor: "#CE93D8" },
-                  { svc: "Portal Produtor", cor: "#80CBC4" },
-                  { svc: "IA Service", cor: "#F48FB1" },
-                  { svc: "PDF Service", cor: "#FFCC80" },
+                  { svc: "MySQL 8", cor: "#64B5F6" },
+                  { svc: "Railway API", cor: "#81C784" },
+                  { svc: "Vercel Web", cor: "#80CBC4" },
+                  { svc: "EAS Mobile", cor: "#CE93D8" },
                 ].map((s) => (
                   <View
                     key={s.svc}
@@ -236,7 +232,7 @@ export default function DeployBetaScreen() {
               </View>
               <Text className="text-xs font-semibold text-foreground mb-2">Serviços no Compose:</Text>
               <View className="flex-row flex-wrap">
-                {["postgres", "redis", "minio", "api", "web-admin", "web-produtor"].map((s) => (
+                {["mysql", "api", "metro", "web-vercel", "eas-apk"].map((s) => (
                   <Tag key={s} label={s} color="#455A64" bg="#ECEFF1" />
                 ))}
               </View>
@@ -249,26 +245,26 @@ export default function DeployBetaScreen() {
           <View className="pb-8">
             <Text className="text-base font-bold text-foreground mb-1">Banco de Dados & Cache</Text>
             <Text className="text-xs text-muted mb-4">
-              PostgreSQL 16+ · Redis · MinIO S3
+              MySQL 8 · Drizzle · Railway (referência futura: Redis/MinIO)
             </Text>
 
             <ExpandableSection
-              title="PostgreSQL 16+"
-              subtitle="7 schemas por domínio"
+              title="MySQL 8 + Drizzle"
+              subtitle="31 tabelas MVP · drizzle/schema.ts"
               color="#336791"
               sectionKey="postgres"
               expanded={!!expanded.postgres}
               onToggle={toggle}
             >
-              <Text className="text-xs font-semibold text-foreground mb-2">Schemas por Domínio:</Text>
+              <Text className="text-xs font-semibold text-foreground mb-2">Domínios no schema:</Text>
               {[
-                { schema: "auth", desc: "Usuários, sessões, tokens, RBAC", cor: "#EF9A9A" },
-                { schema: "agricola", desc: "Produtores, propriedades, culturas, diagnósticos", cor: "#81C784" },
-                { schema: "laboratorio", desc: "Amostras, análises, laudos, resultados", cor: "#64B5F6" },
-                { schema: "iot", desc: "Sensores, leituras, alertas, calibrações", cor: "#80CBC4" },
-                { schema: "marketplace", desc: "Produtos, pedidos, pagamentos, avaliações", cor: "#FFB74D" },
-                { schema: "educacao", desc: "Cursos, vídeos, apostilas, progresso", cor: "#CE93D8" },
-                { schema: "analytics", desc: "Métricas, eventos, relatórios, KPIs", cor: "#FFCC80" },
+                { schema: "auth", desc: "users, tokens, RBAC", cor: "#EF9A9A" },
+                { schema: "agricola", desc: "propriedades, culturas, diagnósticos", cor: "#81C784" },
+                { schema: "banco", desc: "culturas_catalogo, clima, nutrientes, pragas", cor: "#64B5F6" },
+                { schema: "piloto", desc: "participantes, feedback, métricas NPS", cor: "#80CBC4" },
+                { schema: "marketplace", desc: "produtos, pedidos, parceiros", cor: "#FFB74D" },
+                { schema: "suporte", desc: "tickets, mensagens", cor: "#CE93D8" },
+                { schema: "sensores", desc: "IoT leituras (MVP parcial)", cor: "#FFCC80" },
               ].map((s) => (
                 <View key={s.schema} className="flex-row items-center py-2" style={{ borderBottomWidth: 1, borderBottomColor: "#F0F0F0" }}>
                   <View style={{ backgroundColor: s.cor + "20" }} className="rounded px-2 py-0.5 mr-3">
@@ -346,9 +342,9 @@ export default function DeployBetaScreen() {
               <View style={{ backgroundColor: "#1A1A2E" }} className="rounded-xl p-4 mb-3">
                 {[
                   { step: "GitHub", desc: "Push na branch develop/staging dispara o pipeline", cor: "#64B5F6" },
-                  { step: "Testes", desc: "Jest unit tests + integration tests (cobertura 80%)", cor: "#FFB74D" },
-                  { step: "Build", desc: "Docker build + otimização de imagens", cor: "#81C784" },
-                  { step: "Deploy Staging", desc: "Push para registry + deploy automático no STAGING", cor: "#CE93D8" },
+                  { step: "Testes", desc: "Vitest + tsc (npm run test, npm run check)", cor: "#FFB74D" },
+                  { step: "Build", desc: "Expo web export + Docker API (Railway)", cor: "#81C784" },
+                  { step: "Deploy Staging", desc: "Vercel (web) + Railway (API) automático em main", cor: "#CE93D8" },
                 ].map((s, i) => (
                   <View key={s.step} className="items-start mb-1">
                     <View style={{ backgroundColor: s.cor + "20", borderWidth: 1, borderColor: s.cor }} className="rounded-xl px-3 py-2 w-full">
@@ -403,17 +399,17 @@ export default function DeployBetaScreen() {
             </ExpandableSection>
 
             <ExpandableSection
-              title="Domínios de Homologação"
-              subtitle="3 subdomínios staging.afu.local"
+              title="URLs de Homologação (staging)"
+              subtitle="Railway + Vercel — docs/STAGING.md"
               color="#455A64"
               sectionKey="dominios"
               expanded={!!expanded.dominios}
               onToggle={toggle}
             >
               {[
-                { dominio: "staging-api.afu.local", desc: "API NestJS — porta 3000", cor: "#81C784" },
-                { dominio: "staging-admin.afu.local", desc: "Painel Administrativo — porta 3001", cor: "#64B5F6" },
-                { dominio: "staging-produtor.afu.local", desc: "Portal do Produtor — porta 3002", cor: "#FFB74D" },
+                { dominio: "afu-mobile-v2-production.up.railway.app", desc: "API Express/tRPC — /api/health", cor: "#81C784" },
+                { dominio: "afu-mobile-web.vercel.app", desc: "Portal web — Expo export", cor: "#FFB74D" },
+                { dominio: "localhost:3000 + :8081", desc: "DEV local — API + Metro web", cor: "#64B5F6" },
               ].map((d) => (
                 <View key={d.dominio} style={{ borderLeftWidth: 4, borderLeftColor: d.cor, backgroundColor: d.cor + "10" }} className="rounded-r-xl px-3 py-2 mb-1.5">
                   <Text style={{ color: d.cor }} className="text-xs font-bold font-mono">{d.dominio}</Text>
