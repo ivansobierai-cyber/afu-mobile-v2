@@ -3,19 +3,59 @@
 **Branch:** `cursor/cloud-agent-1783868046560-i7f1q`  
 **PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/8  
 **Base:** `main`  
-**Último commit de referência:** `93f0eec` (+ follow-ups se houver)
+**Último commit de referência:** `93f0eec` (+ follow-ups se houver)  
+**Merge em main:** `83383e8` (PR #8)
 
 Escopo: MVP etapas 1–30 (infra) + expansão banco 31–46 + fixes de review (migrations, seeds, auth NOC/piloto, banners).
 
 ---
 
+## Smoke staging (2026-07-17)
+
+API: `https://afu-mobile-v2-production.up.railway.app` · Web: `https://afu-mobile-web.vercel.app`
+
+| Check | Resultado |
+|-------|-----------|
+| `GET /api/health` | ✅ 200 `{"ok":true}` |
+| Web Vercel | ✅ 200 |
+| Login `demo@afuagro.com.br` | ✅ JWT accessToken |
+| `noc.painel` sem token | ✅ 401 UNAUTHORIZED |
+| `piloto.participantes.create` sem token | ✅ 401 UNAUTHORIZED |
+| `noc.painel` com token | ✅ painel (produtores/props ok) |
+| Marketplace stats | ✅ 9 produtos / 2 pedidos |
+| Expansão 30–46 (culturas, zonas, lab, geo, IoT, NOC, arch) | ❌ **contagens = 0** — falta `seed:banco-expansao` |
+
+### Ação pendente (Railway)
+
+Sem CLI Railway neste ambiente. No dashboard ou CLI local:
+
+```bash
+railway run npm run db:migrate
+railway run npm run seed:banco-expansao
+# se demo/marketplace faltarem:
+railway run npm run seed
+railway run npm run seed:marketplace
+railway run npm run seed:comprador
+```
+
+Ou setar `SEED_ON_START=1`, redeploy uma vez, depois voltar para `0`.
+
+Revalidar depois:
+
+```bash
+curl -sS "$API/api/trpc/bancoAgronomico.stats" | jq
+# totalCulturas≥17, totalCamadasGeo≥6, totalNocAlertas≥8, …
+```
+
+---
+
 ## A. Pré-merge (GitHub)
 
-- [ ] CI verde em `CI / validate` (`npm run check` + `build:web:preview` + `test:ci`)
-- [ ] Preview Vercel ok (web) — sem erro de bundle
-- [ ] Review humana rápida: sem secrets no diff; migrations `0008`–`0012` presentes
-- [ ] Confirmar que **não** há conflitos com `main` (`git fetch origin main && git merge-base --is-ancestor origin/main HEAD` ou “Update branch” no PR)
-- [ ] Merge (squash ou merge commit — preferência do time). **Não deletar** ainda o branch até smoke staging passar
+- [x] CI verde em `CI / validate` (`npm run check` + `build:web:preview` + `test:ci`)
+- [x] Preview Vercel ok (web) — sem erro de bundle
+- [x] Review humana rápida: sem secrets no diff; migrations `0008`–`0012` presentes
+- [x] Confirmar que **não** há conflitos com `main`
+- [x] Merge concluído (`83383e8`)
 
 ### O que entra no merge (resumo)
 
