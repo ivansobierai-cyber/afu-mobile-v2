@@ -96,7 +96,8 @@ URLs atuais (confirmar no dashboard):
 
 - [ ] Logs mostram: `Running database migrations...` (drizzle até `0012_*`)
 - [ ] Se `SEED_ON_START=1`: seeds demo + `seed:banco-expansao` no log
-- [ ] `curl -sS https://SEU-DOMINIO/api/health` → **200** (não 503)
+- [x] `curl -sS https://afu-mobile-v2-production.up.railway.app/api/health` → **200**
+- [ ] Migrations até `0012` + `seed:banco-expansao` aplicados (ver smoke — expansão ainda zerada)
 
 ### B2. Seeds manuais (se `SEED_ON_START=0`)
 
