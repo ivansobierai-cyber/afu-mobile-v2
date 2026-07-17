@@ -761,7 +761,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU GeoClima — Banco Climático Nacional",
-        subtitle: "Köppen · 5.570 Municípios · Zoneamento · Índice de Aptidão",
+        subtitle: "9 zonas Köppen · MySQL · seed:expansao",
         icon: "leaf.fill",
         route: "/mais/geoclima",
         color: "#0D47A1",
@@ -769,7 +769,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Solos — Banco Nacional de Solos",
-        subtitle: "12 Classes · pH · Textura · Fertilidade · IQS 0–100",
+        subtitle: "8 classes SiBCS · pH · aptidão · live",
         icon: "leaf.fill",
         route: "/mais/afu-solos",
         color: "#4E342E",
@@ -777,7 +777,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Genoma Vegetal e Melhoramento Genético",
-        subtitle: "G1–G10 · Cultivares · Híbridos · Clones · IGA 0–100",
+        subtitle: "G1–G5 live · 85 linhas genetica_cultura",
         icon: "leaf.fill",
         route: "/mais/genoma-vegetal",
         color: "#1B5E20",
@@ -785,7 +785,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Calendário Agrícola Inteligente",
-        subtitle: "13 Atividades · Regional · GeoClima · IA · Alertas",
+        subtitle: "Épocas de plantio · ciclos · calendario_cuidados",
         icon: "leaf.fill",
         route: "/mais/calendario-agricola",
         color: "#2E7D32",

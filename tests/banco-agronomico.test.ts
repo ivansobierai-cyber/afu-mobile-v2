@@ -58,3 +58,23 @@ describe("Etapas 31–34 — expansão banco", () => {
     });
   });
 });
+
+describe("Etapas 35–38 — GeoClima / Solos / Genoma / Calendário", () => {
+  it("etapas 35–38 estão done e progresso 100%", async () => {
+    const { AFU_ETAPAS_35_38, etapas35a38ProgressPercent } = await import("@/constants/afu-etapas");
+    expect(AFU_ETAPAS_35_38).toHaveLength(4);
+    expect(AFU_ETAPAS_35_38.every((e) => e.status === "done")).toBe(true);
+    expect(etapas35a38ProgressPercent()).toBe(100);
+  });
+
+  it("countExpansaoStats retorna shape", async () => {
+    const { countExpansaoStats } = await import("@/server/db-banco-agronomico");
+    const stats = await countExpansaoStats();
+    expect(stats).toMatchObject({
+      totalZonas: expect.any(Number),
+      totalSolos: expect.any(Number),
+      totalGenetica: expect.any(Number),
+      totalCulturasComEpoca: expect.any(Number),
+    });
+  });
+});

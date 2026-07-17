@@ -11,9 +11,23 @@ import {
   listPragasDoencasByCatalogoId,
   listarPragasCatalogo,
   listarDoencasCatalogo,
+  listarZonasClimaticas,
+  listarTiposSolo,
+  calendarioPlantioCatalogo,
   consultaAgronomica,
   countBancoAgronomicoStats,
+  countExpansaoStats,
 } from "../db-banco-agronomico";
+
+function parseJsonField(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
 
 export const bancoAgronomicoRouter = router({
   catalogo: router({
@@ -66,9 +80,37 @@ export const bancoAgronomicoRouter = router({
     doencas: publicProcedure.query(() => listarDoencasCatalogo()),
   }),
 
+  geoclima: router({
+    zonas: publicProcedure.query(async () => {
+      const rows = await listarZonasClimaticas();
+      return rows.map((z) => ({
+        ...z,
+        aptidaoCulturas: parseJsonField(z.aptidaoCulturas),
+      }));
+    }),
+  }),
+
+  solos: router({
+    list: publicProcedure.query(async () => {
+      const rows = await listarTiposSolo();
+      return rows.map((s) => ({
+        ...s,
+        aptidaoCulturas: parseJsonField(s.aptidaoCulturas),
+      }));
+    }),
+  }),
+
+  calendarioPlantio: publicProcedure.query(() => calendarioPlantioCatalogo()),
+
   consulta: publicProcedure
     .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
     .query(({ input }) => consultaAgronomica(input.culturaCatalogoId)),
 
-  stats: publicProcedure.query(() => countBancoAgronomicoStats()),
+  stats: publicProcedure.query(async () => {
+    const [core, expansao] = await Promise.all([
+      countBancoAgronomicoStats(),
+      countExpansaoStats(),
+    ]);
+    return { ...core, ...expansao };
+  }),
 });

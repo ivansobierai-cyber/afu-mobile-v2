@@ -734,3 +734,38 @@ export type PilotoParticipante = typeof pilotoParticipantes.$inferSelect;
 export type InsertPilotoParticipante = typeof pilotoParticipantes.$inferInsert;
 export type PilotoFeedback = typeof pilotoFeedback.$inferSelect;
 export type InsertPilotoFeedback = typeof pilotoFeedback.$inferInsert;
+
+// ─────────────────────────────────────────────
+// EXPANSÃO BANCO — Etapas 35–36 (GeoClima / Solos)
+// ─────────────────────────────────────────────
+export const zonasClimaticas = mysqlTable("zonas_climaticas", {
+  id: int("id").autoincrement().primaryKey(),
+  codigoKoppen: varchar("codigoKoppen", { length: 10 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  descricao: text("descricao"),
+  regioesBrasil: text("regioesBrasil"),
+  tempMediaMin: decimal("tempMediaMin", { precision: 5, scale: 1 }),
+  tempMediaMax: decimal("tempMediaMax", { precision: 5, scale: 1 }),
+  precipitacaoAnualMin: int("precipitacaoAnualMin"),
+  precipitacaoAnualMax: int("precipitacaoAnualMax"),
+  aptidaoCulturas: text("aptidaoCulturas"), // JSON array of slugs
+});
+
+export const tiposSolo = mysqlTable("tipos_solo", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  descricao: text("descricao"),
+  textura: varchar("textura", { length: 80 }),
+  phMin: decimal("phMin", { precision: 3, scale: 1 }),
+  phMax: decimal("phMax", { precision: 3, scale: 1 }),
+  drenagem: varchar("drenagem", { length: 80 }),
+  fertilidade: varchar("fertilidade", { length: 80 }),
+  aptidaoCulturas: text("aptidaoCulturas"), // JSON array of slugs
+  manejo: text("manejo"),
+});
+
+export type ZonaClimatica = typeof zonasClimaticas.$inferSelect;
+export type InsertZonaClimatica = typeof zonasClimaticas.$inferInsert;
+export type TipoSolo = typeof tiposSolo.$inferSelect;
+export type InsertTipoSolo = typeof tiposSolo.$inferInsert;

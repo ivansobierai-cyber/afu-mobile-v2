@@ -9,6 +9,8 @@ import {
   pragasCatalogo,
   doencasCatalogo,
   controlePragasCultura,
+  zonasClimaticas,
+  tiposSolo,
 } from "../drizzle/schema";
 
 export async function listarCatalogoCulturas(busca?: string) {
@@ -197,5 +199,71 @@ export async function countBancoAgronomicoStats() {
     totalPragas: pragas.length,
     totalDoencas: doencas.length,
     totalControles: controles.length,
+  };
+}
+
+export async function listarZonasClimaticas() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(zonasClimaticas);
+}
+
+export async function listarTiposSolo() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(tiposSolo);
+}
+
+export async function calendarioPlantioCatalogo() {
+  const db = await getDb();
+  if (!db) return [];
+  const culturas = await db.select().from(culturasCatalogo);
+  return culturas.map((c) => ({
+    id: c.id,
+    slug: c.slug,
+    nomePopular: c.nomePopular,
+    categoria: c.categoria,
+    cicloProdutivoMin: c.cicloProdutivoMin,
+    cicloProdutivoMax: c.cicloProdutivoMax,
+    epocasPlantio: c.epocasPlantio ? safeJsonArray(c.epocasPlantio) : [],
+    tipoSolo: c.tipoSolo,
+    produtividadeMedia: c.produtividadeMedia,
+  }));
+}
+
+function safeJsonArray(raw: string): string[] {
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.map(String) : [];
+  } catch {
+    return [];
+  }
+}
+
+export async function countExpansaoStats() {
+  const db = await getDb();
+  if (!db) {
+    return { totalZonas: 0, totalSolos: 0, totalGenetica: 0, totalCulturasComEpoca: 0 };
+  }
+  const [zonas, solos, genetica, culturas] = await Promise.all([
+    db.select().from(zonasClimaticas),
+    db.select().from(tiposSolo),
+    db.select().from(geneticaCultura),
+    db.select().from(culturasCatalogo),
+  ]);
+  const comEpoca = culturas.filter((c) => {
+    if (!c.epocasPlantio) return false;
+    try {
+      const arr = JSON.parse(c.epocasPlantio);
+      return Array.isArray(arr) && arr.length > 0;
+    } catch {
+      return false;
+    }
+  }).length;
+  return {
+    totalZonas: zonas.length,
+    totalSolos: solos.length,
+    totalGenetica: genetica.length,
+    totalCulturasComEpoca: comEpoca,
   };
 }

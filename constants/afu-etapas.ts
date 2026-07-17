@@ -82,10 +82,10 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
   { num: 32, title: "Seed Inicial das Culturas", route: "/mais/seed-culturas", faseId: "banco", status: "done" },
   { num: 33, title: "Seed de Clima, Irrigação e Nutrientes", route: "/mais/seed-tecnico", faseId: "banco", status: "done" },
   { num: 34, title: "Pragas, Doenças, Rotação e Genética G1–G5", route: "/mais/banco-fitossanitario", faseId: "banco", status: "done" },
-  { num: 35, title: "AFU GeoClima — Banco Climático Nacional", route: "/mais/geoclima", faseId: "banco", status: "doc" },
-  { num: 36, title: "AFU Solos — Banco Nacional de Solos", route: "/mais/afu-solos", faseId: "banco", status: "doc" },
-  { num: 37, title: "AFU Genoma Vegetal e Melhoramento Genético", route: "/mais/genoma-vegetal", faseId: "banco", status: "doc" },
-  { num: 38, title: "Calendário Agrícola Inteligente", route: "/mais/calendario-agricola", faseId: "banco", status: "partial" },
+  { num: 35, title: "AFU GeoClima — Banco Climático Nacional", route: "/mais/geoclima", faseId: "banco", status: "done" },
+  { num: 36, title: "AFU Solos — Banco Nacional de Solos", route: "/mais/afu-solos", faseId: "banco", status: "done" },
+  { num: 37, title: "AFU Genoma Vegetal e Melhoramento Genético", route: "/mais/genoma-vegetal", faseId: "banco", status: "done" },
+  { num: 38, title: "Calendário Agrícola Inteligente", route: "/mais/calendario-agricola", faseId: "banco", status: "done" },
   { num: 39, title: "AFU Laboratório Digital", route: "/mais/laboratorio-digital", faseId: "banco", status: "doc" },
   { num: 40, title: "Economia Agrícola e Previsão de Produção", route: "/mais/economia-agricola", faseId: "banco", status: "doc" },
   { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)", route: "/mais/ia-agronomo", faseId: "banco", status: "partial" },
@@ -97,6 +97,7 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
 ];
 
 export const AFU_ETAPAS_31_34 = AFU_ETAPAS_31_46.filter((e) => e.num <= 34);
+export const AFU_ETAPAS_35_38 = AFU_ETAPAS_31_46.filter((e) => e.num >= 35 && e.num <= 38);
 
 export const AFU_FASES: AfuFase[] = [
   {
@@ -170,6 +171,10 @@ export function etapas1a30ProgressPercent(): number {
 
 export function etapas31a34ProgressPercent(): number {
   return etapaProgressPercent(AFU_ETAPAS_31_34);
+}
+
+export function etapas35a38ProgressPercent(): number {
+  return etapaProgressPercent(AFU_ETAPAS_35_38);
 }
 
 export function etapasDoneOrPartialCount(etapas: AfuEtapa[]): number {
