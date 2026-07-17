@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 
@@ -240,6 +241,7 @@ export default function PortalWebScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <AfuStackBanner note="Portal do produtor entregue via Expo web (não Next.js separado). Conteúdo abaixo é plano histórico." />
 
         {/* ─── STACK ─── */}
         {abaAtiva === "stack" && (

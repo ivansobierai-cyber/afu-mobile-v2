@@ -9,6 +9,7 @@ Linear history used by `drizzle-kit migrate` (see `meta/_journal.json`):
 | 6 | `0007_push_tokens` | `push_tokens` *(filename keeps historical `0007_` prefix)* |
 | 7 | `0007_talented_deathbird` | Banco agronômico (`culturas_catalogo`, …) |
 | 8–11 | `0008`…`0011_*` | Expansão 35–46 (zonas/solos, lab/economia, camadas_geo, noc/arch) |
+| 12 | `0012_confused_mojo` | Unique `economia_cultura.culturaCatalogoId` |
 
 **Do not rename applied tags** — `__drizzle_migrations` already records them.
 

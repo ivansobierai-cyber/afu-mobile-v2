@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, publicProcedure } from "../_core/trpc";
+import { router, protectedProcedure } from "../_core/trpc";
 import {
   criarParticipante,
   listarParticipantes,
@@ -10,7 +10,7 @@ import {
 
 export const pilotoRouter = router({
   participantes: router({
-    create: publicProcedure
+    create: protectedProcedure
       .input(
         z.object({
           nome: z.string().min(2).max(200),
@@ -30,11 +30,11 @@ export const pilotoRouter = router({
         return { id };
       }),
 
-    list: publicProcedure.query(() => listarParticipantes()),
+    list: protectedProcedure.query(() => listarParticipantes()),
   }),
 
   feedback: router({
-    submit: publicProcedure
+    submit: protectedProcedure
       .input(
         z.object({
           participanteId: z.number().int().positive(),
@@ -51,10 +51,10 @@ export const pilotoRouter = router({
         return { id };
       }),
 
-    list: publicProcedure.query(() => listarFeedback()),
+    list: protectedProcedure.query(() => listarFeedback()),
   }),
 
   metricas: router({
-    resumo: publicProcedure.query(() => resumoPiloto()),
+    resumo: protectedProcedure.query(() => resumoPiloto()),
   }),
 });

@@ -44,9 +44,6 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
 ### Lint / test / build / typecheck
 
 - `npm run lint`, `npm run check` (tsc), `npm run test` (Vitest). These commands run fine, but
-  the repo currently has pre-existing lint errors and 2 Vitest suites that fail on
-  `expo-modules-core` mocking (`auth-flow.test.ts`, `resend-email.test.ts`). These are not
-  environment issues.
   the repo currently has pre-existing lint errors, 2 `tsc` errors (`app/_layout.tsx`,
   `app/auth/welcome.tsx`), and 2 Vitest suites that fail on `expo-modules-core` mocking
   (`auth-flow.test.ts`, `resend-email.test.ts`). These are not environment issues.

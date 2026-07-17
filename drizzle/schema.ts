@@ -785,7 +785,7 @@ export const labModulos = mysqlTable("lab_modulos", {
 
 export const economiaCultura = mysqlTable("economia_cultura", {
   id: int("id").autoincrement().primaryKey(),
-  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull().unique(),
   unidadeProdutividade: varchar("unidadeProdutividade", { length: 40 }).default("kg/ha"),
   produtividadeMin: decimal("produtividadeMin", { precision: 12, scale: 2 }),
   produtividadeMed: decimal("produtividadeMed", { precision: 12, scale: 2 }),
