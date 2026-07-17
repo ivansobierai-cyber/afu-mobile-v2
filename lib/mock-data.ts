@@ -1,4 +1,4 @@
-import type { Cultura, Praga, Doenca, Nutriente } from "@/shared/types";
+import type { Cultura, Praga, Doenca, Nutriente } from "../shared/types";
 
 export const CULTURAS: Cultura[] = [
   {

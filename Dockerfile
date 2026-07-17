@@ -10,6 +10,7 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY package.json package-lock.json ./
 COPY server ./server
 COPY shared ./shared
+COPY lib ./lib
 COPY drizzle ./drizzle
 COPY scripts ./scripts
 COPY drizzle.config.ts tsconfig.json ./
