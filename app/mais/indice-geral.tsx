@@ -6,6 +6,7 @@ import { useColors } from "@/hooks/use-colors";
 import { usePermission } from "@/components/route-guard";
 import {
   AFU_FASES,
+  AFU_ETAPAS_31_46,
   AFU_STACK_REAL,
   etapaProgressPercent,
   etapas1a30ProgressPercent,
@@ -31,30 +32,13 @@ const STATUS_META: Record<EtapaStatus, { label: string; color: string }> = {
   pending: { label: "Pendente", color: "#9E9E9E" },
 };
 
-/** Etapas 31–46 — expansão futura (fora do escopo MVP 1–30) */
+/** Etapas 31–46 — expansão banco (31–34 entregues) */
 const BANCO_FASE_EXT: IndiceFase = {
   id: "banco_ext",
   label: "Banco Agronômico — Expansão",
   emoji: "🌿",
   color: "#004D40",
-  etapas: [
-    { num: 31, title: "Culturas Iniciais — 17 Fichas Técnicas", route: "/mais/culturas-iniciais", faseId: "banco", status: "partial" },
-    { num: 32, title: "Seed Inicial das Culturas", route: "/mais/seed-culturas", faseId: "banco", status: "partial" },
-    { num: 33, title: "Seed de Clima, Irrigação e Nutrientes", route: "/mais/seed-tecnico", faseId: "banco", status: "partial" },
-    { num: 34, title: "Pragas, Doenças, Rotação e Genética G1–G5", route: "/mais/banco-fitossanitario", faseId: "banco", status: "partial" },
-    { num: 35, title: "AFU GeoClima — Banco Climático Nacional", route: "/mais/geoclima", faseId: "banco", status: "doc" },
-    { num: 36, title: "AFU Solos — Banco Nacional de Solos", route: "/mais/afu-solos", faseId: "banco", status: "doc" },
-    { num: 37, title: "AFU Genoma Vegetal e Melhoramento Genético", route: "/mais/genoma-vegetal", faseId: "banco", status: "doc" },
-    { num: 38, title: "Calendário Agrícola Inteligente", route: "/mais/calendario-agricola", faseId: "banco", status: "partial" },
-    { num: 39, title: "AFU Laboratório Digital", route: "/mais/laboratorio-digital", faseId: "banco", status: "doc" },
-    { num: 40, title: "Economia Agrícola e Previsão de Produção", route: "/mais/economia-agricola", faseId: "banco", status: "doc" },
-    { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)", route: "/mais/ia-agronomo", faseId: "banco", status: "partial" },
-    { num: 42, title: "Satélite, Drones e Geointeligência", route: "/mais/geointeligencia", faseId: "banco", status: "doc" },
-    { num: 43, title: "Rede de Sensores IoT e Automação Rural", route: "/mais/iot-automacao", faseId: "banco", status: "doc" },
-    { num: 44, title: "Marketplace e Comercialização Agrícola", route: "/mais/marketplace-agricola", faseId: "banco", status: "partial" },
-    { num: 45, title: "Centro de Comando NOC Agrícola", route: "/mais/noc-agricola", faseId: "banco", status: "doc" },
-    { num: 46, title: "Arquitetura Final de Software e Infra", route: "/mais/arquitetura-final", faseId: "banco", status: "doc" },
-  ],
+  etapas: AFU_ETAPAS_31_46 as IndiceEtapa[],
 };
 
 const FASES: IndiceFase[] = [

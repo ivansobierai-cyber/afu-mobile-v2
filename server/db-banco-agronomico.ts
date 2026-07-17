@@ -148,3 +148,54 @@ export async function countCatalogoCulturas() {
   const rows = await db.select().from(culturasCatalogo);
   return rows.length;
 }
+
+export async function listarPragasCatalogo() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(pragasCatalogo);
+}
+
+export async function listarDoencasCatalogo() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(doencasCatalogo);
+}
+
+export async function countBancoAgronomicoStats() {
+  const db = await getDb();
+  if (!db) {
+    return {
+      totalCulturas: 0,
+      totalClima: 0,
+      totalIrrigacao: 0,
+      totalNutrientes: 0,
+      totalGenetica: 0,
+      totalPragas: 0,
+      totalDoencas: 0,
+      totalControles: 0,
+    };
+  }
+
+  const [culturas, clima, irrigacao, nutrientes, genetica, pragas, doencas, controles] =
+    await Promise.all([
+      db.select().from(culturasCatalogo),
+      db.select().from(climaCultura),
+      db.select().from(irrigacaoCultura),
+      db.select().from(nutrientesCultura),
+      db.select().from(geneticaCultura),
+      db.select().from(pragasCatalogo),
+      db.select().from(doencasCatalogo),
+      db.select().from(controlePragasCultura),
+    ]);
+
+  return {
+    totalCulturas: culturas.length,
+    totalClima: clima.length,
+    totalIrrigacao: irrigacao.length,
+    totalNutrientes: nutrientes.length,
+    totalGenetica: genetica.length,
+    totalPragas: pragas.length,
+    totalDoencas: doencas.length,
+    totalControles: controles.length,
+  };
+}

@@ -729,7 +729,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Culturas Iniciais do Banco Agronômico",
-        subtitle: "17 Culturas · Hortícolas · Fruteiras · Raízes · Café Arábica",
+        subtitle: "17 fichas live · MySQL · Catálogo Botânico",
         icon: "leaf.fill",
         route: "/mais/culturas-iniciais",
         color: "#2E7D32",
@@ -737,7 +737,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Seed Inicial das Culturas AFU",
-        subtitle: "17 Culturas · Prisma Upsert · Script Completo · Idempotente",
+        subtitle: "seed:agronomico · Drizzle upsert · Idempotente",
         icon: "leaf.fill",
         route: "/mais/seed-culturas",
         color: "#1B5E20",
@@ -745,7 +745,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Seed Técnico — Clima, Irrigação e Fases",
-        subtitle: "17 Culturas · 4 Blocos · Clima · Irrigação · Nutrientes · Colheita",
+        subtitle: "Clima · Irrigação · 12 nutrientes × 17 · Live stats",
         icon: "leaf.fill",
         route: "/mais/seed-tecnico",
         color: "#1565C0",
@@ -753,7 +753,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Banco Fitossanitário e Genético",
-        subtitle: "6 Pragas · 6 Doenças · Rotação · G1–G5 · Multiplicação",
+        subtitle: "Pragas · Doenças · G1–G5 · Rotação · MySQL",
         icon: "leaf.fill",
         route: "/mais/banco-fitossanitario",
         color: "#880E4F",

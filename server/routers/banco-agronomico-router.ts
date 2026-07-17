@@ -5,10 +5,14 @@ import {
   listarCatalogoCulturas,
   getCatalogoCulturaById,
   getClimaByCatalogoId,
+  getIrrigacaoByCatalogoId,
   listNutrientesByCatalogoId,
+  listGeneticaByCatalogoId,
   listPragasDoencasByCatalogoId,
+  listarPragasCatalogo,
+  listarDoencasCatalogo,
   consultaAgronomica,
-  countCatalogoCulturas,
+  countBancoAgronomicoStats,
 } from "../db-banco-agronomico";
 
 export const bancoAgronomicoRouter = router({
@@ -40,20 +44,31 @@ export const bancoAgronomicoRouter = router({
       .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
       .query(({ input }) => getClimaByCatalogoId(input.culturaCatalogoId)),
 
+    irrigacao: publicProcedure
+      .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
+      .query(({ input }) => getIrrigacaoByCatalogoId(input.culturaCatalogoId)),
+
     nutrientes: publicProcedure
       .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
       .query(({ input }) => listNutrientesByCatalogoId(input.culturaCatalogoId)),
+
+    genetica: publicProcedure
+      .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
+      .query(({ input }) => listGeneticaByCatalogoId(input.culturaCatalogoId)),
 
     pragas: publicProcedure
       .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
       .query(({ input }) => listPragasDoencasByCatalogoId(input.culturaCatalogoId)),
   }),
 
+  fitossanitario: router({
+    pragas: publicProcedure.query(() => listarPragasCatalogo()),
+    doencas: publicProcedure.query(() => listarDoencasCatalogo()),
+  }),
+
   consulta: publicProcedure
     .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
     .query(({ input }) => consultaAgronomica(input.culturaCatalogoId)),
 
-  stats: publicProcedure.query(async () => ({
-    totalCulturas: await countCatalogoCulturas(),
-  })),
+  stats: publicProcedure.query(() => countBancoAgronomicoStats()),
 });

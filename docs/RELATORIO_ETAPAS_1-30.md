@@ -49,5 +49,6 @@ npm run seed:agronomico
 
 - Piloto com produtores reais (etapa 29 → `done`)
 - Limpeza documental stack legada (etapas 7–28) — jul/2026
-- Etapas 31–46 (expansão banco agronômico)
+- Etapas 31–34 entregues (fichas live, seed, clima/nutrientes, fitossanitário)
+- Etapas 35–46 (expansão banco agronômico — GeoClima, Solos, etc.)
 - Pagamento marketplace (Mercado Pago)
