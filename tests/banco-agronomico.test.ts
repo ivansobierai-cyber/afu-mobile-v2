@@ -99,3 +99,29 @@ describe("Etapas 39–41 — Lab / Economia / IA", () => {
     });
   });
 });
+
+describe("Etapas 42–44 — Geo / IoT / Marketplace", () => {
+  it("etapas 42–44 estão done e progresso 100%", async () => {
+    const { AFU_ETAPAS_42_44, etapas42a44ProgressPercent } = await import("@/constants/afu-etapas");
+    expect(AFU_ETAPAS_42_44).toHaveLength(3);
+    expect(AFU_ETAPAS_42_44.every((e) => e.status === "done")).toBe(true);
+    expect(etapas42a44ProgressPercent()).toBe(100);
+  });
+
+  it("countGeoIotMarketStats retorna shape", async () => {
+    const { countGeoIotMarketStats } = await import("@/server/db-geo-iot");
+    const stats = await countGeoIotMarketStats();
+    expect(stats).toMatchObject({
+      totalCamadasGeo: expect.any(Number),
+      propriedadesComGps: expect.any(Number),
+      areaHaMonitorada: expect.any(Number),
+      totalSensores: expect.any(Number),
+      sensoresAtivos: expect.any(Number),
+      totalLeiturasSensores: expect.any(Number),
+      alertasIot: expect.any(Number),
+      totalProdutosMarketplace: expect.any(Number),
+      produtosDisponiveis: expect.any(Number),
+      totalPedidosMarketplace: expect.any(Number),
+    });
+  });
+});

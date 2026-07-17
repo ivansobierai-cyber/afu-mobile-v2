@@ -22,6 +22,16 @@ import {
   countBancoAgronomicoStats,
   countExpansaoStats,
 } from "../db-banco-agronomico";
+import {
+  listarCamadasGeo,
+  statsGeo,
+  listarSensoresDemo,
+  listarLeiturasRecentes,
+  statsIot,
+  listarCatalogoMarketplacePublico,
+  statsMarketplace,
+  countGeoIotMarketStats,
+} from "../db-geo-iot";
 
 function parseJsonField(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -133,15 +143,38 @@ export const bancoAgronomicoRouter = router({
     resumo: publicProcedure.query(() => resumoIaAgronomo()),
   }),
 
+  geo: router({
+    camadas: publicProcedure.query(() => listarCamadasGeo()),
+    stats: publicProcedure.query(() => statsGeo()),
+  }),
+
+  iot: router({
+    sensores: publicProcedure
+      .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+      .query(({ input }) => listarSensoresDemo(input?.limit ?? 50)),
+    leituras: publicProcedure
+      .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+      .query(({ input }) => listarLeiturasRecentes(input?.limit ?? 30)),
+    stats: publicProcedure.query(() => statsIot()),
+  }),
+
+  marketplace: router({
+    catalogo: publicProcedure
+      .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+      .query(({ input }) => listarCatalogoMarketplacePublico(input?.limit ?? 50)),
+    stats: publicProcedure.query(() => statsMarketplace()),
+  }),
+
   consulta: publicProcedure
     .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
     .query(({ input }) => consultaAgronomica(input.culturaCatalogoId)),
 
   stats: publicProcedure.query(async () => {
-    const [core, expansao] = await Promise.all([
+    const [core, expansao, geoIot] = await Promise.all([
       countBancoAgronomicoStats(),
       countExpansaoStats(),
+      countGeoIotMarketStats(),
     ]);
-    return { ...core, ...expansao };
+    return { ...core, ...expansao, ...geoIot };
   }),
 });

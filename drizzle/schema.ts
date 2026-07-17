@@ -796,6 +796,33 @@ export const economiaCultura = mysqlTable("economia_cultura", {
   observacoes: text("observacoes"),
 });
 
+// ─────────────────────────────────────────────
+// EXPANSÃO — Etapas 42–43 (Geo / IoT fundação)
+// ─────────────────────────────────────────────
+export const camadasGeo = mysqlTable("camadas_geo", {
+  id: int("id").autoincrement().primaryKey(),
+  codigo: varchar("codigo", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  tipo: mysqlEnum("tipo", [
+    "ndvi",
+    "chuva",
+    "solo",
+    "risco",
+    "clima",
+    "drone",
+    "outro",
+  ]).notNull(),
+  descricao: text("descricao"),
+  fonte: varchar("fonte", { length: 120 }),
+  coberturaKm2: decimal("coberturaKm2", { precision: 14, scale: 2 }),
+  resolucaoM: int("resolucaoM"),
+  atualizadoEm: timestamp("atualizadoEm"),
+  ativo: boolean("ativo").default(true),
+});
+
+export type CamadaGeo = typeof camadasGeo.$inferSelect;
+export type InsertCamadaGeo = typeof camadasGeo.$inferInsert;
+
 export type LabModulo = typeof labModulos.$inferSelect;
 export type InsertLabModulo = typeof labModulos.$inferInsert;
 export type EconomiaCultura = typeof economiaCultura.$inferSelect;

@@ -89,9 +89,9 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
   { num: 39, title: "AFU Laboratório Digital", route: "/mais/laboratorio-digital", faseId: "banco", status: "done" },
   { num: 40, title: "Economia Agrícola e Previsão de Produção", route: "/mais/economia-agricola", faseId: "banco", status: "done" },
   { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)", route: "/mais/ia-agronomo", faseId: "banco", status: "done" },
-  { num: 42, title: "Satélite, Drones e Geointeligência", route: "/mais/geointeligencia", faseId: "banco", status: "doc" },
-  { num: 43, title: "Rede de Sensores IoT e Automação Rural", route: "/mais/iot-automacao", faseId: "banco", status: "doc" },
-  { num: 44, title: "Marketplace e Comercialização Agrícola", route: "/mais/marketplace-agricola", faseId: "banco", status: "partial" },
+  { num: 42, title: "Satélite, Drones e Geointeligência", route: "/mais/geointeligencia", faseId: "banco", status: "done" },
+  { num: 43, title: "Rede de Sensores IoT e Automação Rural", route: "/mais/iot-automacao", faseId: "banco", status: "done" },
+  { num: 44, title: "Marketplace e Comercialização Agrícola", route: "/mais/marketplace-agricola", faseId: "banco", status: "done" },
   { num: 45, title: "Centro de Comando NOC Agrícola", route: "/mais/noc-agricola", faseId: "banco", status: "doc" },
   { num: 46, title: "Arquitetura Final de Software e Infra", route: "/mais/arquitetura-final", faseId: "banco", status: "doc" },
 ];
@@ -99,6 +99,7 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
 export const AFU_ETAPAS_31_34 = AFU_ETAPAS_31_46.filter((e) => e.num <= 34);
 export const AFU_ETAPAS_35_38 = AFU_ETAPAS_31_46.filter((e) => e.num >= 35 && e.num <= 38);
 export const AFU_ETAPAS_39_41 = AFU_ETAPAS_31_46.filter((e) => e.num >= 39 && e.num <= 41);
+export const AFU_ETAPAS_42_44 = AFU_ETAPAS_31_46.filter((e) => e.num >= 42 && e.num <= 44);
 
 export const AFU_FASES: AfuFase[] = [
   {
@@ -180,6 +181,10 @@ export function etapas35a38ProgressPercent(): number {
 
 export function etapas39a41ProgressPercent(): number {
   return etapaProgressPercent(AFU_ETAPAS_39_41);
+}
+
+export function etapas42a44ProgressPercent(): number {
+  return etapaProgressPercent(AFU_ETAPAS_42_44);
 }
 
 export function etapasDoneOrPartialCount(etapas: AfuEtapa[]): number {
