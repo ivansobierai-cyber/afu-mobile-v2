@@ -78,3 +78,24 @@ describe("Etapas 35–38 — GeoClima / Solos / Genoma / Calendário", () => {
     });
   });
 });
+
+describe("Etapas 39–41 — Lab / Economia / IA", () => {
+  it("etapas 39–41 estão done e progresso 100%", async () => {
+    const { AFU_ETAPAS_39_41, etapas39a41ProgressPercent } = await import("@/constants/afu-etapas");
+    expect(AFU_ETAPAS_39_41).toHaveLength(3);
+    expect(AFU_ETAPAS_39_41.every((e) => e.status === "done")).toBe(true);
+    expect(etapas39a41ProgressPercent()).toBe(100);
+  });
+
+  it("stats incluem lab, economia e IA", async () => {
+    const { countExpansaoStats } = await import("@/server/db-banco-agronomico");
+    const stats = await countExpansaoStats();
+    expect(stats).toMatchObject({
+      totalLabModulos: expect.any(Number),
+      totalEconomia: expect.any(Number),
+      totalAnalises: expect.any(Number),
+      totalDiagnosticos: expect.any(Number),
+      mediaConfiancaIa: expect.any(Number),
+    });
+  });
+});

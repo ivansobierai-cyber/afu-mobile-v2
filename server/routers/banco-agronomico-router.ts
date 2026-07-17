@@ -14,6 +14,10 @@ import {
   listarZonasClimaticas,
   listarTiposSolo,
   calendarioPlantioCatalogo,
+  listarLabModulos,
+  listarEconomiaCulturas,
+  simularEconomia,
+  resumoIaAgronomo,
   consultaAgronomica,
   countBancoAgronomicoStats,
   countExpansaoStats,
@@ -101,6 +105,33 @@ export const bancoAgronomicoRouter = router({
   }),
 
   calendarioPlantio: publicProcedure.query(() => calendarioPlantioCatalogo()),
+
+  laboratorio: router({
+    modulos: publicProcedure.query(async () => {
+      const rows = await listarLabModulos();
+      return rows.map((m) => ({
+        ...m,
+        parametros: parseJsonField(m.parametros),
+      }));
+    }),
+  }),
+
+  economia: router({
+    list: publicProcedure.query(() => listarEconomiaCulturas()),
+    simular: publicProcedure
+      .input(
+        z.object({
+          culturaCatalogoId: z.number().int().positive(),
+          areaHa: z.number().positive().max(100000),
+          produtividade: z.number().positive().optional(),
+        }),
+      )
+      .query(({ input }) => simularEconomia(input)),
+  }),
+
+  ia: router({
+    resumo: publicProcedure.query(() => resumoIaAgronomo()),
+  }),
 
   consulta: publicProcedure
     .input(z.object({ culturaCatalogoId: z.number().int().positive() }))

@@ -86,9 +86,9 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
   { num: 36, title: "AFU Solos — Banco Nacional de Solos", route: "/mais/afu-solos", faseId: "banco", status: "done" },
   { num: 37, title: "AFU Genoma Vegetal e Melhoramento Genético", route: "/mais/genoma-vegetal", faseId: "banco", status: "done" },
   { num: 38, title: "Calendário Agrícola Inteligente", route: "/mais/calendario-agricola", faseId: "banco", status: "done" },
-  { num: 39, title: "AFU Laboratório Digital", route: "/mais/laboratorio-digital", faseId: "banco", status: "doc" },
-  { num: 40, title: "Economia Agrícola e Previsão de Produção", route: "/mais/economia-agricola", faseId: "banco", status: "doc" },
-  { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)", route: "/mais/ia-agronomo", faseId: "banco", status: "partial" },
+  { num: 39, title: "AFU Laboratório Digital", route: "/mais/laboratorio-digital", faseId: "banco", status: "done" },
+  { num: 40, title: "Economia Agrícola e Previsão de Produção", route: "/mais/economia-agricola", faseId: "banco", status: "done" },
+  { num: 41, title: "IA Agrônomo Virtual (AFU AI CORE)", route: "/mais/ia-agronomo", faseId: "banco", status: "done" },
   { num: 42, title: "Satélite, Drones e Geointeligência", route: "/mais/geointeligencia", faseId: "banco", status: "doc" },
   { num: 43, title: "Rede de Sensores IoT e Automação Rural", route: "/mais/iot-automacao", faseId: "banco", status: "doc" },
   { num: 44, title: "Marketplace e Comercialização Agrícola", route: "/mais/marketplace-agricola", faseId: "banco", status: "partial" },
@@ -98,6 +98,7 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
 
 export const AFU_ETAPAS_31_34 = AFU_ETAPAS_31_46.filter((e) => e.num <= 34);
 export const AFU_ETAPAS_35_38 = AFU_ETAPAS_31_46.filter((e) => e.num >= 35 && e.num <= 38);
+export const AFU_ETAPAS_39_41 = AFU_ETAPAS_31_46.filter((e) => e.num >= 39 && e.num <= 41);
 
 export const AFU_FASES: AfuFase[] = [
   {
@@ -175,6 +176,10 @@ export function etapas31a34ProgressPercent(): number {
 
 export function etapas35a38ProgressPercent(): number {
   return etapaProgressPercent(AFU_ETAPAS_35_38);
+}
+
+export function etapas39a41ProgressPercent(): number {
+  return etapaProgressPercent(AFU_ETAPAS_39_41);
 }
 
 export function etapasDoneOrPartialCount(etapas: AfuEtapa[]): number {

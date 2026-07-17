@@ -31,6 +31,7 @@
     "seed": "tsx scripts/seed.ts",
     "seed:agronomico": "tsx scripts/seed-agronomico.ts",
     "seed:expansao": "tsx scripts/seed-expansao.ts",
+    "seed:lab-economia": "tsx scripts/seed-lab-economia.ts",
     "seed:marketplace": "tsx scripts/seed-marketplace.ts",
     "seed:comprador": "tsx scripts/seed-comprador.ts",
     "weather:alerts": "tsx scripts/run-weather-alerts.ts",

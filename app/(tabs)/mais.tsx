@@ -793,7 +793,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Laboratório Digital",
-        subtitle: "7 Módulos · Laudos Automáticos · QR Code · IA",
+        subtitle: "7 módulos · analises_fitotecnicas · seed:lab-economia",
         icon: "leaf.fill",
         route: "/mais/laboratorio-digital",
         color: "#1A237E",
@@ -801,7 +801,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Economia Agrícola",
-        subtitle: "7 Módulos · Previsão de Produção · ROI · Simulador",
+        subtitle: "17 fichas · custo/ha · simulador margem",
         icon: "leaf.fill",
         route: "/mais/economia-agricola",
         color: "#1B5E20",
@@ -809,10 +809,10 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU IA Agrônomo Virtual",
-        subtitle: "AFU AI CORE · 8 Especialidades · 24h · Diagnóstico por Imagem",
+        subtitle: "Diagnóstico + consulta composta · 10 fontes",
         icon: "leaf.fill",
         route: "/mais/ia-agronomo",
-        color: "#0D47A1",
+        color: "#6A1B9A",
         badge: "Etapa 41",
       },
       {

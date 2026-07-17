@@ -769,3 +769,34 @@ export type ZonaClimatica = typeof zonasClimaticas.$inferSelect;
 export type InsertZonaClimatica = typeof zonasClimaticas.$inferInsert;
 export type TipoSolo = typeof tiposSolo.$inferSelect;
 export type InsertTipoSolo = typeof tiposSolo.$inferInsert;
+
+// ─────────────────────────────────────────────
+// EXPANSÃO — Etapas 39–40 (Lab / Economia)
+// ─────────────────────────────────────────────
+export const labModulos = mysqlTable("lab_modulos", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  descricao: text("descricao"),
+  parametros: text("parametros"), // JSON string[]
+  cor: varchar("cor", { length: 20 }),
+  emoji: varchar("emoji", { length: 16 }),
+});
+
+export const economiaCultura = mysqlTable("economia_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull(),
+  unidadeProdutividade: varchar("unidadeProdutividade", { length: 40 }).default("kg/ha"),
+  produtividadeMin: decimal("produtividadeMin", { precision: 12, scale: 2 }),
+  produtividadeMed: decimal("produtividadeMed", { precision: 12, scale: 2 }),
+  produtividadeMax: decimal("produtividadeMax", { precision: 12, scale: 2 }),
+  custoHaEstimado: decimal("custoHaEstimado", { precision: 12, scale: 2 }),
+  precoUnidade: decimal("precoUnidade", { precision: 12, scale: 2 }),
+  moeda: varchar("moeda", { length: 8 }).default("BRL"),
+  observacoes: text("observacoes"),
+});
+
+export type LabModulo = typeof labModulos.$inferSelect;
+export type InsertLabModulo = typeof labModulos.$inferInsert;
+export type EconomiaCultura = typeof economiaCultura.$inferSelect;
+export type InsertEconomiaCultura = typeof economiaCultura.$inferInsert;

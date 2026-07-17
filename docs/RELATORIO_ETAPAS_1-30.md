@@ -51,5 +51,6 @@ npm run seed:agronomico
 - Limpeza documental stack legada (etapas 7–28) — jul/2026
 - Etapas 31–34 entregues (fichas live, seed, clima/nutrientes, fitossanitário)
 - Etapas 35–38 entregues (GeoClima, Solos, Genoma G1–G5, Calendário plantio)
-- Etapas 39–46 (lab, economia, IA avançada, IoT, NOC…)
+- Etapas 39–41 entregues (Lab Digital, Economia, IA Agrônomo)
+- Etapas 42–46 (geointeligência, IoT, marketplace avançado, NOC…)
 - Pagamento marketplace (Mercado Pago)

@@ -64,6 +64,13 @@
       "when": 1784298453164,
       "tag": "0008_blushing_zeigeist",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1784298937051,
+      "tag": "0009_dry_prowler",
+      "breakpoints": true
     }
   ]
 }
