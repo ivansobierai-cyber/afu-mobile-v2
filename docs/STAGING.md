@@ -91,5 +91,6 @@ O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_
 
 | Erro | Causa | Correção |
 |------|--------|----------|
+| `Cannot find module '../lib/mock-data'` no `seed:agronomico` | Imagem Docker antiga sem pasta `lib/` | Merge do fix Dockerfile (`COPY lib`) + **Redeploy** da API; depois rode de novo `seed:banco-expansao` ou `SEED_ON_START=1` |
 | `ER_TABLE_EXISTS_ERROR` | Migration duplicada / deploy parcial | Redeploy após atualizar o repo; ou no MySQL Console: `SHOW TABLES;` e confira se `push_tokens` existe |
 | `ECONNREFUSED 127.0.0.1:3306` | URL aponta para localhost | Apague e recrie com reference `MYSQL_URL` |
