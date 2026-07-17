@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 
@@ -292,6 +293,7 @@ export default function ArquiteturaScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <AfuStackBanner note="Conteúdo abaixo mistura plano original (NestJS/Prisma/PostgreSQL). Stack entregue: Expo + Express/tRPC + MySQL/Drizzle." />
 
         {/* ─── STACK ─── */}
         {abaAtiva === "stack" && (

@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 
@@ -537,6 +538,7 @@ export default function PrismaSchemaScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <AfuStackBanner note="Schema de referência Prisma/PostgreSQL. Fonte de verdade: drizzle/schema.ts (MySQL 8)." />
 
         {/* ─── MODELOS ─── */}
         {abaAtiva === "modelos" && (

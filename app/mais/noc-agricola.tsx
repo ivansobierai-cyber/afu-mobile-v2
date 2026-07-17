@@ -1,590 +1,180 @@
+/**
+ * Etapa 45 — Centro de Comando NOC Agrícola
+ */
 import React, { useState } from "react";
-import { ScrollView, Text, View, TouchableOpacity } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
-import { useColors } from "@/hooks/use-colors";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
+import { trpc } from "@/lib/trpc";
 
 const TABS = [
-  { id: "visao", label: "Visão Geral" },
-  { id: "paineis", label: "Painéis" },
-  { id: "geo", label: "GEO & Produção" },
-  { id: "lab", label: "Lab & Economia" },
-  { id: "ia", label: "IA & Segurança" },
-  { id: "estrategico", label: "Estratégico" },
+  { id: "painel", label: "Painel" },
+  { id: "alertas", label: "Alertas" },
+  { id: "modulos", label: "Módulos" },
 ];
 
+const SEV_COR: Record<string, string> = {
+  info: "#1565C0",
+  baixa: "#00838F",
+  media: "#F57F17",
+  alta: "#E65100",
+  critica: "#C62828",
+};
+
 export default function NocAgricolaScreen() {
-  const colors = useColors();
-  const [activeTab, setActiveTab] = useState("visao");
+  const router = useRouter();
+  const [tab, setTab] = useState("painel");
+  const { data: painel, isLoading } = trpc.bancoAgronomico.noc.painel.useQuery();
+  const { data: alertas = [] } = trpc.bancoAgronomico.noc.alertas.useQuery();
+  const { data: stats } = trpc.bancoAgronomico.stats.useQuery();
+
+  const criterios = [
+    { ok: (stats?.totalNocAlertas ?? 0) >= 8, label: `≥ 8 alertas NOC (atual: ${stats?.totalNocAlertas ?? 0})` },
+    { ok: (painel?.saudeScore ?? 0) >= 50, label: `Score de saúde: ${painel?.saudeScore ?? 0}` },
+    { ok: (painel?.sensores ?? 0) > 0, label: "Sensores IoT no painel" },
+  ];
 
   return (
     <ScreenContainer>
-      {/* Header */}
       <View style={{ backgroundColor: "#0D47A1" }} className="px-4 pt-4 pb-3">
-        <View className="flex-row items-center gap-3 mb-1">
+        <View className="flex-row items-center gap-3 mb-2">
           <View style={{ backgroundColor: "#1565C0" }} className="w-10 h-10 rounded-xl items-center justify-center">
             <Text className="text-white text-xl">🖥️</Text>
           </View>
           <View className="flex-1">
             <Text className="text-white text-base font-bold">AFU Centro de Comando</Text>
             <Text style={{ color: "#90CAF9" }} className="text-xs">
-              NOC Agrícola · Monitoramento 24h · Controle Total
+              Etapa 45 · NOC · seed:noc-arquitetura
             </Text>
           </View>
-          <View style={{ backgroundColor: "#C62828" }} className="rounded-full px-2 py-0.5">
-            <Text className="text-white text-xs font-bold">Etapa 45</Text>
+          <View style={{ backgroundColor: "#90CAF9" }} className="rounded-full px-2 py-0.5">
+            <Text style={{ color: "#0D47A1" }} className="text-xs font-bold">
+              saúde {painel?.saudeScore ?? "—"}
+            </Text>
           </View>
         </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={{ backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} className="px-2">
-          {TABS.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
-              className="mr-1 py-3 px-3"
-            >
-              <Text style={{ color: activeTab === tab.id ? "#0D47A1" : colors.muted, fontWeight: activeTab === tab.id ? "700" : "400", fontSize: 12 }}>
-                {tab.label}
-              </Text>
-              {activeTab === tab.id && (
-                <View style={{ backgroundColor: "#0D47A1", height: 2 }} className="rounded-full mt-1" />
-              )}
-            </TouchableOpacity>
-          ))}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View className="flex-row gap-2 pt-1">
+            {TABS.map((t) => (
+              <TouchableOpacity
+                key={t.id}
+                onPress={() => setTab(t.id)}
+                style={{
+                  backgroundColor: tab === t.id ? "#fff" : "rgba(255,255,255,0.15)",
+                  borderRadius: 20,
+                  paddingHorizontal: 14,
+                  paddingVertical: 6,
+                }}
+              >
+                <Text style={{ color: tab === t.id ? "#0D47A1" : "#fff", fontSize: 11, fontWeight: "700" }}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </ScrollView>
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Painel agrega KPIs do ecossistema + noc_alertas. Monitoramento operacional MVP." />
 
-        {/* ─── VISÃO GERAL ─── */}
-        {activeTab === "visao" && (
+        {isLoading ? (
+          <ActivityIndicator color="#0D47A1" />
+        ) : tab === "painel" ? (
           <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Centro de Operações Inteligentes</Text>
-            <Text className="text-xs text-muted mb-4">Agricultural Network Operations Center · 8 módulos NOC · 24h/dia</Text>
-
-            {/* Missão */}
-            <View style={{ backgroundColor: "#0D47A1" }} className="rounded-xl p-4 mb-4">
-              <Text className="text-white text-sm font-bold mb-2">🎯 Missão do NOC</Text>
-              <Text style={{ color: "#BBDEFB" }} className="text-xs mb-3">Monitorar todo o ecossistema AFU em tempo real, 24 horas por dia.</Text>
-              <View className="flex-row flex-wrap gap-1">
-                {["Produtores", "Propriedades", "Culturas", "Sensores", "Estações Meteo.", "Drones", "Satélites", "Laboratórios", "Marketplace", "Financeiro", "IA"].map((m) => (
-                  <View key={m} style={{ backgroundColor: "rgba(255,255,255,0.15)", borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 }}>
-                    <Text className="text-white text-xs">{m}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* 8 Módulos NOC */}
-            <Text className="text-sm font-bold text-foreground mb-2">🏗️ Módulos do NOC</Text>
-            <View className="flex-row flex-wrap gap-2 mb-4">
+            <View className="flex-row flex-wrap gap-2 mb-3">
               {[
-                { m: "NOC Operacional", emoji: "⚙️", cor: "#1565C0" },
-                { m: "NOC Agronômico", emoji: "🌱", cor: "#2E7D32" },
-                { m: "NOC Climático", emoji: "🌦️", cor: "#0288D1" },
-                { m: "NOC IoT", emoji: "📡", cor: "#00695C" },
-                { m: "NOC Comercial", emoji: "🛒", cor: "#F57F17" },
-                { m: "NOC Financeiro", emoji: "💰", cor: "#7B1FA2" },
-                { m: "NOC IA", emoji: "🤖", cor: "#C62828" },
-                { m: "NOC Segurança", emoji: "🔒", cor: "#455A64" },
-              ].map((mod) => (
-                <View key={mod.m} style={{ backgroundColor: mod.cor + "15", borderWidth: 1, borderColor: mod.cor + "30", width: "47%" }} className="rounded-xl p-3 flex-row items-center gap-2">
-                  <Text className="text-xl">{mod.emoji}</Text>
-                  <Text style={{ color: mod.cor }} className="text-xs font-bold">{mod.m}</Text>
+                { k: "Produtores", v: painel?.produtores ?? 0, cor: "#0D47A1" },
+                { k: "Propriedades", v: painel?.propriedades ?? 0, cor: "#2E7D32" },
+                { k: "Sensores", v: painel?.sensoresAtivos ?? 0, cor: "#00695C" },
+                { k: "Alertas abertos", v: painel?.noc?.abertos ?? 0, cor: "#C62828" },
+                { k: "Marketplace", v: painel?.produtosMarketplace ?? 0, cor: "#1B5E20" },
+                { k: "Diagnósticos IA", v: painel?.diagnosticosIa ?? 0, cor: "#6A1B9A" },
+              ].map((c) => (
+                <View key={c.k} style={{ backgroundColor: c.cor + "15", width: "47%", borderRadius: 12, padding: 10 }}>
+                  <Text style={{ color: c.cor, fontSize: 16, fontWeight: "700" }}>{c.v}</Text>
+                  <Text style={{ color: c.cor, fontSize: 10 }}>{c.k}</Text>
                 </View>
               ))}
             </View>
-
-            {/* KPIs Executivos */}
-            <View className="rounded-xl overflow-hidden" style={{ borderWidth: 1, borderColor: "#0D47A130" }}>
-              <View style={{ backgroundColor: "#0D47A1" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📊 Dashboard Executivo — KPIs Globais</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {[
-                  { k: "Produtores ativos", emoji: "👨‍🌾", cor: "#2E7D32" },
-                  { k: "Áreas monitoradas", emoji: "🗺️", cor: "#0288D1" },
-                  { k: "Sensores online", emoji: "📡", cor: "#00695C" },
-                  { k: "Diagnósticos", emoji: "🔬", cor: "#7B1FA2" },
-                  { k: "Laudos emitidos", emoji: "📋", cor: "#F57F17" },
-                  { k: "Pedidos", emoji: "📦", cor: "#1565C0" },
-                  { k: "Receita movimentada", emoji: "💰", cor: "#C62828" },
-                ].map((k) => (
-                  <View key={k.k} style={{ backgroundColor: k.cor + "15", borderWidth: 1, borderColor: k.cor + "30", width: "47%" }} className="rounded-xl p-2 flex-row items-center gap-2">
-                    <Text className="text-lg">{k.emoji}</Text>
-                    <Text style={{ color: k.cor }} className="text-xs font-bold">{k.k}</Text>
-                  </View>
-                ))}
-              </View>
+            {criterios.map((c) => (
+              <Text key={c.label} style={{ color: c.ok ? "#2E7D32" : "#F57F17", fontSize: 12, marginBottom: 4 }}>
+                {c.ok ? "✓" : "○"} {c.label}
+              </Text>
+            ))}
+            <View className="flex-row gap-2 mt-3">
+              <TouchableOpacity
+                onPress={() => router.push("/mais/iot-automacao" as never)}
+                style={{ flex: 1, backgroundColor: "#004D40", borderRadius: 12, padding: 12 }}
+              >
+                <Text className="text-white text-center text-xs font-bold">IoT</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/mais/geointeligencia" as never)}
+                style={{ flex: 1, backgroundColor: "#1A237E", borderRadius: 12, padding: 12 }}
+              >
+                <Text className="text-white text-center text-xs font-bold">GEO</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        )}
-
-        {/* ─── PAINÉIS ─── */}
-        {activeTab === "paineis" && (
+        ) : tab === "alertas" ? (
           <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Painéis de Monitoramento</Text>
-            <Text className="text-xs text-muted mb-4">Agronômico · Climático · IoT · Irrigação · Alertas</Text>
-
-            {/* Agronômico */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#2E7D3230" }}>
-              <View style={{ backgroundColor: "#2E7D32" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🌱 Painel Agronômico</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {[
-                  { i: "Culturas implantadas", cor: "#2E7D32" },
-                  { i: "Culturas em colheita", cor: "#F57F17" },
-                  { i: "Culturas em risco", cor: "#C62828" },
-                  { i: "Pragas detectadas", cor: "#7B1FA2" },
-                  { i: "Doenças detectadas", cor: "#C62828" },
-                ].map((item) => (
-                  <View key={item.i} style={{ backgroundColor: item.cor + "15", borderWidth: 1, borderColor: item.cor + "30", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: item.cor }} className="text-xs font-bold">{item.i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Climático */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#0288D130" }}>
-              <View style={{ backgroundColor: "#0288D1" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🌦️ Painel Climático</Text>
-              </View>
-              <View className="p-4 bg-surface">
-                <View className="flex-row flex-wrap gap-1 mb-3">
-                  {["Temperatura", "Umidade", "Precipitação", "Geadas", "Granizo", "Secas"].map((c) => (
-                    <View key={c} style={{ backgroundColor: "#E1F5FE", borderWidth: 1, borderColor: "#0288D130" }} className="rounded-full px-2 py-0.5">
-                      <Text style={{ color: "#0288D1" }} className="text-xs">{c}</Text>
+            {alertas.map((a) => {
+              const cor = SEV_COR[a.severidade] ?? "#455A64";
+              return (
+                <View
+                  key={a.id}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: a.status === "aberto" ? cor + "55" : "#E5E7EB",
+                    borderRadius: 12,
+                    marginBottom: 10,
+                    overflow: "hidden",
+                  }}
+                >
+                  <View style={{ backgroundColor: cor + "18" }} className="flex-row items-center justify-between p-3">
+                    <Text className="text-sm font-bold text-foreground flex-1 mr-2">{a.titulo}</Text>
+                    <View style={{ backgroundColor: cor }} className="rounded-full px-2 py-0.5">
+                      <Text className="text-white text-xs font-bold">{a.severidade}</Text>
                     </View>
-                  ))}
+                  </View>
+                  <View className="p-3">
+                    <Text className="text-xs text-muted mb-2" numberOfLines={3}>
+                      {a.descricao}
+                    </Text>
+                    <Text className="text-xs text-muted">
+                      {a.modulo} · {a.status} · {a.origem || "—"}
+                    </Text>
+                  </View>
                 </View>
-                <Text className="text-xs font-bold text-foreground mb-2">⚠️ Alertas Automáticos</Text>
-                <View className="flex-row flex-wrap gap-1">
-                  {[
-                    { a: "Risco de geada", cor: "#1565C0" },
-                    { a: "Risco de estiagem", cor: "#F57F17" },
-                    { a: "Risco de enchente", cor: "#0288D1" },
-                    { a: "Onda de calor", cor: "#C62828" },
-                  ].map((al) => (
-                    <View key={al.a} style={{ backgroundColor: al.cor + "15", borderWidth: 1, borderColor: al.cor + "30" }} className="rounded-full px-2 py-0.5">
-                      <Text style={{ color: al.cor }} className="text-xs font-bold">🔔 {al.a}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* IoT */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#00695C30" }}>
-              <View style={{ backgroundColor: "#00695C" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📡 Painel IoT</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Sensores online", "Sensores offline", "Bombas", "Válvulas", "Reservatórios"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#E0F2F1", borderWidth: 1, borderColor: "#00695C30", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#00695C" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Irrigação */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#1565C030" }}>
-              <View style={{ backgroundColor: "#1565C0" }} className="p-3">
-                <Text className="text-white text-sm font-bold">💧 Painel de Irrigação</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Água utilizada", "Água economizada", "Talhões irrigados", "Falhas detectadas"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#E3F2FD", borderWidth: 1, borderColor: "#1565C030", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#1565C0" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Sistema de Alertas */}
-            <View className="rounded-xl overflow-hidden" style={{ borderWidth: 1, borderColor: "#C6282830" }}>
-              <View style={{ backgroundColor: "#C62828" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🚨 Sistema de Alertas — 5 Níveis</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row gap-1">
-                {[
-                  { n: "Info", cor: "#0288D1" },
-                  { n: "Atenção", cor: "#F57F17" },
-                  { n: "Alto", cor: "#E65100" },
-                  { n: "Crítico", cor: "#C62828" },
-                  { n: "Emergencial", cor: "#B71C1C" },
-                ].map((nivel) => (
-                  <View key={nivel.n} style={{ backgroundColor: nivel.cor, flex: 1 }} className="rounded-xl p-2 items-center">
-                    <Text className="text-white text-xs font-bold text-center">{nivel.n}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
+              );
+            })}
+            {alertas.length === 0 && (
+              <Text className="text-sm text-muted">Nenhum alerta. Rode npm run seed:noc-arquitetura.</Text>
+            )}
           </View>
-        )}
-
-        {/* ─── GEO & PRODUÇÃO ─── */}
-        {activeTab === "geo" && (
+        ) : (
           <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Geointeligência e Produção</Text>
-            <Text className="text-xs text-muted mb-4">Mapas · Camadas · Produção · Pragas · Doenças · Hídrico</Text>
-
-            {/* Painel Geointeligência */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#1A237E30" }}>
-              <View style={{ backgroundColor: "#1A237E" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🛰️ Painel de Geointeligência</Text>
-              </View>
-              <View className="p-4 bg-surface">
-                <Text className="text-xs font-bold text-foreground mb-2">Visualizações</Text>
-                <View className="flex-row flex-wrap gap-2 mb-3">
-                  {["Mapa nacional", "Mapa estadual", "Mapa municipal", "Mapa da propriedade"].map((m) => (
-                    <View key={m} style={{ backgroundColor: "#E8EAF6", borderWidth: 1, borderColor: "#1A237E30", width: "47%" }} className="rounded-xl p-2 items-center">
-                      <Text style={{ color: "#1A237E" }} className="text-xs font-bold">{m}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text className="text-xs font-bold text-foreground mb-2">Camadas</Text>
-                <View className="flex-row flex-wrap gap-1">
-                  {[
-                    { c: "NDVI", cor: "#2E7D32" },
-                    { c: "Solo", cor: "#795548" },
-                    { c: "Clima", cor: "#0288D1" },
-                    { c: "Produção", cor: "#F57F17" },
-                    { c: "Pragas", cor: "#7B1FA2" },
-                    { c: "Doenças", cor: "#C62828" },
-                  ].map((cam) => (
-                    <View key={cam.c} style={{ backgroundColor: cam.cor + "15", borderWidth: 1, borderColor: cam.cor + "30" }} className="rounded-full px-3 py-1">
-                      <Text style={{ color: cam.cor }} className="text-xs font-bold">{cam.c}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Produção */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#F57F1730" }}>
-              <View style={{ backgroundColor: "#F57F17" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🌾 Monitoramento de Produção</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Área plantada", "Área colhida", "Produção estimada", "Produção realizada"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#FFF8E1", borderWidth: 1, borderColor: "#F57F1730", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#F57F17" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Pragas */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#7B1FA230" }}>
-              <View style={{ backgroundColor: "#7B1FA2" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🐛 Monitoramento de Pragas</Text>
-              </View>
-              <View className="p-4 bg-surface">
-                <Text className="text-xs font-bold text-foreground mb-2">Mapa de Calor</Text>
-                <View className="flex-row gap-2 mb-3">
-                  {["Município", "Região", "Estado"].map((n) => (
-                    <View key={n} style={{ backgroundColor: "#F3E5F5", borderWidth: 1, borderColor: "#7B1FA230", flex: 1 }} className="rounded-xl p-2 items-center">
-                      <Text style={{ color: "#7B1FA2" }} className="text-xs font-bold">{n}</Text>
-                    </View>
-                  ))}
-                </View>
-                <Text className="text-xs font-bold text-foreground mb-2">Detectar</Text>
-                <View className="flex-row gap-2">
-                  {["Surtos", "Infestações", "Tendências"].map((d) => (
-                    <View key={d} style={{ backgroundColor: "#C62828", flex: 1 }} className="rounded-xl p-2 items-center">
-                      <Text className="text-white text-xs font-bold">{d}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            </View>
-
-            {/* Doenças */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#C6282830" }}>
-              <View style={{ backgroundColor: "#C62828" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🦠 Monitoramento de Doenças</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row gap-2">
-                {["Incidência", "Severidade", "Dispersão"].map((m) => (
-                  <View key={m} style={{ backgroundColor: "#FFEBEE", borderWidth: 1, borderColor: "#C6282830", flex: 1 }} className="rounded-xl p-2 items-center">
-                    <Text style={{ color: "#C62828" }} className="text-xs font-bold">{m}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Hídrico */}
-            <View className="rounded-xl overflow-hidden" style={{ borderWidth: 1, borderColor: "#0288D130" }}>
-              <View style={{ backgroundColor: "#0288D1" }} className="p-3">
-                <Text className="text-white text-sm font-bold">💧 Recursos Hídricos</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Reservatórios", "Poços", "Captação", "Consumo"].map((r) => (
-                  <View key={r} style={{ backgroundColor: "#E1F5FE", borderWidth: 1, borderColor: "#0288D130", width: "47%" }} className="rounded-xl p-2 items-center">
-                    <Text style={{ color: "#0288D1" }} className="text-xs font-bold">{r}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* ─── LAB & ECONOMIA ─── */}
-        {activeTab === "lab" && (
-          <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Laboratório e Economia</Text>
-            <Text className="text-xs text-muted mb-4">Amostras · Laudos · Receita · ROI · Comercial · Comunicação</Text>
-
-            {/* Laboratorial */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#00695C30" }}>
-              <View style={{ backgroundColor: "#00695C" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🔬 Painel Laboratorial</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Amostras recebidas", "Análises em andamento", "Laudos emitidos", "Pendências"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#E0F2F1", borderWidth: 1, borderColor: "#00695C30", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#00695C" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Econômico */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#F57F1730" }}>
-              <View style={{ backgroundColor: "#F57F17" }} className="p-3">
-                <Text className="text-white text-sm font-bold">💰 Painel Econômico</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Receita total", "Custos totais", "Lucro estimado", "ROI médio"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#FFF8E1", borderWidth: 1, borderColor: "#F57F1730", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#F57F17" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Comercial */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#1B5E2030" }}>
-              <View style={{ backgroundColor: "#1B5E20" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🛒 Painel Comercial</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Pedidos", "Produtos vendidos", "Ticket médio", "Clientes ativos"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#E8F5E9", borderWidth: 1, borderColor: "#1B5E2030", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#1B5E20" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Comunicação */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#1565C030" }}>
-              <View style={{ backgroundColor: "#1565C0" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📢 Central de Comunicação</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {[
-                  { c: "Aplicativo", emoji: "📱", cor: "#1565C0" },
-                  { c: "SMS", emoji: "💬", cor: "#2E7D32" },
-                  { c: "WhatsApp", emoji: "📲", cor: "#00695C" },
-                  { c: "E-mail", emoji: "📧", cor: "#7B1FA2" },
-                  { c: "Painel Web", emoji: "🖥️", cor: "#455A64" },
-                ].map((ch) => (
-                  <View key={ch.c} style={{ backgroundColor: ch.cor + "15", borderWidth: 1, borderColor: ch.cor + "30", width: "47%" }} className="rounded-xl p-2 flex-row items-center gap-2">
-                    <Text className="text-base">{ch.emoji}</Text>
-                    <Text style={{ color: ch.cor }} className="text-xs font-bold">{ch.c}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Relatórios */}
-            <View className="rounded-xl overflow-hidden" style={{ borderWidth: 1, borderColor: "#455A6430" }}>
-              <View style={{ backgroundColor: "#455A64" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📊 Relatórios Automáticos</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row gap-2">
-                {["Diário", "Semanal", "Mensal", "Anual"].map((p) => (
-                  <View key={p} style={{ backgroundColor: "#ECEFF1", borderWidth: 1, borderColor: "#455A6430", flex: 1 }} className="rounded-xl p-2 items-center">
-                    <Text style={{ color: "#455A64" }} className="text-xs font-bold">{p}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* ─── IA & SEGURANÇA ─── */}
-        {activeTab === "ia" && (
-          <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">IA e Segurança</Text>
-            <Text className="text-xs text-muted mb-4">Consultas · Precisão · Alertas · Logs · Auditoria · Eventos</Text>
-
-            {/* IA */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#0D47A130" }}>
-              <View style={{ backgroundColor: "#0D47A1" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🤖 Painel de IA</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Consultas realizadas", "Diagnósticos emitidos", "Precisão da IA", "Alertas gerados"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#E3F2FD", borderWidth: 1, borderColor: "#0D47A130", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#0D47A1" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Segurança */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#455A6430" }}>
-              <View style={{ backgroundColor: "#455A64" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🔒 Painel de Segurança</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Tentativas de acesso", "Logs", "Falhas", "Dispositivos conectados"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#ECEFF1", borderWidth: 1, borderColor: "#455A6430", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: "#455A64" }} className="text-xs font-bold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Banco de Auditoria */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#C6282830" }}>
-              <View style={{ backgroundColor: "#C62828" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🗄️ Banco de Auditoria</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-1">
-                {["Usuário", "Ação", "Data", "IP", "Resultado"].map((c) => (
-                  <View key={c} style={{ backgroundColor: "#FFEBEE", borderWidth: 1, borderColor: "#C6282830" }} className="rounded-full px-2 py-0.5">
-                    <Text style={{ color: "#C62828" }} className="text-xs font-mono">{c}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Central de Eventos */}
-            <View className="rounded-xl overflow-hidden" style={{ borderWidth: 1, borderColor: "#7B1FA230" }}>
-              <View style={{ backgroundColor: "#7B1FA2" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📋 Central de Eventos</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {[
-                  { e: "Climáticos", cor: "#0288D1" },
-                  { e: "Agronômicos", cor: "#2E7D32" },
-                  { e: "Financeiros", cor: "#F57F17" },
-                  { e: "Operacionais", cor: "#455A64" },
-                  { e: "Tecnológicos", cor: "#7B1FA2" },
-                ].map((ev) => (
-                  <View key={ev.e} style={{ backgroundColor: ev.cor + "15", borderWidth: 1, borderColor: ev.cor + "30", width: "47%" }} className="rounded-xl p-2">
-                    <Text style={{ color: ev.cor }} className="text-xs font-bold">{ev.e}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          </View>
-        )}
-
-        {/* ─── ESTRATÉGICO ─── */}
-        {activeTab === "estrategico" && (
-          <View className="pb-8">
-            <Text className="text-base font-bold text-foreground mb-1">Indicadores Estratégicos</Text>
-            <Text className="text-xs text-muted mb-4">6 KPIs · Preditiva · Escalabilidade · 9 integrações · 15 módulos</Text>
-
-            {/* 6 KPIs */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#0D47A130" }}>
-              <View style={{ backgroundColor: "#0D47A1" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📈 KPIs Estratégicos</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {[
-                  { k: "Disponibilidade do sistema", emoji: "⚡", cor: "#2E7D32" },
-                  { k: "Precisão da IA", emoji: "🎯", cor: "#0D47A1" },
-                  { k: "Tempo médio de resposta", emoji: "⏱️", cor: "#F57F17" },
-                  { k: "Economia de água", emoji: "💧", cor: "#0288D1" },
-                  { k: "Produtividade média", emoji: "🌾", cor: "#388E3C" },
-                  { k: "ROI médio", emoji: "💰", cor: "#7B1FA2" },
-                ].map((k) => (
-                  <View key={k.k} style={{ backgroundColor: k.cor + "15", borderWidth: 1, borderColor: k.cor + "30", width: "47%" }} className="rounded-xl p-3">
-                    <Text className="text-xl mb-1">{k.emoji}</Text>
-                    <Text style={{ color: k.cor }} className="text-xs font-bold">{k.k}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Inteligência Preditiva */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#1B5E2030" }}>
-              <View style={{ backgroundColor: "#1B5E20" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🔮 Inteligência Preditiva</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-2">
-                {["Pragas", "Doenças", "Safras", "Mercado", "Clima"].map((p) => (
-                  <View key={p} style={{ backgroundColor: "#E8F5E9", borderWidth: 1, borderColor: "#1B5E2030", width: "47%" }} className="rounded-xl p-2 items-center">
-                    <Text style={{ color: "#1B5E20" }} className="text-xs font-bold">{p}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Escalabilidade */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#F57F1730" }}>
-              <View style={{ backgroundColor: "#F57F17" }} className="p-3">
-                <Text className="text-white text-sm font-bold">📡 Escalabilidade — Sem Alteração Estrutural</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row gap-1">
-                {[
-                  { n: "1K", label: "1.000\nprodutores", cor: "#2E7D32" },
-                  { n: "10K", label: "10.000\nprodutores", cor: "#F57F17" },
-                  { n: "100K", label: "100.000\nprodutores", cor: "#0288D1" },
-                  { n: "1M", label: "1.000.000\nprodutores", cor: "#7B1FA2" },
-                ].map((e) => (
-                  <View key={e.n} style={{ backgroundColor: e.cor, flex: 1 }} className="rounded-xl p-2 items-center">
-                    <Text className="text-white text-base font-bold">{e.n}</Text>
-                    <Text className="text-white text-xs text-center">{e.label}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Integrações */}
-            <View className="rounded-xl overflow-hidden mb-4" style={{ borderWidth: 1, borderColor: "#0288D130" }}>
-              <View style={{ backgroundColor: "#0288D1" }} className="p-3">
-                <Text className="text-white text-sm font-bold">🔗 Integração Total — 9 Módulos</Text>
-              </View>
-              <View className="p-4 bg-surface flex-row flex-wrap gap-1">
-                {["AFU Agronomia", "AFU Clima", "AFU Solos", "AFU Laboratório", "AFU Economia", "AFU IA", "AFU GEO", "AFU IoT", "AFU Marketplace"].map((i) => (
-                  <View key={i} style={{ backgroundColor: "#E1F5FE", borderWidth: 1, borderColor: "#0288D130" }} className="rounded-full px-2 py-0.5">
-                    <Text style={{ color: "#0288D1" }} className="text-xs font-semibold">{i}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-
-            {/* Status 15 módulos */}
-            <View className="rounded-xl overflow-hidden" style={{ borderWidth: 1, borderColor: "#1B5E2030" }}>
-              <View style={{ backgroundColor: "#1B5E20" }} className="p-3">
-                <Text className="text-white text-sm font-bold">✅ STATUS AFU — 15 Módulos Concluídos</Text>
-              </View>
-              <View className="p-4 bg-surface">
-                <View className="flex-row flex-wrap gap-1 mb-3">
-                  {["Banco Agronômico", "Banco Climático", "Banco de Solos", "Banco Genético", "Banco de Irrigação", "Banco de Nutrientes", "Pragas e Doenças", "Calendário Inteligente", "Laboratório Digital", "Economia Agrícola", "IA Agrônomo Virtual", "Geointeligência", "IoT e Automação", "Marketplace", "Centro de Comando NOC"].map((m) => (
-                    <View key={m} style={{ backgroundColor: "#E8F5E9", borderWidth: 1, borderColor: "#2E7D3230" }} className="rounded-full px-2 py-0.5 flex-row items-center gap-1">
-                      <Text style={{ color: "#2E7D32" }} className="text-xs">✅</Text>
-                      <Text style={{ color: "#2E7D32" }} className="text-xs font-semibold">{m}</Text>
-                    </View>
-                  ))}
-                </View>
-                <View style={{ backgroundColor: "#0D47A115", borderWidth: 1, borderColor: "#0D47A130" }} className="rounded-xl p-3">
-                  <Text style={{ color: "#0D47A1" }} className="text-xs font-bold">Próxima: Etapa 46</Text>
-                  <Text style={{ color: "#0D47A1" }} className="text-xs">Arquitetura Final de Software e Infraestrutura — APK Android, iOS, Portal Web, Backend, API, Banco de Dados, Cloud, IA, Segurança, Escalabilidade, Backup e DevOps</Text>
-                </View>
-              </View>
-            </View>
+            <Text className="text-sm font-bold text-foreground mb-3">Cobertura do ecossistema</Text>
+            {[
+              { label: "Catálogo culturas", value: painel?.culturasCatalogo ?? 0, route: "/mais/banco-agronomico" },
+              { label: "Camadas GEO", value: painel?.camadasGeo ?? 0, route: "/mais/geointeligencia" },
+              { label: "Módulos Lab", value: painel?.labModulos ?? 0, route: "/mais/laboratorio-digital" },
+              { label: "Zonas clima", value: painel?.zonasClima ?? 0, route: "/mais/geoclima" },
+              { label: "Pedidos marketplace", value: painel?.pedidos ?? 0, route: "/mais/marketplace-agricola" },
+              { label: "Tickets suporte abertos", value: painel?.ticketsAbertos ?? 0, route: "/mais/suporte" },
+            ].map((m) => (
+              <TouchableOpacity
+                key={m.label}
+                onPress={() => router.push(m.route as never)}
+                className="flex-row items-center justify-between mb-2"
+                style={{ backgroundColor: "#E3F2FD", borderRadius: 12, padding: 12 }}
+              >
+                <Text style={{ color: "#0D47A1", fontSize: 13, fontWeight: "600" }}>{m.label}</Text>
+                <Text style={{ color: "#1565C0", fontSize: 14, fontWeight: "700" }}>{m.value}</Text>
+              </TouchableOpacity>
+            ))}
           </View>
         )}
       </ScrollView>

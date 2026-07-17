@@ -29,6 +29,7 @@ export default function KpisScreen() {
     { kpi: "Typecheck (tsc)", meta: "0 erros", atual: "0", status: "done" as const },
     { kpi: "Testes Vitest", meta: "270+ passando", atual: "270+", status: "done" as const },
     { kpi: "Catálogo agronômico (Etapa 30)", meta: "MySQL", atual: String(bancoStats?.totalCulturas ?? 0), status: (bancoStats?.totalCulturas ?? 0) > 0 ? ("done" as const) : ("partial" as const) },
+    { kpi: "Fitossanitário (Etapa 34)", meta: "≥8 pragas", atual: String(bancoStats?.totalPragas ?? 0), status: (bancoStats?.totalPragas ?? 0) >= 8 ? ("done" as const) : ("partial" as const) },
     { kpi: "Piloto — participantes", meta: "Etapa 29", atual: String(pilotoResumo?.totalParticipantes ?? 0), status: (pilotoResumo?.totalParticipantes ?? 0) > 0 ? ("partial" as const) : ("pending" as const) },
     { kpi: "NPS piloto", meta: "≥ 4,5 / 5", atual: pilotoResumo?.mediaNps ? String(pilotoResumo.mediaNps) : "—", status: (pilotoResumo?.mediaNps ?? 0) >= 4.5 ? ("done" as const) : ("pending" as const) },
   ];

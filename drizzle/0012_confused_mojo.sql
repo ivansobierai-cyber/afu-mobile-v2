@@ -1,0 +1,1 @@
+ALTER TABLE `economia_cultura` ADD CONSTRAINT `economia_cultura_culturaCatalogoId_unique` UNIQUE(`culturaCatalogoId`);

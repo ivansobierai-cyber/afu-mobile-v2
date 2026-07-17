@@ -32,6 +32,9 @@ npm run db:push
 npm run seed
 npm run seed:marketplace
 
+# 5b. Expansão banco agronômico 30–46 (opcional, idempotente)
+npm run seed:banco-expansao
+
 # 6. API + Metro
 npm run dev
 ```
@@ -96,6 +99,7 @@ Crie com `npm run seed:comprador` se ainda não existir.
 | `npm run db:reset` | Recria o banco do zero (apaga volume) |
 | `npm run seed` | Seed idempotente de dados demo |
 | `npm run seed:marketplace` | Popula catálogo demo do marketplace |
+| `npm run seed:banco-expansao` | Cadeia 30–46 (agronômico → GEO/IoT → NOC) |
 | `npm run build` / `npm start` | Build e start da API em produção |
 
 ## Dev client Android (EAS)
@@ -111,7 +115,8 @@ npm run eas:android:prod     # build produção (AAB)
 
 Ajuste `EXPO_PUBLIC_API_BASE_URL` em `eas.json` (profiles `preview` / `production`) para a URL real da API.
 
-Guia completo de staging: [docs/STAGING.md](docs/STAGING.md).
+Guia completo de staging: [docs/STAGING.md](docs/STAGING.md).  
+Checklist merge PR #8 (expansão 31–46): [docs/MERGE_STAGING_CHECKLIST.md](docs/MERGE_STAGING_CHECKLIST.md).
 
 No celular, a API **não** usa `localhost`. Defina no `.env` o IP da máquina:
 

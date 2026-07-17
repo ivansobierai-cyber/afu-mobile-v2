@@ -729,7 +729,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Culturas Iniciais do Banco Agronômico",
-        subtitle: "17 Culturas · Hortícolas · Fruteiras · Raízes · Café Arábica",
+        subtitle: "17 fichas live · MySQL · Catálogo Botânico",
         icon: "leaf.fill",
         route: "/mais/culturas-iniciais",
         color: "#2E7D32",
@@ -737,7 +737,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Seed Inicial das Culturas AFU",
-        subtitle: "17 Culturas · Prisma Upsert · Script Completo · Idempotente",
+        subtitle: "seed:agronomico · Drizzle upsert · Idempotente",
         icon: "leaf.fill",
         route: "/mais/seed-culturas",
         color: "#1B5E20",
@@ -745,7 +745,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Seed Técnico — Clima, Irrigação e Fases",
-        subtitle: "17 Culturas · 4 Blocos · Clima · Irrigação · Nutrientes · Colheita",
+        subtitle: "Clima · Irrigação · 12 nutrientes × 17 · Live stats",
         icon: "leaf.fill",
         route: "/mais/seed-tecnico",
         color: "#1565C0",
@@ -753,7 +753,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Banco Fitossanitário e Genético",
-        subtitle: "6 Pragas · 6 Doenças · Rotação · G1–G5 · Multiplicação",
+        subtitle: "Pragas · Doenças · G1–G5 · Rotação · MySQL",
         icon: "leaf.fill",
         route: "/mais/banco-fitossanitario",
         color: "#880E4F",
@@ -761,7 +761,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU GeoClima — Banco Climático Nacional",
-        subtitle: "Köppen · 5.570 Municípios · Zoneamento · Índice de Aptidão",
+        subtitle: "9 zonas Köppen · MySQL · seed:expansao",
         icon: "leaf.fill",
         route: "/mais/geoclima",
         color: "#0D47A1",
@@ -769,7 +769,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Solos — Banco Nacional de Solos",
-        subtitle: "12 Classes · pH · Textura · Fertilidade · IQS 0–100",
+        subtitle: "8 classes SiBCS · pH · aptidão · live",
         icon: "leaf.fill",
         route: "/mais/afu-solos",
         color: "#4E342E",
@@ -777,7 +777,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Genoma Vegetal e Melhoramento Genético",
-        subtitle: "G1–G10 · Cultivares · Híbridos · Clones · IGA 0–100",
+        subtitle: "G1–G5 live · 85 linhas genetica_cultura",
         icon: "leaf.fill",
         route: "/mais/genoma-vegetal",
         color: "#1B5E20",
@@ -785,7 +785,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "Calendário Agrícola Inteligente",
-        subtitle: "13 Atividades · Regional · GeoClima · IA · Alertas",
+        subtitle: "Épocas de plantio · ciclos · calendario_cuidados",
         icon: "leaf.fill",
         route: "/mais/calendario-agricola",
         color: "#2E7D32",
@@ -793,7 +793,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Laboratório Digital",
-        subtitle: "7 Módulos · Laudos Automáticos · QR Code · IA",
+        subtitle: "7 módulos · analises_fitotecnicas · seed:lab-economia",
         icon: "leaf.fill",
         route: "/mais/laboratorio-digital",
         color: "#1A237E",
@@ -801,7 +801,7 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU Economia Agrícola",
-        subtitle: "7 Módulos · Previsão de Produção · ROI · Simulador",
+        subtitle: "17 fichas · custo/ha · simulador margem",
         icon: "leaf.fill",
         route: "/mais/economia-agricola",
         color: "#1B5E20",
@@ -809,10 +809,10 @@ const MENU_SECTIONS: MenuSection[] = [
       },
       {
         title: "AFU IA Agrônomo Virtual",
-        subtitle: "AFU AI CORE · 8 Especialidades · 24h · Diagnóstico por Imagem",
+        subtitle: "Diagnóstico + consulta composta · 10 fontes",
         icon: "leaf.fill",
         route: "/mais/ia-agronomo",
-        color: "#0D47A1",
+        color: "#6A1B9A",
         badge: "Etapa 41",
       },
       {

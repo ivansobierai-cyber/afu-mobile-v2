@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 
@@ -261,6 +262,7 @@ export default function WebAdminScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <AfuStackBanner note="Plano Next.js admin abaixo é referência. O admin MVP atual roda no mesmo app Expo web + Express/tRPC." />
 
         {/* ─── STACK ─── */}
         {abaAtiva === "stack" && (

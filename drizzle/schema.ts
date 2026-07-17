@@ -734,3 +734,137 @@ export type PilotoParticipante = typeof pilotoParticipantes.$inferSelect;
 export type InsertPilotoParticipante = typeof pilotoParticipantes.$inferInsert;
 export type PilotoFeedback = typeof pilotoFeedback.$inferSelect;
 export type InsertPilotoFeedback = typeof pilotoFeedback.$inferInsert;
+
+// ─────────────────────────────────────────────
+// EXPANSÃO BANCO — Etapas 35–36 (GeoClima / Solos)
+// ─────────────────────────────────────────────
+export const zonasClimaticas = mysqlTable("zonas_climaticas", {
+  id: int("id").autoincrement().primaryKey(),
+  codigoKoppen: varchar("codigoKoppen", { length: 10 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  descricao: text("descricao"),
+  regioesBrasil: text("regioesBrasil"),
+  tempMediaMin: decimal("tempMediaMin", { precision: 5, scale: 1 }),
+  tempMediaMax: decimal("tempMediaMax", { precision: 5, scale: 1 }),
+  precipitacaoAnualMin: int("precipitacaoAnualMin"),
+  precipitacaoAnualMax: int("precipitacaoAnualMax"),
+  aptidaoCulturas: text("aptidaoCulturas"), // JSON array of slugs
+});
+
+export const tiposSolo = mysqlTable("tipos_solo", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  descricao: text("descricao"),
+  textura: varchar("textura", { length: 80 }),
+  phMin: decimal("phMin", { precision: 3, scale: 1 }),
+  phMax: decimal("phMax", { precision: 3, scale: 1 }),
+  drenagem: varchar("drenagem", { length: 80 }),
+  fertilidade: varchar("fertilidade", { length: 80 }),
+  aptidaoCulturas: text("aptidaoCulturas"), // JSON array of slugs
+  manejo: text("manejo"),
+});
+
+export type ZonaClimatica = typeof zonasClimaticas.$inferSelect;
+export type InsertZonaClimatica = typeof zonasClimaticas.$inferInsert;
+export type TipoSolo = typeof tiposSolo.$inferSelect;
+export type InsertTipoSolo = typeof tiposSolo.$inferInsert;
+
+// ─────────────────────────────────────────────
+// EXPANSÃO — Etapas 39–40 (Lab / Economia)
+// ─────────────────────────────────────────────
+export const labModulos = mysqlTable("lab_modulos", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  descricao: text("descricao"),
+  parametros: text("parametros"), // JSON string[]
+  cor: varchar("cor", { length: 20 }),
+  emoji: varchar("emoji", { length: 16 }),
+});
+
+export const economiaCultura = mysqlTable("economia_cultura", {
+  id: int("id").autoincrement().primaryKey(),
+  culturaCatalogoId: int("culturaCatalogoId").notNull().unique(),
+  unidadeProdutividade: varchar("unidadeProdutividade", { length: 40 }).default("kg/ha"),
+  produtividadeMin: decimal("produtividadeMin", { precision: 12, scale: 2 }),
+  produtividadeMed: decimal("produtividadeMed", { precision: 12, scale: 2 }),
+  produtividadeMax: decimal("produtividadeMax", { precision: 12, scale: 2 }),
+  custoHaEstimado: decimal("custoHaEstimado", { precision: 12, scale: 2 }),
+  precoUnidade: decimal("precoUnidade", { precision: 12, scale: 2 }),
+  moeda: varchar("moeda", { length: 8 }).default("BRL"),
+  observacoes: text("observacoes"),
+});
+
+// ─────────────────────────────────────────────
+// EXPANSÃO — Etapas 42–43 (Geo / IoT fundação)
+// ─────────────────────────────────────────────
+export const camadasGeo = mysqlTable("camadas_geo", {
+  id: int("id").autoincrement().primaryKey(),
+  codigo: varchar("codigo", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  tipo: mysqlEnum("tipo", [
+    "ndvi",
+    "chuva",
+    "solo",
+    "risco",
+    "clima",
+    "drone",
+    "outro",
+  ]).notNull(),
+  descricao: text("descricao"),
+  fonte: varchar("fonte", { length: 120 }),
+  coberturaKm2: decimal("coberturaKm2", { precision: 14, scale: 2 }),
+  resolucaoM: int("resolucaoM"),
+  atualizadoEm: timestamp("atualizadoEm"),
+  ativo: boolean("ativo").default(true),
+});
+
+export type CamadaGeo = typeof camadasGeo.$inferSelect;
+export type InsertCamadaGeo = typeof camadasGeo.$inferInsert;
+
+// ─────────────────────────────────────────────
+// EXPANSÃO — Etapas 45–46 (NOC / Arquitetura)
+// ─────────────────────────────────────────────
+export const nocAlertas = mysqlTable("noc_alertas", {
+  id: int("id").autoincrement().primaryKey(),
+  codigo: varchar("codigo", { length: 64 }).notNull().unique(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao"),
+  severidade: mysqlEnum("severidade", ["info", "baixa", "media", "alta", "critica"]).default("media").notNull(),
+  modulo: varchar("modulo", { length: 80 }).notNull(), // iot | geo | marketplace | lab | ia | piloto | sistema
+  status: mysqlEnum("status", ["aberto", "reconhecido", "resolvido"]).default("aberto").notNull(),
+  origem: varchar("origem", { length: 120 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+
+export const arquiteturaComponentes = mysqlTable("arquitetura_componentes", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  camada: mysqlEnum("camada", [
+    "frontend",
+    "backend",
+    "dados",
+    "ia",
+    "infra",
+    "seguranca",
+    "devops",
+    "integracao",
+  ]).notNull(),
+  descricao: text("descricao"),
+  tecnologia: varchar("tecnologia", { length: 200 }),
+  status: mysqlEnum("status", ["planejado", "parcial", "operacional", "deprecado"]).default("operacional").notNull(),
+  ordem: int("ordem").default(0),
+});
+
+export type NocAlerta = typeof nocAlertas.$inferSelect;
+export type InsertNocAlerta = typeof nocAlertas.$inferInsert;
+export type ArquiteturaComponente = typeof arquiteturaComponentes.$inferSelect;
+export type InsertArquiteturaComponente = typeof arquiteturaComponentes.$inferInsert;
+
+export type LabModulo = typeof labModulos.$inferSelect;
+export type InsertLabModulo = typeof labModulos.$inferInsert;
+export type EconomiaCultura = typeof economiaCultura.$inferSelect;
+export type InsertEconomiaCultura = typeof economiaCultura.$inferInsert;
