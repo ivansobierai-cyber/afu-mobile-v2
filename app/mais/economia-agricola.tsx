@@ -1,7 +1,7 @@
 /**
  * Etapa 40 — Economia Agrícola e previsão de produção
  */
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { AfuStackBanner } from "@/components/afu-stack-banner";
@@ -16,10 +16,19 @@ const TABS = [
 export default function EconomiaAgricolaScreen() {
   const [tab, setTab] = useState("resumo");
   const [area, setArea] = useState("10");
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const { data: lista = [], isLoading } = trpc.bancoAgronomico.economia.list.useQuery();
   const { data: stats } = trpc.bancoAgronomico.stats.useQuery();
-  const selectedId = lista[0]?.culturaCatalogoId;
   const areaHa = Math.max(0.1, Number(area) || 10);
+
+  useEffect(() => {
+    if (lista.length === 0) return;
+    if (selectedId == null || !lista.some((e) => e.culturaCatalogoId === selectedId)) {
+      setSelectedId(lista[0].culturaCatalogoId);
+    }
+  }, [lista, selectedId]);
+
+  const selected = lista.find((e) => e.culturaCatalogoId === selectedId) ?? lista[0];
 
   const { data: sim } = trpc.bancoAgronomico.economia.simular.useQuery(
     { culturaCatalogoId: selectedId!, areaHa },
@@ -99,8 +108,12 @@ export default function EconomiaAgricolaScreen() {
         ) : tab === "culturas" ? (
           <View className="pb-8">
             {lista.map((e) => (
-              <View
+              <TouchableOpacity
                 key={e.id}
+                onPress={() => {
+                  setSelectedId(e.culturaCatalogoId);
+                  setTab("simulador");
+                }}
                 style={{ borderWidth: 1, borderColor: "#E5E7EB", borderRadius: 12, marginBottom: 10, padding: 12 }}
               >
                 <Text className="text-sm font-bold text-foreground">{e.nomePopular}</Text>
@@ -111,14 +124,36 @@ export default function EconomiaAgricolaScreen() {
                   Custo/ha: R$ {Number(e.custoHaEstimado).toLocaleString("pt-BR")} · Preço und: R${" "}
                   {Number(e.precoUnidade).toLocaleString("pt-BR")}
                 </Text>
-              </View>
+              </TouchableOpacity>
             ))}
           </View>
         ) : (
           <View className="pb-8">
-            <Text className="text-sm font-bold mb-2">
-              Simulador — {lista[0]?.nomePopular ?? "—"}
-            </Text>
+            <Text className="text-sm font-bold mb-2">Cultura</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-3">
+              <View className="flex-row gap-2">
+                {lista.map((e) => {
+                  const active = e.culturaCatalogoId === selectedId;
+                  return (
+                    <TouchableOpacity
+                      key={e.id}
+                      onPress={() => setSelectedId(e.culturaCatalogoId)}
+                      style={{
+                        backgroundColor: active ? "#1B5E20" : "#E8F5E9",
+                        borderRadius: 16,
+                        paddingHorizontal: 12,
+                        paddingVertical: 6,
+                      }}
+                    >
+                      <Text style={{ color: active ? "#fff" : "#1B5E20", fontSize: 11, fontWeight: "700" }}>
+                        {e.nomePopular}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </ScrollView>
+            <Text className="text-sm font-bold mb-2">Simulador — {selected?.nomePopular ?? "—"}</Text>
             <Text className="text-xs text-muted mb-1">Área (ha)</Text>
             <TextInput
               value={area}

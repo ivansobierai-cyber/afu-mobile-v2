@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 
@@ -189,6 +190,7 @@ export default function BancoConhecimentoScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <AfuStackBanner note="Visão alvo 300+ culturas. Implementação atual: MySQL/Drizzle + catálogo seed (17 fichas MVP)." />
 
         {/* ─── MÓDULOS ─── */}
         {abaAtiva === "modulos" && (

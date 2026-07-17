@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 
@@ -169,6 +170,7 @@ export default function AppReactNativeScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="App entregue com Expo Router + tRPC (não Axios→NestJS). Pasta services/ no plano antigo." />
 
         {/* ─── TECNOLOGIA ─── */}
         {activeTab === "tecnologia" && (

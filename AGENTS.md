@@ -24,7 +24,9 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
   The default `DATABASE_URL` (`mysql://afu:afu_local_dev@127.0.0.1:3306/afu_mobile`) already
   matches the local MySQL user/db, so no edits are needed there.
 - After starting a fresh DB, apply schema then seed: `npm run db:push` then `npm run seed`
-  (optionally `npm run seed:marketplace` and `npm run seed:comprador`). Seeds are idempotent.
+  (optionally `npm run seed:marketplace`, `npm run seed:comprador`, and
+  `npm run seed:banco-expansao` for etapas 30–46). Seeds are idempotent.
+  Migration history notes: see `drizzle/README.md` (do not rename applied tags).
 - **Demo logins** (web at http://localhost:8081): `demo@afuagro.com.br` / `Demo@1234` (producer)
   and `comprador@afuagro.com.br` / `Demo@1234` (marketplace buyer). The login screen also has
   "Entrar com Demo Produtor/Comprador" quick-access buttons.

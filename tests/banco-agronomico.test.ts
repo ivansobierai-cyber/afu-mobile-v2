@@ -149,3 +149,60 @@ describe("Etapas 45–46 — NOC / Arquitetura Final", () => {
     });
   });
 });
+
+describe("Mínimos pós seed:banco-expansao (quando DB populado)", () => {
+  it("respeita contagens mínimas das ondas 30–46", async () => {
+    const { countBancoAgronomicoStats, countExpansaoStats } = await import(
+      "@/server/db-banco-agronomico"
+    );
+    const { countGeoIotMarketStats } = await import("@/server/db-geo-iot");
+    const { countNocArquiteturaStats } = await import("@/server/db-noc-arquitetura");
+
+    const [core, expansao, geo, noc] = await Promise.all([
+      countBancoAgronomicoStats(),
+      countExpansaoStats(),
+      countGeoIotMarketStats(),
+      countNocArquiteturaStats(),
+    ]);
+
+    const anySeeded =
+      core.totalCulturas > 0 ||
+      expansao.totalZonas > 0 ||
+      geo.totalCamadasGeo > 0 ||
+      noc.totalNocAlertas > 0;
+
+    if (!anySeeded) {
+      console.warn(
+        "[banco-agronomico] DB vazio — rode npm run seed && npm run seed:banco-expansao para validar mínimos",
+      );
+      return;
+    }
+
+    if (core.totalCulturas > 0) {
+      expect(core.totalCulturas).toBeGreaterThanOrEqual(17);
+      expect(core.totalPragas).toBeGreaterThanOrEqual(8);
+      expect(core.totalDoencas).toBeGreaterThanOrEqual(8);
+    }
+    if (expansao.totalZonas > 0) {
+      expect(expansao.totalZonas).toBeGreaterThanOrEqual(9);
+      expect(expansao.totalSolos).toBeGreaterThanOrEqual(8);
+    }
+    if (expansao.totalLabModulos > 0) {
+      expect(expansao.totalLabModulos).toBeGreaterThanOrEqual(7);
+      expect(expansao.totalEconomia).toBeGreaterThanOrEqual(17);
+    }
+    if (geo.totalCamadasGeo > 0) {
+      expect(geo.totalCamadasGeo).toBeGreaterThanOrEqual(6);
+      expect(geo.produtosDisponiveis).toBeGreaterThanOrEqual(8);
+    }
+    if (geo.totalSensores > 0) {
+      expect(geo.totalSensores).toBeGreaterThanOrEqual(6);
+      expect(geo.totalLeiturasSensores).toBeGreaterThanOrEqual(6);
+    }
+    if (noc.totalNocAlertas > 0) {
+      expect(noc.totalNocAlertas).toBeGreaterThanOrEqual(8);
+      expect(noc.totalArquiteturaComponentes).toBeGreaterThanOrEqual(12);
+      expect(noc.arquiteturaOperacionais).toBeGreaterThanOrEqual(8);
+    }
+  });
+});

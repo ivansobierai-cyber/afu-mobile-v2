@@ -32,7 +32,7 @@ const STATUS_META: Record<EtapaStatus, { label: string; color: string }> = {
   pending: { label: "Pendente", color: "#9E9E9E" },
 };
 
-/** Etapas 31–46 — expansão banco (31–34 entregues) */
+/** Etapas 31–46 — expansão banco (todas entregues) */
 const BANCO_FASE_EXT: IndiceFase = {
   id: "banco_ext",
   label: "Banco Agronômico — Expansão",

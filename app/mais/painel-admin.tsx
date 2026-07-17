@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 
 const TABS = [
@@ -128,6 +129,7 @@ export default function PainelAdminScreen() {
       </View>
 
       <ScrollView className="flex-1 px-4 pt-4">
+        <AfuStackBanner note="Painel MVP admin usa Express/tRPC. Menções a NestJS abaixo são do plano histórico." />
 
         {/* ─── DASHBOARD ─── */}
         {activeTab === "dashboard" && (

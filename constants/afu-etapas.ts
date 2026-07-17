@@ -1,5 +1,5 @@
 /**
- * Fonte única das etapas AFU 1–30 (MVP Planta Saudável).
+ * Fonte única das etapas AFU 1–30 (MVP Planta Saudável) e 31–46 (expansão banco).
  * Usado por indice-geral, badges do menu Mais e relatórios de progresso.
  */
 

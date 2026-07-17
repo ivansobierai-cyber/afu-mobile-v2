@@ -163,7 +163,7 @@ export default function NocAgricolaScreen() {
               { label: "Módulos Lab", value: painel?.labModulos ?? 0, route: "/mais/laboratorio-digital" },
               { label: "Zonas clima", value: painel?.zonasClima ?? 0, route: "/mais/geoclima" },
               { label: "Pedidos marketplace", value: painel?.pedidos ?? 0, route: "/mais/marketplace-agricola" },
-              { label: "Tickets suporte abertos", value: painel?.ticketsAbertos ?? 0, route: "/mais/arquitetura-final" },
+              { label: "Tickets suporte abertos", value: painel?.ticketsAbertos ?? 0, route: "/mais/suporte" },
             ].map((m) => (
               <TouchableOpacity
                 key={m.label}

@@ -7,6 +7,7 @@ import {
   StyleSheet,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
+import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 
@@ -398,6 +399,7 @@ export default function ApiDocsScreen() {
       </ScrollView>
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16 }}>
+        <AfuStackBanner note="Documentação de referência NestJS/Prisma. API real: server/ com Express + tRPC + Drizzle/MySQL." />
 
         {/* ─── MÓDULOS ─── */}
         {abaAtiva === "modulos" && (

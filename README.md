@@ -32,6 +32,9 @@ npm run db:push
 npm run seed
 npm run seed:marketplace
 
+# 5b. Expansão banco agronômico 30–46 (opcional, idempotente)
+npm run seed:banco-expansao
+
 # 6. API + Metro
 npm run dev
 ```
@@ -96,6 +99,7 @@ Crie com `npm run seed:comprador` se ainda não existir.
 | `npm run db:reset` | Recria o banco do zero (apaga volume) |
 | `npm run seed` | Seed idempotente de dados demo |
 | `npm run seed:marketplace` | Popula catálogo demo do marketplace |
+| `npm run seed:banco-expansao` | Cadeia 30–46 (agronômico → GEO/IoT → NOC) |
 | `npm run build` / `npm start` | Build e start da API em produção |
 
 ## Dev client Android (EAS)
