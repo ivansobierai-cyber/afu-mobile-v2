@@ -76,7 +76,7 @@ export const AFU_ETAPAS_1_30: AfuEtapa[] = [
 /** @deprecated Use AFU_ETAPAS_1_30 */
 export const AFU_ETAPAS_1_29 = AFU_ETAPAS_1_30.filter((e) => e.num <= 29);
 
-/** Expansão banco agronômico — etapas 31–34 entregues; 35–46 planejadas */
+/** Expansão banco agronômico — etapas 31–46 entregues */
 export const AFU_ETAPAS_31_46: AfuEtapa[] = [
   { num: 31, title: "Culturas Iniciais — 17 Fichas Técnicas", route: "/mais/culturas-iniciais", faseId: "banco", status: "done" },
   { num: 32, title: "Seed Inicial das Culturas", route: "/mais/seed-culturas", faseId: "banco", status: "done" },
@@ -92,14 +92,15 @@ export const AFU_ETAPAS_31_46: AfuEtapa[] = [
   { num: 42, title: "Satélite, Drones e Geointeligência", route: "/mais/geointeligencia", faseId: "banco", status: "done" },
   { num: 43, title: "Rede de Sensores IoT e Automação Rural", route: "/mais/iot-automacao", faseId: "banco", status: "done" },
   { num: 44, title: "Marketplace e Comercialização Agrícola", route: "/mais/marketplace-agricola", faseId: "banco", status: "done" },
-  { num: 45, title: "Centro de Comando NOC Agrícola", route: "/mais/noc-agricola", faseId: "banco", status: "doc" },
-  { num: 46, title: "Arquitetura Final de Software e Infra", route: "/mais/arquitetura-final", faseId: "banco", status: "doc" },
+  { num: 45, title: "Centro de Comando NOC Agrícola", route: "/mais/noc-agricola", faseId: "banco", status: "done" },
+  { num: 46, title: "Arquitetura Final de Software e Infra", route: "/mais/arquitetura-final", faseId: "banco", status: "done" },
 ];
 
 export const AFU_ETAPAS_31_34 = AFU_ETAPAS_31_46.filter((e) => e.num <= 34);
 export const AFU_ETAPAS_35_38 = AFU_ETAPAS_31_46.filter((e) => e.num >= 35 && e.num <= 38);
 export const AFU_ETAPAS_39_41 = AFU_ETAPAS_31_46.filter((e) => e.num >= 39 && e.num <= 41);
 export const AFU_ETAPAS_42_44 = AFU_ETAPAS_31_46.filter((e) => e.num >= 42 && e.num <= 44);
+export const AFU_ETAPAS_45_46 = AFU_ETAPAS_31_46.filter((e) => e.num >= 45 && e.num <= 46);
 
 export const AFU_FASES: AfuFase[] = [
   {
@@ -185,6 +186,10 @@ export function etapas39a41ProgressPercent(): number {
 
 export function etapas42a44ProgressPercent(): number {
   return etapaProgressPercent(AFU_ETAPAS_42_44);
+}
+
+export function etapas45a46ProgressPercent(): number {
+  return etapaProgressPercent(AFU_ETAPAS_45_46);
 }
 
 export function etapasDoneOrPartialCount(etapas: AfuEtapa[]): number {

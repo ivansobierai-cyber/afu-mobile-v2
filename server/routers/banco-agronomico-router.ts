@@ -32,6 +32,14 @@ import {
   statsMarketplace,
   countGeoIotMarketStats,
 } from "../db-geo-iot";
+import {
+  listarNocAlertas,
+  listarArquiteturaComponentes,
+  statsNoc,
+  statsArquitetura,
+  painelNoc,
+  countNocArquiteturaStats,
+} from "../db-noc-arquitetura";
 
 function parseJsonField(raw: string | null | undefined): string[] {
   if (!raw) return [];
@@ -165,16 +173,55 @@ export const bancoAgronomicoRouter = router({
     stats: publicProcedure.query(() => statsMarketplace()),
   }),
 
+  noc: router({
+    painel: publicProcedure.query(() => painelNoc()),
+    alertas: publicProcedure
+      .input(
+        z
+          .object({
+            status: z.enum(["aberto", "reconhecido", "resolvido"]).optional(),
+          })
+          .optional(),
+      )
+      .query(({ input }) => listarNocAlertas(input?.status)),
+    stats: publicProcedure.query(() => statsNoc()),
+  }),
+
+  arquitetura: router({
+    componentes: publicProcedure
+      .input(
+        z
+          .object({
+            camada: z
+              .enum([
+                "frontend",
+                "backend",
+                "dados",
+                "ia",
+                "infra",
+                "seguranca",
+                "devops",
+                "integracao",
+              ])
+              .optional(),
+          })
+          .optional(),
+      )
+      .query(({ input }) => listarArquiteturaComponentes(input?.camada)),
+    stats: publicProcedure.query(() => statsArquitetura()),
+  }),
+
   consulta: publicProcedure
     .input(z.object({ culturaCatalogoId: z.number().int().positive() }))
     .query(({ input }) => consultaAgronomica(input.culturaCatalogoId)),
 
   stats: publicProcedure.query(async () => {
-    const [core, expansao, geoIot] = await Promise.all([
+    const [core, expansao, geoIot, nocArch] = await Promise.all([
       countBancoAgronomicoStats(),
       countExpansaoStats(),
       countGeoIotMarketStats(),
+      countNocArquiteturaStats(),
     ]);
-    return { ...core, ...expansao, ...geoIot };
+    return { ...core, ...expansao, ...geoIot, ...nocArch };
   }),
 });

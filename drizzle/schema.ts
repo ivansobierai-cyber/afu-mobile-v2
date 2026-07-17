@@ -823,6 +823,47 @@ export const camadasGeo = mysqlTable("camadas_geo", {
 export type CamadaGeo = typeof camadasGeo.$inferSelect;
 export type InsertCamadaGeo = typeof camadasGeo.$inferInsert;
 
+// ─────────────────────────────────────────────
+// EXPANSÃO — Etapas 45–46 (NOC / Arquitetura)
+// ─────────────────────────────────────────────
+export const nocAlertas = mysqlTable("noc_alertas", {
+  id: int("id").autoincrement().primaryKey(),
+  codigo: varchar("codigo", { length: 64 }).notNull().unique(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao"),
+  severidade: mysqlEnum("severidade", ["info", "baixa", "media", "alta", "critica"]).default("media").notNull(),
+  modulo: varchar("modulo", { length: 80 }).notNull(), // iot | geo | marketplace | lab | ia | piloto | sistema
+  status: mysqlEnum("status", ["aberto", "reconhecido", "resolvido"]).default("aberto").notNull(),
+  origem: varchar("origem", { length: 120 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  resolvedAt: timestamp("resolvedAt"),
+});
+
+export const arquiteturaComponentes = mysqlTable("arquitetura_componentes", {
+  id: int("id").autoincrement().primaryKey(),
+  slug: varchar("slug", { length: 64 }).notNull().unique(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  camada: mysqlEnum("camada", [
+    "frontend",
+    "backend",
+    "dados",
+    "ia",
+    "infra",
+    "seguranca",
+    "devops",
+    "integracao",
+  ]).notNull(),
+  descricao: text("descricao"),
+  tecnologia: varchar("tecnologia", { length: 200 }),
+  status: mysqlEnum("status", ["planejado", "parcial", "operacional", "deprecado"]).default("operacional").notNull(),
+  ordem: int("ordem").default(0),
+});
+
+export type NocAlerta = typeof nocAlertas.$inferSelect;
+export type InsertNocAlerta = typeof nocAlertas.$inferInsert;
+export type ArquiteturaComponente = typeof arquiteturaComponentes.$inferSelect;
+export type InsertArquiteturaComponente = typeof arquiteturaComponentes.$inferInsert;
+
 export type LabModulo = typeof labModulos.$inferSelect;
 export type InsertLabModulo = typeof labModulos.$inferInsert;
 export type EconomiaCultura = typeof economiaCultura.$inferSelect;

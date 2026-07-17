@@ -125,3 +125,27 @@ describe("Etapas 42–44 — Geo / IoT / Marketplace", () => {
     });
   });
 });
+
+describe("Etapas 45–46 — NOC / Arquitetura Final", () => {
+  it("etapas 45–46 estão done e progresso 100%", async () => {
+    const { AFU_ETAPAS_45_46, etapas45a46ProgressPercent, AFU_ETAPAS_31_46 } = await import(
+      "@/constants/afu-etapas"
+    );
+    expect(AFU_ETAPAS_45_46).toHaveLength(2);
+    expect(AFU_ETAPAS_45_46.every((e) => e.status === "done")).toBe(true);
+    expect(etapas45a46ProgressPercent()).toBe(100);
+    expect(AFU_ETAPAS_31_46.every((e) => e.status === "done")).toBe(true);
+  });
+
+  it("countNocArquiteturaStats retorna shape", async () => {
+    const { countNocArquiteturaStats } = await import("@/server/db-noc-arquitetura");
+    const stats = await countNocArquiteturaStats();
+    expect(stats).toMatchObject({
+      totalNocAlertas: expect.any(Number),
+      nocAlertasAbertos: expect.any(Number),
+      nocCriticos: expect.any(Number),
+      totalArquiteturaComponentes: expect.any(Number),
+      arquiteturaOperacionais: expect.any(Number),
+    });
+  });
+});
