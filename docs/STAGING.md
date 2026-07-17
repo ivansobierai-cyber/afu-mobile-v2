@@ -1,5 +1,7 @@
 # Staging — API + APK fora da rede local
 
+Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](./MERGE_STAGING_CHECKLIST.md)**.
+
 ## Status atual
 
 - **Web staging (Vercel):** https://afu-mobile-web.vercel.app — build `npm run build:web:preview` (API Railway + login demo)
@@ -54,9 +56,12 @@ O CI em `.github/workflows/ci.yml` roda `npm run check` e o build web em cada PR
 railway run npm run seed
 railway run npm run seed:marketplace
 railway run npm run seed:comprador
+railway run npm run seed:banco-expansao   # etapas 30–46 (idempotente)
 ```
 
 Contas demo: `demo@afuagro.com.br` e `comprador@afuagro.com.br` — senha `Demo@1234`.
+
+> Com `SEED_ON_START=1`, o `scripts/start-api-production.sh` já roda migrate + seeds demo + `seed:banco-expansao`. Desligue depois do 1º deploy.
 
 ## 2. Gerar APK staging
 

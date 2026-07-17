@@ -40,6 +40,8 @@ if [ "$SEED_ON_START" = "1" ]; then
   npm run seed
   npm run seed:marketplace
   npm run seed:comprador
+  echo "[api] Running banco expansão 30–46..."
+  npm run seed:banco-expansao
 fi
 
 echo "[api] Starting server on port ${PORT:-3000}..."
