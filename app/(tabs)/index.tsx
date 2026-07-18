@@ -66,7 +66,10 @@ export default function DashboardScreen() {
   const { data: cultivos = [], isLoading: loadingCult } = trpc.coreData.cultivos.list.useQuery();
   const { data: diagnosticos = [], isLoading: loadingDiag } = trpc.diagnostico.historico.useQuery();
   const { data: analises = [], isLoading: loadingAn } = trpc.secondaryData.analises.list.useQuery();
-  const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery();
+  const { data: sessionHome } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery(
+    { cacheScope: sessionHome?.activeOrganizationId ?? undefined },
+  );
   const { data: eventos = [], isLoading: loadingEv } = trpc.coreData.calendario.list.useQuery();
   const { data: produtosMarketplace = [] } = trpc.secondaryData.marketplace.list.useQuery(
     { status: "disponivel", limit: 100 },

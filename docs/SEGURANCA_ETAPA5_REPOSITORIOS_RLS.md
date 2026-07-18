@@ -66,4 +66,4 @@ O teste de isolamento usa o MySQL local com ≥2 orgs (seed/backfill).
 
 ## Próxima etapa
 
-- Etapa 6: arquivos privados + URLs temporárias (`/manus-storage`)
+- Etapa 6: concluída — ver `docs/SEGURANCA_ETAPA6_ARQUIVOS_RELATORIOS.md`

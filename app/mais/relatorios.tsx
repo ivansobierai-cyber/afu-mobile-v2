@@ -48,7 +48,13 @@ export default function RelatoriosScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const { data: relatorios = [], isLoading, refetch } = trpc.secondaryData.relatorios.list.useQuery();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const orgScope = session?.activeOrganizationId ?? undefined;
+  const { data: relatorios = [], isLoading, refetch } = trpc.secondaryData.relatorios.list.useQuery(
+    { cacheScope: orgScope },
+    { enabled: !!orgScope || !!session?.user },
+  );
+  const downloadUrlMutation = trpc.secondaryData.relatorios.getDownloadUrl.useMutation();
   const createMutation = trpc.secondaryData.relatorios.create.useMutation({
     onSuccess: () => utils.secondaryData.relatorios.list.invalidate(),
   });
@@ -109,14 +115,38 @@ export default function RelatoriosScreen() {
   const handleGerarPdf = async (item: (typeof relatorios)[0]) => {
     setGeneratingPdfId(item.id);
     try {
+      // Preferir download do artefato privado já persistido (Etapa 6)
+      if (item.arquivoPdfUrl) {
+        try {
+          const { url } = await downloadUrlMutation.mutateAsync({ id: item.id });
+          if (typeof window !== "undefined") {
+            window.open(url, "_blank");
+          } else {
+            const { openBrowserAsync } = await import("expo-web-browser");
+            await openBrowserAsync(url);
+          }
+          return;
+        } catch {
+          // fallback: regenerar HTML
+        }
+      }
       const tipo = item.tipoRelatorio ?? "diagnostico";
-      const { html, titulo } = await pdfMutation.mutateAsync({
+      const result = await pdfMutation.mutateAsync({
         tipo: PDF_TIPO_MAP[tipo] ?? "diagnostico",
         titulo: item.titulo,
         conteudo: item.conteudo ?? JSON.stringify({ descricao: item.titulo }),
         dataEmissao: new Date(item.dataEmissao).toLocaleDateString("pt-BR"),
       });
-      await openLaudoHtml(html, titulo);
+      if (result.downloadUrl) {
+        if (typeof window !== "undefined") {
+          window.open(result.downloadUrl, "_blank");
+        } else {
+          await openLaudoHtml(result.html, result.titulo);
+        }
+      } else {
+        await openLaudoHtml(result.html, result.titulo);
+      }
+      void utils.secondaryData.relatorios.list.invalidate();
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Não foi possível gerar o PDF.";
       Alert.alert("Erro", message);

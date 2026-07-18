@@ -39,6 +39,12 @@ import {
 } from "../tenant-access";
 import { createTenantDb } from "../tenant-db";
 import {
+  createTemporaryDownloadUrl,
+  listRecentAuditForOrg,
+  writeAuditLog,
+  proxyPathForKey,
+} from "../private-files";
+import {
   encodeMarketplaceObservacoes,
   generateDemoPixCode,
   parseMarketplaceObservacoes,
@@ -96,11 +102,14 @@ const produtoInput = z.object({
 
 // ─── Router de Relatórios (Etapa 4 — escopo por organização) ──────────────────
 const relatoriosRouter = router({
-  list: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    requireOrgPermission(tenant, "reports.read");
-    return createTenantDb(tenant.organizationId).listRelatorios();
-  }),
+  /** cacheScope = activeOrganizationId no cliente → React Query namespaced por org */
+  list: organizationProcedure
+    .input(z.object({ cacheScope: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      return createTenantDb(tenant.organizationId).listRelatorios();
+    }),
 
   get: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
@@ -140,7 +149,78 @@ const relatoriosRouter = router({
       if (!ok) throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
       return { success: true };
     }),
+
+  /**
+   * Etapa 6 — URL temporária para download do artefato do relatório.
+   * Valida relatório no tenant + permissão; audita o download.
+   */
+  getDownloadUrl: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      const rel = await requireRelatorioInTenant(tenant, input.id);
+      const raw = rel.arquivoPdfUrl;
+      if (!raw) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Relatório sem arquivo privado associado",
+        });
+      }
+      const key = raw.replace(/^\/?manus-storage\//, "").replace(/^\/+/, "");
+      const tmp = await createTemporaryDownloadUrl({
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+        storageKey: key,
+        permission: "reports.read",
+        auditAction: "report.download",
+        resourceType: "relatorio",
+        resourceId: String(rel.id),
+      });
+      return {
+        url: tmp.url,
+        expiresAt: tmp.expiresAt.toISOString(),
+        proxyPath: proxyPathForKey(key),
+        relatorioId: rel.id,
+      };
+    }),
+
+  /** Auditoria recente da org (geração/download) */
+  auditTrail: organizationProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      return listRecentAuditForOrg(tenant.organizationId, input?.limit ?? 40);
+    }),
 });
+
+/** Download genérico de arquivo privado por storageKey (ACL + URL temporária) */
+const filesRouter = router({
+  getDownloadUrl: organizationProcedure
+    .input(z.object({ storageKey: z.string().min(1).max(512) }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      const key = input.storageKey.replace(/^\/?manus-storage\//, "").replace(/^\/+/, "");
+      // Prefix must match active org (defense in depth)
+      if (key.startsWith("org/") && !key.startsWith(`org/${tenant.organizationId}/`)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo não encontrado" });
+      }
+      return createTemporaryDownloadUrl({
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+        storageKey: key,
+        permission: "reports.read",
+        auditAction: "file.download",
+      }).then((tmp) => ({
+        url: tmp.url,
+        expiresAt: tmp.expiresAt.toISOString(),
+        proxyPath: proxyPathForKey(key),
+      }));
+    }),
+});
+
 
 // ─── Router de Análise Fitotécnica (Etapa 4/5) ────────────────────────────────
 const analisesFitotecnicasRouter = router({
@@ -662,6 +742,7 @@ const suporteRouter = router({
 export const secondaryDataRouter = router({
   relatorios: relatoriosRouter,
   analises: analisesFitotecnicasRouter,
+  files: filesRouter,
   marketplace: marketplaceRouter,
   suporte: suporteRouter,
 });

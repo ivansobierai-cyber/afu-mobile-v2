@@ -8,7 +8,10 @@ import { trpc } from "@/lib/trpc";
 export default function LaboratorioScreen() {
   const { data: diagnosticos = [] } = trpc.diagnostico.historico.useQuery();
   const { data: analises = [] } = trpc.secondaryData.analises.list.useQuery();
-  const { data: relatorios = [] } = trpc.secondaryData.relatorios.list.useQuery();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const { data: relatorios = [] } = trpc.secondaryData.relatorios.list.useQuery({
+    cacheScope: session?.activeOrganizationId ?? undefined,
+  });
 
   return (
     <ScreenContainer>

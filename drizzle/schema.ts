@@ -1252,3 +1252,70 @@ export const organizationMemberships = mysqlTable(
 
 export type OrganizationMembership = typeof organizationMemberships.$inferSelect;
 export type InsertOrganizationMembership = typeof organizationMemberships.$inferInsert;
+
+// ─────────────────────────────────────────────
+// SEGURANÇA ETAPA 6 — arquivos privados + auditoria
+// ─────────────────────────────────────────────
+
+/** Metadados de arquivos no storage (chave → organização) */
+export const privateFiles = mysqlTable(
+  "private_files",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    storageKey: varchar("storageKey", { length: 512 }).notNull(),
+    category: mysqlEnum("fileCategory", [
+      "relatorio",
+      "diagnostico",
+      "laudo",
+      "documento",
+      "foto",
+      "outro",
+    ])
+      .default("outro")
+      .notNull(),
+    contentType: varchar("contentType", { length: 120 }),
+    originalName: varchar("originalName", { length: 255 }),
+    sizeBytes: int("sizeBytes"),
+    relatorioId: int("relatorioId"),
+    diagnosticoId: int("diagnosticoId"),
+    propriedadeId: int("propriedadeId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("private_files_storage_key_uidx").on(t.storageKey),
+    index("private_files_organization_idx").on(t.organizationId),
+    index("private_files_relatorio_idx").on(t.relatorioId),
+  ],
+);
+
+export type PrivateFile = typeof privateFiles.$inferSelect;
+export type InsertPrivateFile = typeof privateFiles.$inferInsert;
+
+/** Trilha de geração/download e mutações sensíveis */
+export const auditLogs = mysqlTable(
+  "audit_logs",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId"),
+    actorUserId: int("actorUserId"),
+    action: varchar("action", { length: 80 }).notNull(),
+    resourceType: varchar("resourceType", { length: 60 }),
+    resourceId: varchar("resourceId", { length: 64 }),
+    storageKey: varchar("storageKey", { length: 512 }),
+    ip: varchar("ip", { length: 64 }),
+    userAgent: varchar("userAgent", { length: 255 }),
+    meta: text("meta"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("audit_logs_organization_idx").on(t.organizationId),
+    index("audit_logs_actor_idx").on(t.actorUserId),
+    index("audit_logs_action_idx").on(t.action),
+    index("audit_logs_created_idx").on(t.createdAt),
+  ],
+);
+
+export type AuditLog = typeof auditLogs.$inferSelect;
+export type InsertAuditLog = typeof auditLogs.$inferInsert;

@@ -59,7 +59,8 @@ Alterar um ID na URL/API **não revela** dados de outro cliente → `NOT_FOUND` 
 ## Fora desta etapa (próximas)
 
 - Etapa 5: concluída — ver `docs/SEGURANCA_ETAPA5_REPOSITORIOS_RLS.md`
-- Etapa 6: `/manus-storage/*` autenticado + URLs temporárias de relatório
+- Etapa 6: concluída — ver `docs/SEGURANCA_ETAPA6_ARQUIVOS_RELATORIOS.md`
+- Etapa 7: dashboard/métricas e cache
 - Etapa 8: fila offline namespaced por org
 
 ---
