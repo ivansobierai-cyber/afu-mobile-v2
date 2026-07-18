@@ -132,12 +132,16 @@ const propriedadesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await requirePropertyInTenant(tenant, input.id);
-      return updatePropriedade(input.id, {
-        ...input.data,
-        tamanhoArea: input.data.tamanhoArea?.toString(),
-        latitude: input.data.latitude?.toString(),
-        longitude: input.data.longitude?.toString(),
-      } as any);
+      return updatePropriedade(
+        input.id,
+        {
+          ...input.data,
+          tamanhoArea: input.data.tamanhoArea?.toString(),
+          latitude: input.data.latitude?.toString(),
+          longitude: input.data.longitude?.toString(),
+        } as any,
+        tenant.organizationId,
+      );
     }),
 
   delete: orgPermissionProcedure("property.write")
@@ -145,7 +149,7 @@ const propriedadesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await requirePropertyInTenant(tenant, input.id);
-      await deletePropriedade(input.id);
+      await deletePropriedade(input.id, tenant.organizationId);
       return { success: true };
     }),
 
@@ -197,7 +201,11 @@ const terrenosRouter = router({
       if (input.data.propriedadeId != null && input.data.propriedadeId !== terreno.propriedadeId) {
         await requirePropertyInTenant(tenant, input.data.propriedadeId);
       }
-      return updateTerreno(input.id, { ...input.data, area: input.data.area?.toString() } as any);
+      return updateTerreno(
+        input.id,
+        { ...input.data, area: input.data.area?.toString() } as any,
+        tenant.organizationId,
+      );
     }),
 
   delete: orgPermissionProcedure("property.write")
@@ -205,7 +213,7 @@ const terrenosRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await requireTerrenoInTenant(tenant, input.id);
-      await deleteTerreno(input.id);
+      await deleteTerreno(input.id, tenant.organizationId);
       return { success: true };
     }),
 });
@@ -262,11 +270,15 @@ const cultivosRouter = router({
         propriedadeId: input.data.propriedadeId ?? atual.propriedadeId,
         terrenoId: input.data.terrenoId,
       });
-      return updateCultura(input.id, {
-        ...input.data,
-        areaPlantada: input.data.areaPlantada?.toString(),
-        producaoEstimada: input.data.producaoEstimada?.toString(),
-      } as any);
+      return updateCultura(
+        input.id,
+        {
+          ...input.data,
+          areaPlantada: input.data.areaPlantada?.toString(),
+          producaoEstimada: input.data.producaoEstimada?.toString(),
+        } as any,
+        tenant.organizationId,
+      );
     }),
 
   delete: orgPermissionProcedure("property.write")
@@ -274,7 +286,7 @@ const cultivosRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await requireCulturaInTenant(tenant, input.id);
-      await deleteCultura(input.id);
+      await deleteCultura(input.id, tenant.organizationId);
       return { success: true };
     }),
 
@@ -366,10 +378,14 @@ const calendarioRouter = router({
         propriedadeId: input.data.propriedadeId,
         culturaId: input.data.culturaId,
       });
-      return updateEvento(input.id, {
-        ...input.data,
-        dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
-      } as any);
+      return updateEvento(
+        input.id,
+        {
+          ...input.data,
+          dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
+        } as any,
+        tenant.organizationId,
+      );
     }),
 
   delete: orgPermissionProcedure("operations.write")

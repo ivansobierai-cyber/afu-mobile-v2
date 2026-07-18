@@ -28,8 +28,8 @@ import {
   createMensagemSuporte,
 } from "../db";
 import { getDb } from "../db";
-import { analisesFitotecnicas, relatorios, produtosMarketplace, pedidos } from "../../drizzle/schema";
-import { eq, desc, and } from "drizzle-orm";
+import { produtosMarketplace, pedidos } from "../../drizzle/schema";
+import { eq, desc } from "drizzle-orm";
 import {
   getCtxTenant,
   requireRelatorioInTenant,
@@ -37,6 +37,7 @@ import {
   assertRelatedIdsInTenant,
   requireOrgPermission,
 } from "../tenant-access";
+import { createTenantDb } from "../tenant-db";
 import {
   encodeMarketplaceObservacoes,
   generateDemoPixCode,
@@ -98,13 +99,7 @@ const relatoriosRouter = router({
   list: organizationProcedure.query(async ({ ctx }) => {
     const tenant = getCtxTenant(ctx);
     requireOrgPermission(tenant, "reports.read");
-    const db = await getDb();
-    if (!db) return [];
-    return db
-      .select()
-      .from(relatorios)
-      .where(eq(relatorios.organizationId, tenant.organizationId))
-      .orderBy(desc(relatorios.dataEmissao));
+    return createTenantDb(tenant.organizationId).listRelatorios();
   }),
 
   get: organizationProcedure
@@ -133,7 +128,7 @@ const relatoriosRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "reports.export");
       await requireRelatorioInTenant(tenant, input.id);
-      return updateRelatorio(input.id, input.data as any);
+      return updateRelatorio(input.id, input.data as any, tenant.organizationId);
     }),
 
   delete: organizationProcedure
@@ -141,27 +136,17 @@ const relatoriosRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "reports.export");
-      await requireRelatorioInTenant(tenant, input.id);
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      await db
-        .delete(relatorios)
-        .where(and(eq(relatorios.id, input.id), eq(relatorios.organizationId, tenant.organizationId)));
+      const ok = await createTenantDb(tenant.organizationId).deleteRelatorio(input.id);
+      if (!ok) throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
       return { success: true };
     }),
 });
 
-// ─── Router de Análise Fitotécnica (Etapa 4) ──────────────────────────────────
+// ─── Router de Análise Fitotécnica (Etapa 4/5) ────────────────────────────────
 const analisesFitotecnicasRouter = router({
   list: organizationProcedure.query(async ({ ctx }) => {
     const tenant = getCtxTenant(ctx);
-    const db = await getDb();
-    if (!db) return [];
-    return db
-      .select()
-      .from(analisesFitotecnicas)
-      .where(eq(analisesFitotecnicas.organizationId, tenant.organizationId))
-      .orderBy(desc(analisesFitotecnicas.dataAnalise));
+    return createTenantDb(tenant.organizationId).listAnalises();
   }),
 
   get: organizationProcedure
@@ -200,28 +185,14 @@ const analisesFitotecnicasRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requireAnaliseInTenant(tenant, input.id);
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      await db
-        .delete(analisesFitotecnicas)
-        .where(
-          and(
-            eq(analisesFitotecnicas.id, input.id),
-            eq(analisesFitotecnicas.organizationId, tenant.organizationId),
-          ),
-        );
+      const ok = await createTenantDb(tenant.organizationId).deleteAnalise(input.id);
+      if (!ok) throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
       return { success: true };
     }),
 
   stats: organizationProcedure.query(async ({ ctx }) => {
     const tenant = getCtxTenant(ctx);
-    const db = await getDb();
-    if (!db) return { total: 0 };
-    const rows = await db
-      .select()
-      .from(analisesFitotecnicas)
-      .where(eq(analisesFitotecnicas.organizationId, tenant.organizationId));
+    const rows = await createTenantDb(tenant.organizationId).listAnalises();
     return { total: rows.length };
   }),
 });

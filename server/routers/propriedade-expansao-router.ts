@@ -113,11 +113,15 @@ export const propriedadeExpansaoRouter = router({
       if (!parsed || (parsed.type !== "Polygon" && parsed.type !== "Feature" && parsed.type !== "FeatureCollection")) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON deve ser Polygon ou Feature" });
       }
-      await updateGeometriaPropriedade(input.propriedadeId, {
-        geometriaGeoJson: input.geometriaGeoJson,
-        areaGeometricaHa: input.areaGeometricaHa?.toString(),
-        geometriaOrigem: input.origem,
-      });
+      await updateGeometriaPropriedade(
+        input.propriedadeId,
+        {
+          geometriaGeoJson: input.geometriaGeoJson,
+          areaGeometricaHa: input.areaGeometricaHa?.toString(),
+          geometriaOrigem: input.origem,
+        },
+        tenant.organizationId,
+      );
       await registrarAtividade({
         propriedadeId: input.propriedadeId,
         organizationId: tenant.organizationId,
@@ -149,11 +153,15 @@ export const propriedadeExpansaoRouter = router({
       } catch {
         throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON inválido" });
       }
-      await updateGeometriaTerreno(input.terrenoId, {
-        geometriaGeoJson: input.geometriaGeoJson,
-        areaGeometricaHa: input.areaGeometricaHa?.toString(),
-        geometriaOrigem: input.origem,
-      });
+      await updateGeometriaTerreno(
+        input.terrenoId,
+        {
+          geometriaGeoJson: input.geometriaGeoJson,
+          areaGeometricaHa: input.areaGeometricaHa?.toString(),
+          geometriaOrigem: input.origem,
+        },
+        tenant.organizationId,
+      );
       return { success: true };
     }),
 
@@ -245,7 +253,11 @@ export const propriedadeExpansaoRouter = router({
           dataPrevista: input.dataPrevista ? new Date(input.dataPrevista) : new Date(),
           origem: "manual",
         } as any);
-        await updateOcorrencia(oc.id, { tarefaId, status: "em_acompanhamento" } as any);
+        await updateOcorrencia(
+          oc.id,
+          { tarefaId, status: "em_acompanhamento" } as any,
+          tenant.organizationId,
+        );
         await registrarAtividade({
           propriedadeId: oc.propriedadeId,
           organizationId: tenant.organizationId,
@@ -271,10 +283,14 @@ export const propriedadeExpansaoRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
         await requirePropertyInTenant(tenant, oc.propriedadeId);
-        await updateOcorrencia(oc.id, {
-          status: input.resultado === "resolvido" ? "resolvida" : "em_acompanhamento",
-          resultadoAcompanhamento: input.resultado,
-        } as any);
+        await updateOcorrencia(
+          oc.id,
+          {
+            status: input.resultado === "resolvido" ? "resolvida" : "em_acompanhamento",
+            resultadoAcompanhamento: input.resultado,
+          } as any,
+          tenant.organizationId,
+        );
         return { success: true };
       }),
   }),

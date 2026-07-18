@@ -210,10 +210,14 @@ export const tarefasRouter = router({
         } as any);
       }
 
-      await updateTarefa(tarefa.id, {
-        status: to,
-        motivoCancelamento: to === "cancelada" ? input.motivoCancelamento : tarefa.motivoCancelamento,
-      } as any);
+      await updateTarefa(
+        tarefa.id,
+        {
+          status: to,
+          motivoCancelamento: to === "cancelada" ? input.motivoCancelamento : tarefa.motivoCancelamento,
+        } as any,
+        tenant.organizationId,
+      );
       return { success: true, id: tarefa.id, status: to };
     }),
 

@@ -1,6 +1,6 @@
 /**
- * Etapa 4 — acesso tenant-aware.
- * Toda leitura/escrita privada deve passar por estes helpers.
+ * Etapa 4 — autorização de API tenant-aware.
+ * Leituras/escritas privadas delegam à Etapa 5 (`tenant-db`).
  * Cross-tenant → NOT_FOUND (sem vazar existência).
  */
 import { and, eq } from "drizzle-orm";
@@ -10,26 +10,15 @@ import {
   getActiveMembership,
   resolveSessionOrganization,
 } from "./db-organizations";
-import {
-  propriedades,
-  terrenos,
-  culturas,
-  diagnosticosIa,
-  analisesFitotecnicas,
-  relatorios,
-  calendarioCuidados,
-  tarefasOperacionais,
-  produtores,
-  type Organization,
-  type OrganizationMembership,
-} from "../drizzle/schema";
+import { produtores, type Organization, type OrganizationMembership } from "../drizzle/schema";
 import {
   roleHasPermission,
   type OrgPermission,
   type OrgRole,
 } from "../lib/security/org-roles";
+import { createTenantDb, TENANT_DB_NOT_FOUND } from "./tenant-db";
 
-export const TENANT_NOT_FOUND = "Recurso não encontrado";
+export const TENANT_NOT_FOUND = TENANT_DB_NOT_FOUND;
 
 export type TenantContext = {
   userId: number;
@@ -80,27 +69,12 @@ export function requireOrgPermission(tenant: TenantContext, permission: OrgPermi
   }
 }
 
-/** Propriedade no escopo da organização ativa */
+/** Propriedade no escopo da organização ativa (via tenant-db) */
 export async function requirePropertyInTenant(
   tenant: TenantContext,
   propriedadeId: number,
 ) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(propriedades)
-    .where(
-      and(
-        eq(propriedades.id, propriedadeId),
-        eq(propriedades.organizationId, tenant.organizationId),
-      ),
-    )
-    .limit(1);
-  if (!rows[0]) {
-    throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-  }
-  return rows[0];
+  return createTenantDb(tenant.organizationId).requirePropriedade(propriedadeId);
 }
 
 /** Talhão pertence à propriedade e à mesma org */
@@ -109,17 +83,7 @@ export async function requireTerrenoInTenant(
   terrenoId: number,
   propriedadeId?: number,
 ) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(terrenos)
-    .where(
-      and(eq(terrenos.id, terrenoId), eq(terrenos.organizationId, tenant.organizationId)),
-    )
-    .limit(1);
-  const t = rows[0];
-  if (!t) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+  const t = await createTenantDb(tenant.organizationId).requireTerreno(terrenoId);
   if (propriedadeId != null && t.propriedadeId !== propriedadeId) {
     throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
   }
@@ -132,17 +96,7 @@ export async function requireCulturaInTenant(
   culturaId: number,
   propriedadeId?: number,
 ) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(culturas)
-    .where(
-      and(eq(culturas.id, culturaId), eq(culturas.organizationId, tenant.organizationId)),
-    )
-    .limit(1);
-  const c = rows[0];
-  if (!c) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+  const c = await createTenantDb(tenant.organizationId).requireCultura(culturaId);
   if (propriedadeId != null && c.propriedadeId !== propriedadeId) {
     throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
   }
@@ -150,90 +104,28 @@ export async function requireCulturaInTenant(
 }
 
 export async function requireRelatorioInTenant(tenant: TenantContext, id: number) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(relatorios)
-    .where(and(eq(relatorios.id, id), eq(relatorios.organizationId, tenant.organizationId)))
-    .limit(1);
-  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-  return rows[0];
+  return createTenantDb(tenant.organizationId).requireRelatorio(id);
 }
 
 export async function requireAnaliseInTenant(tenant: TenantContext, id: number) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(analisesFitotecnicas)
-    .where(
-      and(
-        eq(analisesFitotecnicas.id, id),
-        eq(analisesFitotecnicas.organizationId, tenant.organizationId),
-      ),
-    )
-    .limit(1);
-  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-  return rows[0];
+  return createTenantDb(tenant.organizationId).requireAnalise(id);
 }
 
 export async function requireTarefaInTenant(tenant: TenantContext, id: number) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(tarefasOperacionais)
-    .where(
-      and(
-        eq(tarefasOperacionais.id, id),
-        eq(tarefasOperacionais.organizationId, tenant.organizationId),
-      ),
-    )
-    .limit(1);
-  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-  return rows[0];
+  return createTenantDb(tenant.organizationId).requireTarefa(id);
 }
 
 export async function requireEventoInTenant(tenant: TenantContext, id: number) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(calendarioCuidados)
-    .where(
-      and(
-        eq(calendarioCuidados.id, id),
-        eq(calendarioCuidados.organizationId, tenant.organizationId),
-      ),
-    )
-    .limit(1);
-  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-  return rows[0];
+  return createTenantDb(tenant.organizationId).requireEvento(id);
 }
 
 export async function requireDiagnosticoInTenant(tenant: TenantContext, id: number) {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select()
-    .from(diagnosticosIa)
-    .where(
-      and(eq(diagnosticosIa.id, id), eq(diagnosticosIa.organizationId, tenant.organizationId)),
-    )
-    .limit(1);
-  if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-  return rows[0];
+  return createTenantDb(tenant.organizationId).requireDiagnostico(id);
 }
 
 /** Lista propriedades da organização ativa */
 export async function listPropriedadesInTenant(tenant: TenantContext) {
-  const db = await getDb();
-  if (!db) return [];
-  return db
-    .select()
-    .from(propriedades)
-    .where(eq(propriedades.organizationId, tenant.organizationId));
+  return createTenantDb(tenant.organizationId).listPropriedades();
 }
 
 /** ProdutorId do usuário (para creates que ainda usam FK produtor) — amarra à org ativa */
