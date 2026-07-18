@@ -69,6 +69,7 @@ const terrenoInput = z.object({
 
 const cultivoInput = z.object({
   propriedadeId: z.number().int().positive(),
+  safraId: z.number().int().positive().optional(),
   terrenoId: z.number().int().positive().optional(),
   nomeCultura: z.string().min(1).max(100),
   variedade: z.string().max(100).optional(),
@@ -245,12 +246,27 @@ const cultivosRouter = router({
     }),
 
   listByPropriedade: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        safraId: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "property.read");
       await requirePropertyInTenant(tenant, input.propriedadeId);
-      return getCulturasByPropriedade(input.propriedadeId);
+      if (input.safraId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
+      const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
+      const all = await getCulturasByPropriedade(input.propriedadeId);
+      return filterRowsBySafraId(all, input.safraId ?? null).matched;
     }),
 
   create: orgPermissionProcedure("property.write")
@@ -261,8 +277,27 @@ const cultivosRouter = router({
         propriedadeId: input.propriedadeId,
         terrenoId: input.terrenoId,
       });
+      let safraId = input.safraId;
+      if (safraId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          safraId,
+        );
+      } else {
+        const { ensureDefaultSafra } = await import("../db-safras");
+        safraId = (
+          await ensureDefaultSafra({
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId,
+            createdByUserId: tenant.userId,
+          })
+        ).id;
+      }
       return createCultura({
         ...input,
+        safraId,
         organizationId: tenant.organizationId,
         areaPlantada: input.areaPlantada?.toString(),
         producaoEstimada: input.producaoEstimada?.toString(),

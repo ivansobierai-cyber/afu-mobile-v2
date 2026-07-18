@@ -51,6 +51,7 @@ export type TenantScope = { organizationId: number };
 /** Tabelas privadas cobertas pela defesa equivalente a RLS */
 export const TENANT_PRIVATE_TABLES = [
   "propriedades",
+  "safras",
   "terrenos",
   "culturas",
   "diagnosticos_ia",

@@ -54,6 +54,7 @@ const prioridadeSchema = z.enum(["baixa", "normal", "alta", "critica"]);
 
 const tarefaInput = z.object({
   propriedadeId: z.number().int().positive(),
+  safraId: z.number().int().positive().optional(),
   terrenoId: z.number().int().positive().optional(),
   culturaId: z.number().int().positive().optional(),
   tipoOperacao: tipoOperacaoSchema,
@@ -72,13 +73,24 @@ export const tarefasRouter = router({
         propriedadeId: z.number().int().positive(),
         status: statusSchema.optional(),
         abertasOnly: z.boolean().optional(),
+        safraId: z.number().int().positive().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.read");
       await requirePropertyInTenant(tenant, input.propriedadeId);
+      if (input.safraId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
+      const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
       let lista = await getTarefasByPropriedade(input.propriedadeId);
+      lista = filterRowsBySafraId(lista, input.safraId ?? null).matched;
       if (input.status) lista = lista.filter((t) => t.status === input.status);
       if (input.abertasOnly) {
         lista = lista.filter((t) => STATUS_ABERTOS.includes(t.status as TarefaStatus));
@@ -87,12 +99,29 @@ export const tarefasRouter = router({
     }),
 
   resumoHoje: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        safraId: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.read");
       await requirePropertyInTenant(tenant, input.propriedadeId);
-      const lista = await getTarefasByPropriedade(input.propriedadeId);
+      if (input.safraId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
+      const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
+      const lista = filterRowsBySafraId(
+        await getTarefasByPropriedade(input.propriedadeId),
+        input.safraId ?? null,
+      ).matched;
       const start = new Date();
       start.setHours(0, 0, 0, 0);
       const end = new Date();
@@ -137,6 +166,24 @@ export const tarefasRouter = router({
         terrenoId: input.terrenoId,
         culturaId: input.culturaId,
       });
+      let safraId = input.safraId;
+      if (safraId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          safraId,
+        );
+      } else {
+        const { ensureDefaultSafra } = await import("../db-safras");
+        safraId = (
+          await ensureDefaultSafra({
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId,
+            createdByUserId: tenant.userId,
+          })
+        ).id;
+      }
       if (input.clientMutationId) {
         const existing = await findTarefaByClientMutationId(input.clientMutationId);
         if (existing) {
@@ -150,6 +197,7 @@ export const tarefasRouter = router({
         usuarioId: tenant.perfilId,
         organizationId: tenant.organizationId,
         propriedadeId: input.propriedadeId,
+        safraId,
         terrenoId: input.terrenoId,
         culturaId: input.culturaId,
         tipoOperacao: input.tipoOperacao,

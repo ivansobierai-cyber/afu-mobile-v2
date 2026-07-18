@@ -172,6 +172,39 @@ export type Propriedade = typeof propriedades.$inferSelect;
 export type InsertPropriedade = typeof propriedades.$inferInsert;
 
 // ─────────────────────────────────────────────
+// TABELA: safras (ciclo produtivo por propriedade)
+// ─────────────────────────────────────────────
+export const safras = mysqlTable(
+  "safras",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    nome: varchar("nome", { length: 80 }).notNull(),
+    anoInicio: int("anoInicio"),
+    anoFim: int("anoFim"),
+    dataInicio: date("dataInicio"),
+    dataFim: date("dataFim"),
+    status: mysqlEnum("status", ["planejada", "ativa", "encerrada", "arquivada"])
+      .default("ativa")
+      .notNull(),
+    isDefault: boolean("isDefault").default(false).notNull(),
+    createdByUserId: int("createdByUserId"),
+    closedAt: timestamp("closedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("safras_organization_idx").on(t.organizationId),
+    index("safras_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("safras_org_prop_status_idx").on(t.organizationId, t.propriedadeId, t.status),
+  ],
+);
+
+export type Safra = typeof safras.$inferSelect;
+export type InsertSafra = typeof safras.$inferInsert;
+
+// ─────────────────────────────────────────────
 // TABELA: terrenos (talhões dentro de propriedades)
 // ─────────────────────────────────────────────
 export const terrenos = mysqlTable(
@@ -210,6 +243,8 @@ export const culturas = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(), // FK → propriedades.id
   organizationId: int("organizationId"),
+  /** Ciclo produtivo — nullable até backfill (correção Etapa 2) */
+  safraId: int("safraId"),
   terrenoId: int("terrenoId"), // FK → terrenos.id (opcional)
   nomeCultura: varchar("nomeCultura", { length: 100 }).notNull(),
   variedade: varchar("variedade", { length: 100 }),
@@ -233,6 +268,7 @@ export const culturas = mysqlTable(
   (t) => [
     index("culturas_organization_idx").on(t.organizationId),
     index("culturas_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("culturas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
   ],
 );
 
@@ -487,6 +523,7 @@ export const tarefasOperacionais = mysqlTable(
   usuarioId: int("usuarioId").notNull(), // criador — usuarios_afu.id
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId").notNull(),
+  safraId: int("safraId"),
   terrenoId: int("terrenoId"),
   culturaId: int("culturaId"),
   tipoOperacao: mysqlEnum("tipoOperacao", [
@@ -536,6 +573,7 @@ export const tarefasOperacionais = mysqlTable(
   (t) => [
     index("tarefas_organization_idx").on(t.organizationId),
     index("tarefas_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("tarefas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
   ],
 );
 
@@ -1037,6 +1075,7 @@ export const ocorrenciasCampo = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
+  safraId: int("safraId"),
   terrenoId: int("terrenoId"),
   culturaId: int("culturaId"),
   usuarioId: int("usuarioId").notNull(),
@@ -1070,7 +1109,10 @@ export const ocorrenciasCampo = mysqlTable(
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("ocorrencias_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("ocorrencias_organization_idx").on(t.organizationId),
+    index("ocorrencias_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+  ],
 );
 
 export type OcorrenciaCampo = typeof ocorrenciasCampo.$inferSelect;
@@ -1132,6 +1174,7 @@ export const orcamentosSafra = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
+  safraId: int("safraId"),
   nomeSafra: varchar("nomeSafra", { length: 80 }).notNull(),
   orcamentoPrevisto: decimal("orcamentoPrevisto", { precision: 14, scale: 2 }).default("0").notNull(),
   custoRealizado: decimal("custoRealizado", { precision: 14, scale: 2 }).default("0").notNull(),
@@ -1139,7 +1182,10 @@ export const orcamentosSafra = mysqlTable(
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("orcamentos_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("orcamentos_organization_idx").on(t.organizationId),
+    index("orcamentos_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+  ],
 );
 
 export type OrcamentoSafra = typeof orcamentosSafra.$inferSelect;
@@ -1151,6 +1197,7 @@ export const custosOperacao = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
+  safraId: int("safraId"),
   orcamentoId: int("orcamentoId"),
   tarefaId: int("tarefaId"),
   categoria: mysqlEnum("categoriaCusto", [
@@ -1180,6 +1227,7 @@ export const atividadePropriedade = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
+  safraId: int("safraId"),
   usuarioId: int("usuarioId"),
   tipo: varchar("tipo", { length: 60 }).notNull(),
   titulo: varchar("titulo", { length: 200 }).notNull(),

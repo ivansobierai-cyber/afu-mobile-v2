@@ -1,0 +1,23 @@
+{
+  "started": "2026-07-18T15:24:35.494Z",
+  "propriedades": 32,
+  "skippedNoOrg": 0,
+  "safrasCreated": 0,
+  "linked": {
+    "orcamentos": 0,
+    "culturas": 19,
+    "tarefas": 20,
+    "ocorrencias": 1,
+    "custos": 0,
+    "atividades": 1
+  },
+  "orphansRemaining": {
+    "culturas": 0,
+    "tarefas": 0,
+    "ocorrencias": 0
+  },
+  "ambiguous": 0,
+  "ambiguousRows": [],
+  "totalSafras": 32,
+  "note": "Órfãos operacionais sem organizationId/propriedadeId válidos permanecem null e são excluídos do filtro por safra."
+}

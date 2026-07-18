@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,7 +12,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -61,6 +61,7 @@ export default function PropriedadesScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
+  const { editId } = useLocalSearchParams<{ editId?: string }>();
 
   const { cacheInput, activeOrganizationId } = useTenantQueryScope();
   const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery(
@@ -93,6 +94,14 @@ export default function PropriedadesScreen() {
     });
     setModalVisible(true);
   };
+
+  // Deep link: /propriedades?editId=123 abre o modal da propriedade correta
+  useEffect(() => {
+    const id = editId ? parseInt(editId, 10) : NaN;
+    if (!Number.isFinite(id) || id <= 0 || propriedades.length === 0) return;
+    const prop = propriedades.find((p) => p.id === id);
+    if (prop) openEdit(prop);
+  }, [editId, propriedades]);
 
   const handleUseLocation = async () => {
     setLocating(true);

@@ -40,6 +40,8 @@
     "seed:marketplace": "tsx scripts/seed-marketplace.ts",
     "seed:comprador": "tsx scripts/seed-comprador.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "db:safras:apply": "tsx scripts/apply-0020-safras.ts",
+    "db:safras:backfill": "tsx scripts/backfill-safras.ts",
     "backfill:organizations": "tsx scripts/backfill-organizations.ts",
     "backfill:organization-id": "tsx scripts/backfill-organization-id.ts",
     "weather:alerts": "tsx scripts/run-weather-alerts.ts",

@@ -48,9 +48,16 @@ const STATUS_COLOR: Record<string, string> = {
 type Props = {
   propriedadeId: number;
   terrenos: { id: number; nome: string }[];
+  safraId?: number;
+  readOnly?: boolean;
 };
 
-export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
+export function PropriedadeOperacoesPanel({
+  propriedadeId,
+  terrenos,
+  safraId,
+  readOnly = false,
+}: Props) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const { queueMutation, isOnline, pending, isSyncing } = useCoreOfflineSync();
@@ -68,6 +75,7 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
     trpc.coreData.tarefas.listByPropriedade.useQuery({
       propriedadeId,
       abertasOnly: filtro === "abertas",
+      safraId,
     });
 
   const transition = trpc.coreData.tarefas.transition.useMutation({
@@ -137,6 +145,7 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
       const clientMutationId = `tarefa_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
       const result = await queueMutation("tarefa", "create", {
         propriedadeId,
+        safraId,
         terrenoId: terrenoId ?? undefined,
         tipoOperacao: tipo,
         titulo: titulo.trim(),
@@ -176,23 +185,29 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
             {pending > 0 ? ` · ${pending} pendente(s)` : ""}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => setModalOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Nova tarefa"
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: 12,
-            minHeight: 40,
-            paddingHorizontal: 14,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <IconSymbol name="plus" size={14} color="#FFF" />
-          <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 13 }}>Nova tarefa</Text>
-        </TouchableOpacity>
+        {!readOnly ? (
+          <TouchableOpacity
+            onPress={() => setModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Nova tarefa"
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              minHeight: 40,
+              paddingHorizontal: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <IconSymbol name="plus" size={14} color="#FFF" />
+            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 13 }}>Nova tarefa</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "600", maxWidth: 140 }}>
+            Somente leitura
+          </Text>
+        )}
       </View>
 
       <View style={{ flexDirection: "row", marginBottom: 12 }}>

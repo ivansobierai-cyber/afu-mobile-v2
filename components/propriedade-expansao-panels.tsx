@@ -131,9 +131,19 @@ export function PropriedadeAlertasFeed({ propriedadeId, onOpenOperacoes }: Alert
   );
 }
 
-type MonitoramentoProps = { propriedadeId: number; terrenos: { id: number; nome: string }[] };
+type MonitoramentoProps = {
+  propriedadeId: number;
+  terrenos: { id: number; nome: string }[];
+  safraId?: number;
+  readOnly?: boolean;
+};
 
-export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: MonitoramentoProps) {
+export function PropriedadeMonitoramentoPanel({
+  propriedadeId,
+  terrenos,
+  safraId,
+  readOnly = false,
+}: MonitoramentoProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
@@ -148,25 +158,25 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
   const [saving, setSaving] = useState(false);
 
   const { data: ocorrencias = [], isLoading, isError, refetch } =
-    trpc.coreData.expansao.ocorrencias.list.useQuery({ propriedadeId });
+    trpc.coreData.expansao.ocorrencias.list.useQuery({ propriedadeId, safraId });
 
   const create = trpc.coreData.expansao.ocorrencias.create.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
       await utils.coreData.expansao.atividades.invalidate({ propriedadeId, cacheScope });
     },
   });
   const criarTarefa = trpc.coreData.expansao.ocorrencias.criarTarefa.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId });
-      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
   const resolver = trpc.coreData.expansao.ocorrencias.resolver.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
@@ -205,6 +215,10 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
   );
 
   const onCreate = async () => {
+    if (readOnly) {
+      Alert.alert("Somente leitura", "Safra histórica — não é possível registrar ocorrências.");
+      return;
+    }
     if (!titulo.trim()) {
       Alert.alert("Informe um título");
       return;
@@ -213,6 +227,7 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
     try {
       await create.mutateAsync({
         propriedadeId,
+        safraId,
         titulo: titulo.trim(),
         descricao: descricao.trim() || undefined,
         categoria,
@@ -622,9 +637,9 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
   );
 }
 
-type CustosProps = { propriedadeId: number; safraLabel: string };
+type CustosProps = { propriedadeId: number; safraLabel: string; safraId?: number };
 
-export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProps) {
+export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: CustosProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
@@ -635,20 +650,22 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
 
   const { data, isLoading, isError, refetch } = trpc.coreData.expansao.custos.list.useQuery({
     propriedadeId,
+    safraId,
   });
   const createOrc = trpc.coreData.expansao.custos.createOrcamento.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId });
+      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
   const createCusto = trpc.coreData.expansao.custos.createCusto.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId });
+      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
       await utils.coreData.expansao.metricas.invalidate({
         propriedadeId,
         nomeSafra: safraLabel,
+        safraId,
         cacheScope,
       });
     },
@@ -706,6 +723,7 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
                 .mutateAsync({
                   propriedadeId,
                   nomeSafra: safraLabel,
+                  safraId,
                   orcamentoPrevisto: Number(orcamentoValor) || 0,
                 })
                 .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
@@ -792,6 +810,7 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
             void createCusto
               .mutateAsync({
                 propriedadeId,
+                safraId,
                 orcamentoId: orcAtual?.id,
                 descricao: descricao.trim(),
                 valor: Number(valor),
@@ -837,15 +856,16 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
   );
 }
 
-type MetricasProps = { propriedadeId: number; nomeSafra?: string };
+type MetricasProps = { propriedadeId: number; nomeSafra?: string; safraId?: number };
 
-export function PropriedadeMetricasPanel({ propriedadeId, nomeSafra }: MetricasProps) {
+export function PropriedadeMetricasPanel({ propriedadeId, nomeSafra, safraId }: MetricasProps) {
   const colors = useColors();
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const orgId = session?.activeOrganizationId ?? undefined;
   const { data, isLoading, isError, refetch } = trpc.coreData.expansao.metricas.useQuery({
     propriedadeId,
     nomeSafra,
+    safraId,
     cacheScope: orgId,
   });
 

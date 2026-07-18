@@ -17,11 +17,15 @@ import { WeatherCard } from "@/components/weather-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { formatCoordinates, hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
+import { resolveCultivosShortcutValue } from "@/lib/propriedades/overview-counts";
 import {
-  buildSafraOptions,
-  currentSafraLabel,
-  isHistoricoSafra,
-} from "@/lib/propriedades/safra-label";
+  PropertyWorkspaceProvider,
+  resolveWorkspaceMode,
+  resolveWorkspaceSafra,
+  type PanelTab,
+  type WorkspaceSafra,
+} from "@/lib/propriedades/property-workspace";
+import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
 import { PropriedadePanelMenus } from "@/components/propriedade-panel-menus";
 import {
@@ -60,7 +64,6 @@ const TIPO_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
-type PanelTab = "visao" | "mapa" | "operacoes" | "talhoes" | "cultivos" | "mais";
 type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores";
 
 const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
@@ -73,8 +76,14 @@ const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
 ];
 
 export default function PropriedadeDetailScreen() {
-  const { id, tab: tabParam } = useLocalSearchParams<{ id: string; tab?: string }>();
+  const { id, tab: tabParam, safraId: safraIdParam } = useLocalSearchParams<{
+    id: string;
+    tab?: string;
+    safraId?: string;
+  }>();
   const propId = parseInt(id ?? "0", 10);
+  const urlSafraId = safraIdParam ? parseInt(safraIdParam, 10) : NaN;
+  const parsedUrlSafraId = Number.isFinite(urlSafraId) && urlSafraId > 0 ? urlSafraId : null;
   const colors = useColors();
   const router = useRouter();
   const { width } = useWindowDimensions();
@@ -83,16 +92,58 @@ export default function PropriedadeDetailScreen() {
   const initialTab = (MOBILE_TABS.some((t) => t.id === tabParam) ? tabParam : "visao") as PanelTab;
   const [tab, setTab] = useState<PanelTab>(initialTab);
   const [maisSection, setMaisSection] = useState<MaisSection>("menu");
-  const [safraLabel, setSafraLabel] = useState(currentSafraLabel);
   const [menu, setMenu] = useState<"safra" | "registrar" | "admin" | null>(null);
   const utils = trpc.useUtils();
 
-  // Deep link / retorno de detalhe preserva aba (?tab=)
+  // Deep link / retorno preserva aba (?tab=)
   useEffect(() => {
     if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam) && tabParam !== tab) {
       setTab(tabParam as PanelTab);
     }
   }, [tabParam]);
+
+  const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const orgScope = sessionProp?.activeOrganizationId ?? undefined;
+
+  const { data: safrasRaw = [] } = trpc.coreData.expansao.safras.list.useQuery(
+    { propriedadeId: propId },
+    { enabled: propId > 0 && !!orgScope },
+  );
+  const ensureDefaultSafra = trpc.coreData.expansao.safras.ensureDefault.useMutation();
+
+  useEffect(() => {
+    if (!propId || !orgScope || safrasRaw.length > 0 || ensureDefaultSafra.isPending) return;
+    void ensureDefaultSafra.mutateAsync({ propriedadeId: propId }).catch(() => {
+      /* leitor sem property.write — overview garante default no servidor */
+    });
+  }, [propId, orgScope, safrasRaw.length]);
+
+  const workspaceSafras: WorkspaceSafra[] = useMemo(
+    () =>
+      safrasRaw.map((s) => ({
+        id: s.id,
+        nome: s.nome,
+        status: s.status as WorkspaceSafra["status"],
+        isDefault: Boolean(s.isDefault),
+      })),
+    [safrasRaw],
+  );
+
+  const { safra: resolvedSafra, invalidUrl } = resolveWorkspaceSafra({
+    safras: workspaceSafras,
+    urlSafraId: parsedUrlSafraId,
+  });
+  const activeSafraId = resolvedSafra?.id ?? null;
+  const safraLabel = resolvedSafra?.nome ?? "Safra";
+
+  // Persist safra padrão na URL quando ausente (deep link canônico)
+  useEffect(() => {
+    if (activeSafraId == null || parsedUrlSafraId === activeSafraId) return;
+    if (invalidUrl) return;
+    if (parsedUrlSafraId == null) {
+      router.setParams({ safraId: String(activeSafraId), tab } as any);
+    }
+  }, [activeSafraId, parsedUrlSafraId, invalidUrl, tab, router]);
 
   const {
     data: propriedade,
@@ -106,8 +157,8 @@ export default function PropriedadeDetailScreen() {
     isError: errorCult,
     refetch: refetchCult,
   } = trpc.coreData.cultivos.listByPropriedade.useQuery(
-    { propriedadeId: propId },
-    { enabled: propId > 0 },
+    { propriedadeId: propId, safraId: activeSafraId ?? undefined },
+    { enabled: propId > 0 && activeSafraId != null },
   );
   const {
     data: terrenos = [],
@@ -119,20 +170,17 @@ export default function PropriedadeDetailScreen() {
     { enabled: propId > 0 },
   );
   const { data: resumoHoje } = trpc.coreData.tarefas.resumoHoje.useQuery(
-    { propriedadeId: propId },
-    { enabled: propId > 0 },
+    { propriedadeId: propId, safraId: activeSafraId ?? undefined },
+    { enabled: propId > 0 && activeSafraId != null },
   );
-  const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
-  const orgScope = sessionProp?.activeOrganizationId ?? undefined;
   const { data: overview } = trpc.coreData.expansao.overview.useQuery(
-    { propriedadeId: propId, nomeSafra: safraLabel, cacheScope: orgScope },
-    { enabled: propId > 0 && !!orgScope },
+    {
+      propriedadeId: propId,
+      safraId: activeSafraId ?? undefined,
+      cacheScope: orgScope,
+    },
+    { enabled: propId > 0 && !!orgScope && activeSafraId != null },
   );
-  const { data: custosBundle } = trpc.coreData.expansao.custos.list.useQuery(
-    { propriedadeId: propId },
-    { enabled: propId > 0 && !!orgScope },
-  );
-
   const deleteProp = trpc.coreData.propriedades.delete.useMutation({
     onSuccess: async () => {
       await utils.coreData.propriedades.list.invalidate();
@@ -145,7 +193,7 @@ export default function PropriedadeDetailScreen() {
       await utils.coreData.propriedades.get.invalidate({ id: propId });
       await utils.coreData.expansao.overview.invalidate({
         propriedadeId: propId,
-        nomeSafra: safraLabel,
+        safraId: activeSafraId ?? undefined,
         cacheScope: orgScope,
       });
       await utils.coreData.expansao.alertas.invalidate({
@@ -159,9 +207,18 @@ export default function PropriedadeDetailScreen() {
     (next: PanelTab) => {
       setTab(next);
       if (next !== "mais") setMaisSection("menu");
-      router.setParams({ tab: next } as any);
+      const params: Record<string, string> = { tab: next };
+      if (activeSafraId != null) params.safraId = String(activeSafraId);
+      router.setParams(params as any);
     },
-    [router],
+    [router, activeSafraId],
+  );
+
+  const selectSafraId = useCallback(
+    (id: number) => {
+      router.setParams({ tab, safraId: String(id) } as any);
+    },
+    [router, tab],
   );
 
   const styles = useMemo(
@@ -281,13 +338,12 @@ export default function PropriedadeDetailScreen() {
   const talhoesCount = overview?.contagens.talhoes ?? terrenos.length;
   const cultivosCount = overview?.contagens.cultivos ?? cultivos.length;
   const tarefasAbertas = overview?.contagens.tarefasAbertas ?? resumoHoje?.abertas ?? 0;
-  const safraHistorico = isHistoricoSafra(safraLabel);
-  const safraOptions = buildSafraOptions([
-    ...(custosBundle?.orcamentos ?? []).map((o: { nomeSafra?: string | null }) => o.nomeSafra),
-    safraLabel,
-  ]);
   const goTalhoesManage = () =>
-    router.push(`/propriedades/terrenos?propriedadeId=${propriedade.id}&returnTab=talhoes` as any);
+    router.push(
+      `/propriedades/terrenos?propriedadeId=${propriedade.id}&returnTab=talhoes${
+        activeSafraId != null ? `&safraId=${activeSafraId}` : ""
+      }` as any,
+    );
 
   const mapPolygons: MapPolygon[] = [];
   const propGeo = propriedade.geometriaGeoJson ?? overview?.geometrias?.propriedade ?? null;
@@ -337,45 +393,109 @@ export default function PropriedadeDetailScreen() {
     },
     {
       label: "Cultivos",
-      value: String(cultivosAtivos || cultivosCount),
+      value: String(
+        resolveCultivosShortcutValue({
+          label: "Cultivos",
+          cultivosAtivos,
+          cultivosCount,
+        }),
+      ),
       color: colors.success,
       onPress: () => selectTab("cultivos"),
     },
   ];
 
+  const activeRole = (sessionProp?.activeRole ?? null) as OrgRole | null;
+  const canWriteProperty = activeRole ? roleHasPermission(activeRole, "property.write") : false;
+  const canExport = activeRole ? roleHasPermission(activeRole, "reports.export") : false;
+  const canDeleteProperty = canWriteProperty;
+  const filterComplete = overview?.completeness?.status === "complete";
+  /** Só liberar “Modo histórico” quando filtragem for completa (regra central do plano) */
+  const historicalModeReady = filterComplete;
+  const workspaceMode = resolveWorkspaceMode({
+    safraStatus: resolvedSafra?.status ?? null,
+    filterComplete,
+  });
+  const isHistorical = workspaceMode === "historical";
+  const canRegister = !isHistorical && canWriteProperty;
+  const periodFilterActive =
+    !filterComplete &&
+    Boolean(
+      resolvedSafra &&
+        (resolvedSafra.status === "encerrada" || resolvedSafra.status === "arquivada"),
+    );
+
+  if (invalidUrl && parsedUrlSafraId != null) {
+    return (
+      <ScreenContainer>
+        <ScreenState
+          status="error"
+          title="Safra inválida"
+          message="Esta safra não pertence à propriedade ou não está disponível."
+          actionLabel="Ir para safra atual"
+          onAction={() => {
+            const def =
+              workspaceSafras.find((s) => s.isDefault) ??
+              workspaceSafras.find((s) => s.status === "ativa");
+            if (def) router.setParams({ safraId: String(def.id), tab } as any);
+            else router.back();
+          }}
+        />
+      </ScreenContainer>
+    );
+  }
+
   return (
+    <PropertyWorkspaceProvider
+      organizationId={orgScope ?? 0}
+      propriedadeId={propriedade.id}
+      tab={tab}
+      safras={workspaceSafras}
+      urlSafraId={activeSafraId}
+      filterComplete={filterComplete}
+      activeRole={activeRole}
+      onSetTab={selectTab}
+      onSetSafraId={selectSafraId}
+    >
     <ScreenContainer>
       <PropriedadePanelMenus
         visible={menu}
         onClose={() => setMenu(null)}
-        safraLabel={safraLabel}
-        safraOptions={safraOptions}
+        safras={workspaceSafras}
+        selectedSafraId={activeSafraId}
+        onSelectSafraId={selectSafraId}
         propriedadeNome={propriedade.nome}
-        onSelectSafra={(label) => {
-          if (isHistoricoSafra(label)) {
-            Alert.alert(
-              "Consultando histórico",
-              "Você está vendo uma safra anterior. Edições de custos/indicadores usam este contexto; a safra atual não é alterada.",
-            );
-          }
-          setSafraLabel(label);
-        }}
+        canWriteProperty={canWriteProperty}
+        canExport={canExport}
+        canDeleteProperty={canDeleteProperty}
+        historicalModeReady={historicalModeReady}
+        canRegister={canRegister}
         onRegistrar={(action) => {
+          if (!canRegister) {
+            Alert.alert(
+              "Somente leitura",
+              "Safra histórica — volte para a safra atual para registrar.",
+            );
+            return;
+          }
           if (action === "tarefa") selectTab("operacoes");
           else if (action === "ocorrencia") {
             selectTab("mais");
             setMaisSection("monitoramento");
           } else if (action === "talhao") goTalhoesManage();
-          else router.push("/(tabs)/cultivos" as any);
+          else selectTab("cultivos");
         }}
         onAdmin={(action) => {
           if (action === "editar") {
-            router.push("/(tabs)/propriedades" as any);
+            router.push(`/(tabs)/propriedades?editId=${propriedade.id}` as any);
           } else if (action === "exportar") {
+            if (!canExport) {
+              Alert.alert("Sem permissão", "Seu papel não inclui exportação de relatórios.");
+              return;
+            }
             const summary = [
               `Propriedade: ${propriedade.nome}`,
-              `Local: ${localizacao || "—"}`,
-              `Safra: ${safraLabel}`,
+              `Safra: ${safraLabel}${activeSafraId != null ? ` (#${activeSafraId})` : ""}`,
               `Área: ${areaTotal || "—"} ha`,
               `Talhões: ${talhoesCount}`,
               `Cultivos: ${cultivosCount}`,
@@ -384,12 +504,11 @@ export default function PropriedadeDetailScreen() {
             void Share.share({ message: summary, title: `Resumo — ${propriedade.nome}` }).catch(() => {
               Alert.alert("Resumo", summary);
             });
-          } else if (action === "arquivar") {
-            Alert.alert(
-              "Arquivar",
-              "Arquivamento soft estará disponível na próxima evolução. Por enquanto use Excluir com cuidado ou edite o cadastro.",
-            );
           } else if (action === "excluir") {
+            if (!canDeleteProperty) {
+              Alert.alert("Sem permissão", "Seu papel não pode excluir propriedades.");
+              return;
+            }
             void deleteProp
               .mutateAsync({ id: propriedade.id })
               .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
@@ -417,10 +536,30 @@ export default function PropriedadeDetailScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => setMenu("registrar")}
+            onPress={() => {
+              if (!canRegister) {
+                Alert.alert(
+                  "Somente leitura",
+                  isHistorical
+                    ? "Modo histórico — esta safra não aceita novos registros."
+                    : "Sem permissão para registrar nesta propriedade.",
+                );
+                return;
+              }
+              setMenu("registrar");
+            }}
             accessibilityRole="button"
             accessibilityLabel="Registrar"
-            style={[styles.chip, { minHeight: 36, justifyContent: "center", paddingHorizontal: 12 }]}
+            accessibilityState={{ disabled: !canRegister }}
+            style={[
+              styles.chip,
+              {
+                minHeight: 36,
+                justifyContent: "center",
+                paddingHorizontal: 12,
+                opacity: canRegister ? 1 : 0.45,
+              },
+            ]}
           >
             <Text style={{ color: "#FFF", fontSize: 13, fontWeight: "800" }}>+ Registrar</Text>
           </TouchableOpacity>
@@ -443,7 +582,7 @@ export default function PropriedadeDetailScreen() {
           >
             <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>
               {safraLabel}
-              {safraHistorico ? " · Histórico" : ""}
+              {isHistorical ? " · Histórico" : periodFilterActive ? " · Filtro fin." : ""}
               {" ▾"}
             </Text>
           </TouchableOpacity>
@@ -464,7 +603,7 @@ export default function PropriedadeDetailScreen() {
             <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 11 }}>Atualizado {updatedAt}</Text>
           </View>
         </View>
-        {safraHistorico ? (
+        {periodFilterActive ? (
           <Text
             style={{
               marginTop: 8,
@@ -472,9 +611,33 @@ export default function PropriedadeDetailScreen() {
               color: "rgba(255,255,255,0.9)",
               fontSize: 11,
               fontWeight: "600",
+              lineHeight: 15,
             }}
           >
-            Modo histórico — dados desta safra não substituem a safra atual
+            Filtro financeiro por período — filtragem de ciclo ainda parcial
+            {overview?.completeness?.missing?.length
+              ? ` (pendente: ${overview.completeness.missing.join(", ")})`
+              : ""}.
+          </Text>
+        ) : null}
+        {isHistorical ? (
+          <Text
+            style={{
+              marginTop: 8,
+              marginLeft: 52,
+              color: "#FFF",
+              fontSize: 12,
+              fontWeight: "800",
+              lineHeight: 16,
+              backgroundColor: "rgba(0,0,0,0.25)",
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 8,
+              overflow: "hidden",
+              alignSelf: "flex-start",
+            }}
+          >
+            Modo histórico — {safraLabel} ({resolvedSafra?.status}). Somente leitura.
           </Text>
         ) : null}
       </View>
@@ -642,6 +805,8 @@ export default function PropriedadeDetailScreen() {
           <PropriedadeOperacoesPanel
             propriedadeId={propriedade.id}
             terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+            safraId={activeSafraId ?? undefined}
+            readOnly={isHistorical}
           />
         )}
 
@@ -822,7 +987,9 @@ export default function PropriedadeDetailScreen() {
               </View>
             </View>
             <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 12 }}>
-              Visualizando {safraLabel}. Entidade de safras históricas será expandida sem misturar ciclos.
+              Cultivos da {safraLabel}
+              {activeSafraId != null ? ` (#${activeSafraId})` : ""}. Talhões e área total são da
+              propriedade (permanentes).
             </Text>
             {cultivos.length === 0 ? (
               <ScreenState
@@ -987,7 +1154,9 @@ export default function PropriedadeDetailScreen() {
 
                 <TouchableOpacity
                   style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
-                  onPress={() => router.push("/(tabs)/propriedades" as any)}
+                  onPress={() =>
+                    router.push(`/(tabs)/propriedades?editId=${propriedade.id}` as any)
+                  }
                   accessibilityRole="button"
                   accessibilityLabel="Editar propriedade na lista"
                 >
@@ -1009,23 +1178,31 @@ export default function PropriedadeDetailScreen() {
               <PropriedadeMonitoramentoPanel
                 propriedadeId={propriedade.id}
                 terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+                safraId={activeSafraId ?? undefined}
+                readOnly={isHistorical}
               />
             )}
             {maisSection === "estoque" && (
               <PropriedadeEstoquePanel propriedadeId={propriedade.id} />
             )}
             {maisSection === "custos" && (
-              <PropriedadeCustosPanel propriedadeId={propriedade.id} safraLabel={safraLabel} />
+              <PropriedadeCustosPanel
+                propriedadeId={propriedade.id}
+                safraLabel={safraLabel}
+                safraId={activeSafraId ?? undefined}
+              />
             )}
             {maisSection === "indicadores" && (
               <PropriedadeMetricasPanel
                 propriedadeId={propriedade.id}
                 nomeSafra={safraLabel}
+                safraId={activeSafraId ?? undefined}
               />
             )}
           </>
         )}
       </ScrollView>
     </ScreenContainer>
+    </PropertyWorkspaceProvider>
   );
 }

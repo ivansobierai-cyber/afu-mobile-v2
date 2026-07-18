@@ -1,55 +1,74 @@
-# Etapa 2 — Painel da propriedade com navegação contextual
+# Etapa 2 — Painel da propriedade (correção em andamento)
 
-**Status:** concluída (aceite)  
+**Status:** correção em andamento (plano `AFU_Agro_Plano_Correcao_Etapa_2_PR12`)  
 **Branch:** `cursor/security-multitenant-audit-fd64`  
-**Fonte:** `AFU_Agro_Plano_Mestre_Propriedades_10_Etapas.md` — ETAPA 2
+**PR:** #12
 
 ---
 
-## 1. Alterações realizadas
+## Regra central
 
-| Item | Detalhe |
-|------|---------|
-| Shell com abas | Já existia em `app/propriedades/[id].tsx` (Visão / Mapa / Operações / Talhões / Cultivos / Mais) |
-| Cabeçalho | `+ Registrar`, menu admin (⋮), seletor de safra, Trocar, status, atualização |
-| Safra | `buildSafraOptions` / `isHistoricoSafra` — histórico sem misturar safra atual |
-| Menus | `components/propriedade-panel-menus.tsx` |
-| Overview | Visão usa `expansao.overview.contagens` (atalhos/stats) |
-| Deep link | `?tab=` sincronizado; retorno de talhões via `returnTab` |
-| Rotas antigas | `terrenos`, `mapa`, lista, cultivos — intactas |
+**Não apresentar “Modo histórico”** enquanto tarefas, cultivos, ocorrências, alertas e métricas ainda misturarem ciclos.  
+
+A UI só mostra **“Modo histórico”** quando `overview.completeness.status === "complete"` **e** a safra tem `status` `encerrada`/`arquivada`.  
+Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 
 ---
 
-## 2. Critérios de aceite
+## Progresso do plano de correção (10 etapas)
 
-| Critério | Status |
-|----------|--------|
-| ≤2 toques para qualquer seção | OK (abas + Mais) |
-| Cabeçalho com propriedade e safra | OK (+ seletor) |
-| Voltar de talhão mantém contexto | OK (`returnTab=talhoes`) |
-| Histórico ≠ safra atual | OK (banner + alerta) |
-| Celular / tablet / desktop | OK (`isWide`) |
-| Rotas antigas acessíveis | OK |
+| # | Etapa | Status |
+|---|--------|--------|
+| 1 | Inconsistências imediatas (contagens, mensagens, editar, RBAC UI, arquivar) | **Feito** |
+| 2 | Entidade `safras` + migration/backfill | **Feito** |
+| 3 | PropertyWorkspaceContext + URL `?tab=&safraId=` | **Feito** |
+| 4 | Overview/painéis filtrados por `safraId` | **Feito** (completeness dinâmica) |
+| 5 | Modo histórico seguro (somente leitura) | **Parcial** (UI + create bloqueados; reopen/audit pendente) |
+| 6 | `+ Registrar` contextual | **Parcial** (contexto safra; formulários dedicados pendentes) |
+| 7 | RBAC completo + arquivamento soft | Parcial (UI); backend archive pendente |
+| 8 | Navegação/estado de retorno | **Parcial** (`tab` + `safraId` na URL) |
+| 9 | Loading/erro/vazio/offline/parcial | Parcial (`completeness` + safra inválida) |
+| 10 | Testes/evidências/CI/entrega | Em progresso |
 
 ---
 
-## 3. Testes
+## URL canônica
+
+```text
+/propriedades/:id?tab=operacoes&safraId=8
+```
+
+- `safraId` da URL tem prioridade quando válido no tenant/propriedade.
+- Ausência → safra padrão/ativa (persistida na URL).
+- ID inválido → erro específico com ação “Ir para safra atual”.
+
+---
+
+## Como aplicar migração de safras
 
 ```bash
-npx vitest run tests/safra-label.test.ts
-npm run test:security:etapa10   # isolamento não regrediu
+npm run db:safras:apply
+npm run db:safras:backfill   # relatório em docs/evidencias/safras-backfill-latest.json
+```
+
+Backfill:
+1. Garante safra padrão por propriedade;
+2. Relaciona orçamentos por `nomeSafra`;
+3. Atribui registros operacionais sem `safraId` à safra padrão (único candidato);
+4. Reporta órfãos remanescentes.
+
+---
+
+## Testes
+
+```bash
+npx vitest run tests/overview-counts.test.ts tests/property-workspace.test.ts tests/safras-entity.test.ts
+npm run test:security:etapa10
 ```
 
 ---
 
-## 4. Riscos / follow-ups
+## Decisão
 
-- Arquivar soft ainda não tem coluna/API — UI informa “em breve”.
-- Entidade `safras` persistida virá em etapas seguintes; hoje o contexto é por rótulo.
-- Aba “Tarefas” dedicada do plano §5 continua coberta por Operações (desvio MVP intencional).
-
----
-
-## 5. Decisão
-
-**AVANÇAR** para Etapa 3 (agenda / tarefas / operações integradas).
+Modo histórico completo depende de `completeness.complete`.  
+Etapas 5–10 restantes: reopen/audit, arquivamento soft, fluxos de registro dedicados, CI/evidências.
