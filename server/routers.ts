@@ -101,112 +101,152 @@ const diagnosticoRouter = router({
 
       return created;
     }),
-  analisar: publicProcedure
+  /** Etapa 9 — IA escopada à org; contexto mínimo; auditada; sem treinamento */
+  analisar: organizationProcedure
     .input(
       z.object({
-        imageBase64: z.string(),
-        culturaNome: z.string(),
-        parteAnalisada: z.string(),
-        sintomas: z.string().optional(),
-        faseFenologica: z.string().optional(),
-      })
+        imageBase64: z.string().max(8_000_000),
+        culturaNome: z.string().min(1).max(80),
+        parteAnalisada: z.string().min(1).max(60),
+        sintomas: z.string().max(400).optional(),
+        faseFenologica: z.string().max(60).optional(),
+        propriedadeId: z.number().int().positive().optional(),
+        culturaId: z.number().int().positive().optional(),
+      }),
     )
-    .mutation(async ({ input }) => {
-      const { imageBase64, culturaNome, parteAnalisada, sintomas, faseFenologica } = input;
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const {
+        buildDiagnosticoPrompt,
+        assertAiPropertyScope,
+        auditAiInvocation,
+        getOrgAiPolicy,
+        llmPrivacyOptions,
+        DEFAULT_AI_MODEL,
+        AI_OUTPUT_DISCLAIMER,
+      } = await import("./ai-governance");
 
-      const contexto = [
-        `Cultura: ${culturaNome}`,
-        `Parte analisada: ${parteAnalisada}`,
-        faseFenologica ? `Fase fenológica: ${faseFenologica}` : null,
-        sintomas ? `Sintomas relatados pelo produtor: ${sintomas}` : null,
-      ]
-        .filter(Boolean)
-        .join("\n");
-
-      const prompt = `Você é um agrônomo especialista em fitossanidade e diagnóstico vegetal. Analise a imagem fornecida com base no seguinte contexto:
-
-${contexto}
-
-Identifique se há algum problema fitossanitário (praga, doença, deficiência nutricional, estresse ambiental) ou se a planta está saudável.
-
-IMPORTANTE: Esta análise é uma triagem preliminar. Sempre oriente a confirmação com técnico, agrônomo ou laboratório quando necessário.
-
-Responda APENAS com um JSON válido no seguinte formato (sem markdown, sem código, apenas o JSON puro):
-{
-  "problema": "Nome do problema identificado ou 'Planta Saudável'",
-  "tipo": "praga" ou "doenca" ou "deficiencia_nutricional" ou "estresse_ambiental" ou "saudavel" ou "outro",
-  "confianca": número de 0 a 100,
-  "severidade": "leve" ou "moderada" ou "grave" ou "critica",
-  "descricao": "Descrição técnica detalhada do que foi identificado na imagem",
-  "recomendacoes": ["recomendação 1", "recomendação 2", "recomendação 3"],
-  "agenteCausal": "Nome científico do agente causal se aplicável (opcional)",
-  "observacoesTecnicas": "Observações técnicas adicionais para o agrônomo ou técnico (opcional)"
-}`;
-
-      const response = await invokeLLM({
-        messages: [
-          {
-            role: "user",
-            content: [
-              {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "high",
-                },
-              },
-              {
-                type: "text",
-                text: prompt,
-              },
-            ],
-          },
-        ],
+      await assertAiPropertyScope(tenant, input.propriedadeId, input.culturaId);
+      const orgPolicy = await getOrgAiPolicy(tenant.organizationId);
+      const privacy = llmPrivacyOptions(orgPolicy);
+      const { prompt, fieldSummary } = buildDiagnosticoPrompt({
+        culturaNome: input.culturaNome,
+        parteAnalisada: input.parteAnalisada,
+        sintomas: input.sintomas,
+        faseFenologica: input.faseFenologica,
+        organizationId: tenant.organizationId,
+        propriedadeId: input.propriedadeId,
       });
 
-      const rawContent = response.choices[0]?.message?.content;
-      const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent ?? "");
+      // Limita tamanho da imagem enviada ao modelo (já em base64)
+      const imageB64 = input.imageBase64.length > 2_500_000
+        ? input.imageBase64.slice(0, 2_500_000)
+        : input.imageBase64;
 
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON found");
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          problema: parsed.problema ?? "Análise inconclusiva",
-          tipo: parsed.tipo ?? "outro",
-          confianca: typeof parsed.confianca === "number" ? Math.min(100, Math.max(0, parsed.confianca)) : 70,
-          severidade: parsed.severidade ?? "leve",
-          descricao: parsed.descricao ?? "Não foi possível determinar com precisão.",
-          recomendacoes: Array.isArray(parsed.recomendacoes) ? parsed.recomendacoes : [],
-          agenteCausal: parsed.agenteCausal ?? undefined,
-          observacoesTecnicas: parsed.observacoesTecnicas ?? undefined,
-        };
-      } catch {
-        return {
-          problema: "Análise inconclusiva",
-          tipo: "outro" as const,
-          confianca: 50,
-          severidade: "leve" as const,
-          descricao: "Não foi possível processar a análise da imagem. Tente novamente com uma foto mais nítida.",
-          recomendacoes: [
-            "Tire uma foto mais próxima e com boa iluminação",
-            "Certifique-se de que a parte afetada esteja visível",
-            "Consulte um agrônomo ou técnico para avaliação presencial",
+        const response = await invokeLLM({
+          messages: [
+            {
+              role: "user",
+              content: [
+                {
+                  type: "image_url",
+                  image_url: {
+                    url: `data:image/jpeg;base64,${imageB64}`,
+                    detail: "high",
+                  },
+                },
+                { type: "text", text: prompt },
+              ],
+            },
           ],
-          agenteCausal: undefined,
-          observacoesTecnicas: undefined,
-        };
+          store: privacy.store,
+          metadata: privacy.metadata,
+        });
+
+        const model = response.model || DEFAULT_AI_MODEL;
+        await auditAiInvocation({
+          tenant,
+          purpose: "diagnostico_fitossanitario",
+          model,
+          fieldSummary,
+          propriedadeId: input.propriedadeId,
+          culturaId: input.culturaId,
+          imageIncluded: true,
+          success: true,
+        });
+
+        const rawContent = response.choices[0]?.message?.content;
+        const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent ?? "");
+
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error("No JSON found");
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            problema: parsed.problema ?? "Análise inconclusiva",
+            tipo: parsed.tipo ?? "outro",
+            confianca: typeof parsed.confianca === "number" ? Math.min(100, Math.max(0, parsed.confianca)) : 70,
+            severidade: parsed.severidade ?? "leve",
+            descricao: parsed.descricao ?? "Não foi possível determinar com precisão.",
+            recomendacoes: Array.isArray(parsed.recomendacoes) ? parsed.recomendacoes : [],
+            agenteCausal: parsed.agenteCausal ?? undefined,
+            observacoesTecnicas: parsed.observacoesTecnicas ?? undefined,
+            disclaimer: AI_OUTPUT_DISCLAIMER,
+            model,
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId ?? null,
+          };
+        } catch {
+          return {
+            problema: "Análise inconclusiva",
+            tipo: "outro" as const,
+            confianca: 50,
+            severidade: "leve" as const,
+            descricao: "Não foi possível processar a análise da imagem. Tente novamente com uma foto mais nítida.",
+            recomendacoes: [
+              "Tire uma foto mais próxima e com boa iluminação",
+              "Certifique-se de que a parte afetada esteja visível",
+              "Consulte um agrônomo ou técnico para avaliação presencial",
+            ],
+            agenteCausal: undefined,
+            observacoesTecnicas: undefined,
+            disclaimer: AI_OUTPUT_DISCLAIMER,
+            model,
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId ?? null,
+          };
+        }
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Erro na IA";
+        await auditAiInvocation({
+          tenant,
+          purpose: "diagnostico_fitossanitario",
+          model: DEFAULT_AI_MODEL,
+          fieldSummary,
+          propriedadeId: input.propriedadeId,
+          culturaId: input.culturaId,
+          imageIncluded: true,
+          success: false,
+          errorMessage: message,
+        });
+        throw e;
       }
     }),
 });
 
 const analiseRouter = router({
-  interpretar: publicProcedure
+  /** Etapa 9 — interpretação lab escopada; sem nome de propriedade no prompt */
+  interpretar: organizationProcedure
     .input(
       z.object({
-        tipoAmostra: z.string(),
-        propriedadeNome: z.string(),
-        culturaNome: z.string().optional(),
+        tipoAmostra: z.string().min(1).max(40),
+        /** Aceito no cliente por compat; NÃO é enviado ao modelo (PII) */
+        propriedadeNome: z.string().max(150).optional(),
+        propriedadeId: z.number().int().positive().optional(),
+        culturaId: z.number().int().positive().optional(),
+        culturaNome: z.string().max(80).optional(),
         phSolo: z.number().optional(),
         phAgua: z.number().optional(),
         materiaOrganica: z.number().optional(),
@@ -223,75 +263,101 @@ const analiseRouter = router({
         zinco: z.number().optional(),
         cobre: z.number().optional(),
         boro: z.number().optional(),
-      })
+      }),
     )
-    .mutation(async ({ input }) => {
-      const { tipoAmostra, propriedadeNome, culturaNome, ...valores } = input;
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const {
+        buildInterpretacaoPrompt,
+        assertAiPropertyScope,
+        auditAiInvocation,
+        getOrgAiPolicy,
+        llmPrivacyOptions,
+        DEFAULT_AI_MODEL,
+        AI_OUTPUT_DISCLAIMER,
+      } = await import("./ai-governance");
 
-      const valoresTexto = Object.entries(valores)
-        .filter(([, v]) => v !== undefined)
-        .map(([k, v]) => {
-          const labels: Record<string, string> = {
-            phSolo: "pH do Solo",
-            phAgua: "pH da Água",
-            materiaOrganica: "Matéria Orgânica (%)",
-            umidade: "Umidade (%)",
-            condutividadeEletrica: "Condutividade Elétrica (dS/m)",
-            nitrogenio: "Nitrogênio N (mg/dm³)",
-            fosforo: "Fósforo P (mg/dm³)",
-            potassio: "Potássio K (cmolc/dm³)",
-            calcio: "Cálcio Ca (cmolc/dm³)",
-            magnesio: "Magnésio Mg (cmolc/dm³)",
-            enxofre: "Enxofre S (mg/dm³)",
-            ferro: "Ferro Fe (mg/dm³)",
-            manganes: "Manganês Mn (mg/dm³)",
-            zinco: "Zinco Zn (mg/dm³)",
-            cobre: "Cobre Cu (mg/dm³)",
-            boro: "Boro B (mg/dm³)",
-          };
-          return `${labels[k] ?? k}: ${v}`;
-        })
-        .join("\n");
+      await assertAiPropertyScope(tenant, input.propriedadeId, input.culturaId);
+      const orgPolicy = await getOrgAiPolicy(tenant.organizationId);
+      const privacy = llmPrivacyOptions(orgPolicy);
+      const {
+        tipoAmostra,
+        culturaNome,
+        propriedadeId,
+        propriedadeNome: _dropName,
+        culturaId,
+        ...valores
+      } = input;
+      void _dropName;
 
-      const prompt = `Você é um engenheiro agrônomo especialista em fertilidade do solo e nutrição vegetal. Analise os resultados da análise de ${tipoAmostra} da propriedade "${propriedadeNome}"${culturaNome ? ` para a cultura de ${culturaNome}` : ""}.
-
-Resultados da análise:
-${valoresTexto}
-
-Forneça uma interpretação técnica completa e recomendações práticas de correção e adubação.
-
-Responda APENAS com um JSON válido (sem markdown, sem código):
-{
-  "interpretacao": "Interpretação técnica geral dos resultados (2-3 parágrafos)",
-  "recomendacoes": ["recomendação prática 1", "recomendação prática 2", "recomendação prática 3", "recomendação prática 4"],
-  "alertas": ["alerta sobre parâmetro crítico 1 (se houver)"],
-  "classificacaoGeral": "adequado" ou "deficiente" ou "excessivo" ou "critico"
-}`;
-
-      const response = await invokeLLM({
-        messages: [{ role: "user", content: prompt }],
+      const { prompt, fieldSummary } = buildInterpretacaoPrompt({
+        tipoAmostra,
+        culturaNome,
+        organizationId: tenant.organizationId,
+        propriedadeId,
+        valores,
       });
 
-      const rawContent = response.choices[0]?.message?.content;
-      const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent ?? "");
-
       try {
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON found");
-        const parsed = JSON.parse(jsonMatch[0]);
-        return {
-          interpretacao: parsed.interpretacao ?? "Análise não disponível.",
-          recomendacoes: Array.isArray(parsed.recomendacoes) ? parsed.recomendacoes : [],
-          alertas: Array.isArray(parsed.alertas) ? parsed.alertas : [],
-          classificacaoGeral: parsed.classificacaoGeral ?? "adequado",
-        };
-      } catch {
-        return {
-          interpretacao: "Não foi possível processar a interpretação. Consulte um agrônomo.",
-          recomendacoes: ["Consulte um engenheiro agrônomo para interpretação dos resultados"],
-          alertas: [],
-          classificacaoGeral: "adequado" as const,
-        };
+        const response = await invokeLLM({
+          messages: [{ role: "user", content: prompt }],
+          store: privacy.store,
+          metadata: privacy.metadata,
+        });
+        const model = response.model || DEFAULT_AI_MODEL;
+        await auditAiInvocation({
+          tenant,
+          purpose: "interpretacao_laboratorio",
+          model,
+          fieldSummary,
+          propriedadeId,
+          culturaId,
+          success: true,
+        });
+
+        const rawContent = response.choices[0]?.message?.content;
+        const content = typeof rawContent === "string" ? rawContent : JSON.stringify(rawContent ?? "");
+
+        try {
+          const jsonMatch = content.match(/\{[\s\S]*\}/);
+          if (!jsonMatch) throw new Error("No JSON found");
+          const parsed = JSON.parse(jsonMatch[0]);
+          return {
+            interpretacao: parsed.interpretacao ?? "Análise não disponível.",
+            recomendacoes: Array.isArray(parsed.recomendacoes) ? parsed.recomendacoes : [],
+            alertas: Array.isArray(parsed.alertas) ? parsed.alertas : [],
+            classificacaoGeral: parsed.classificacaoGeral ?? "adequado",
+            disclaimer: AI_OUTPUT_DISCLAIMER,
+            model,
+            organizationId: tenant.organizationId,
+            propriedadeId: propriedadeId ?? null,
+          };
+        } catch {
+          return {
+            interpretacao: "Não foi possível processar a interpretação. Consulte um agrônomo.",
+            recomendacoes: ["Consulte um engenheiro agrônomo para interpretação dos resultados"],
+            alertas: [],
+            classificacaoGeral: "adequado" as const,
+            disclaimer: AI_OUTPUT_DISCLAIMER,
+            model,
+            organizationId: tenant.organizationId,
+            propriedadeId: propriedadeId ?? null,
+          };
+        }
+      } catch (e: unknown) {
+        const message = e instanceof Error ? e.message : "Erro na IA";
+        await auditAiInvocation({
+          tenant,
+          purpose: "interpretacao_laboratorio",
+          model: DEFAULT_AI_MODEL,
+          fieldSummary,
+          propriedadeId,
+          culturaId,
+          success: false,
+          errorMessage: message,
+        });
+        throw e;
       }
     }),
 

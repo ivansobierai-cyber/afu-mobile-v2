@@ -32,7 +32,13 @@ export type AuditAction =
   | "file.upload"
   | "report.generate"
   | "report.download"
-  | "report.view";
+  | "report.view"
+  | "ai.invoke"
+  | "ai.invoke_failed"
+  | "sync.conflict"
+  | "admin.access"
+  | "admin.mutation"
+  | "admin.break_glass";
 
 function getDownloadSecret(): Uint8Array {
   const secret = ENV.cookieSecret;
@@ -117,6 +123,14 @@ export async function assertCanAccessStorageKey(opts: {
   if (organizationId == null) {
     // legado sem tenant — só platform admin
     if (opts.userRole === "admin") {
+      await writeAuditLog({
+        organizationId: null,
+        actorUserId: opts.userId,
+        action: "admin.break_glass",
+        resourceType: "private_file",
+        storageKey: key,
+        meta: JSON.stringify({ reason: "legacy_key_no_org" }),
+      });
       return { organizationId: 0 };
     }
     throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo não encontrado" });
@@ -125,6 +139,14 @@ export async function assertCanAccessStorageKey(opts: {
   const membership = await getActiveMembership(opts.userId, organizationId);
   if (!membership) {
     if (opts.userRole === "admin") {
+      await writeAuditLog({
+        organizationId,
+        actorUserId: opts.userId,
+        action: "admin.break_glass",
+        resourceType: "private_file",
+        storageKey: key,
+        meta: JSON.stringify({ reason: "no_membership" }),
+      });
       return { organizationId };
     }
     throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo não encontrado" });
@@ -133,6 +155,16 @@ export async function assertCanAccessStorageKey(opts: {
   const perm = opts.permission ?? "reports.read";
   if (!roleHasPermission(membership.membership.role as any, perm) && opts.userRole !== "admin") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para baixar este arquivo" });
+  }
+  if (!roleHasPermission(membership.membership.role as any, perm) && opts.userRole === "admin") {
+    await writeAuditLog({
+      organizationId,
+      actorUserId: opts.userId,
+      action: "admin.break_glass",
+      resourceType: "private_file",
+      storageKey: key,
+      meta: JSON.stringify({ reason: "permission_bypass", permission: perm }),
+    });
   }
 
   return { organizationId };

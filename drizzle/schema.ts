@@ -1213,6 +1213,9 @@ export const organizations = mysqlTable("organizations", {
     .default("ativa")
     .notNull(),
   ownerUserId: int("ownerUserId"),
+  /** Etapa 9 — opt-in explícito para melhoria de modelos (default: false) */
+  aiAllowModelImprovement: boolean("aiAllowModelImprovement").default(false).notNull(),
+  aiShareAggregatedInsights: boolean("aiShareAggregatedInsights").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

@@ -66,6 +66,9 @@ export type InvokeParams = {
   model?: string;
   thinking?: Record<string, unknown>;
   reasoning?: Record<string, unknown>;
+  /** Etapa 9 — nunca persistir/treinar com dados privados por padrão */
+  store?: boolean;
+  metadata?: Record<string, string>;
 };
 
 export type ToolCall = {
@@ -334,14 +337,21 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     reasoning,
     maxTokens,
     max_tokens,
+    store,
+    metadata,
   } = params;
 
   const payload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
+    // Default: não armazenar para treinamento (Etapa 9)
+    store: store === true ? true : false,
   };
 
   if (model) {
     payload.model = model;
+  }
+  if (metadata) {
+    payload.metadata = metadata;
   }
 
   if (tools && tools.length > 0) {
@@ -387,7 +397,14 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`);
+    // Etapa 9 — não propagar corpo bruto (pode conter prompt/imagem/segredos)
+    const safeDetail = errorText
+      .replace(/data:image\/[a-zA-Z+]+;base64,[A-Za-z0-9+/=]+/g, "[IMAGE_REDACTED]")
+      .replace(/Bearer\s+\S+/gi, "Bearer [REDACTED]")
+      .slice(0, 240);
+    throw new Error(
+      `LLM invoke failed: ${response.status} ${response.statusText} – ${safeDetail}`,
+    );
   }
 
   return (await response.json()) as InvokeResult;

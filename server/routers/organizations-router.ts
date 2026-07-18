@@ -10,7 +10,7 @@ import {
   orgPermissionProcedure,
 } from "../_core/trpc";
 import { getUsuarioAfuByUserId, getDb } from "../db";
-import { propriedades, produtores } from "../../drizzle/schema";
+import { propriedades, produtores, organizations } from "../../drizzle/schema";
 import { eq, inArray } from "drizzle-orm";
 import {
   resolveSessionOrganization,
@@ -246,6 +246,55 @@ export const organizationsRouter = router({
       canManageMembers: canManageMembers(session.activeRole),
     };
   }),
+
+  /** Etapa 9 — política de IA da organização ativa */
+  aiPolicy: organizationProcedure.query(async ({ ctx }) => {
+    const { getCtxTenant } = await import("../tenant-access");
+    const { getOrgAiPolicy } = await import("../ai-governance");
+    const { canUseForModelImprovement, globalAiTrainingAllowed } = await import(
+      "../../lib/ai/ai-policy"
+    );
+    const tenant = getCtxTenant(ctx);
+    const policy = await getOrgAiPolicy(tenant.organizationId);
+    return {
+      ...policy,
+      globalTrainingAllowed: globalAiTrainingAllowed(),
+      effectiveModelImprovement: canUseForModelImprovement(policy),
+    };
+  }),
+
+  setAiPolicy: orgPermissionProcedure("org.manage_settings")
+    .input(
+      z.object({
+        aiAllowModelImprovement: z.boolean(),
+        aiShareAggregatedInsights: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const { getCtxTenant } = await import("../tenant-access");
+      const { writeAuditLog } = await import("../private-files");
+      const tenant = getCtxTenant(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db
+        .update(organizations)
+        .set({
+          aiAllowModelImprovement: input.aiAllowModelImprovement,
+          ...(input.aiShareAggregatedInsights != null
+            ? { aiShareAggregatedInsights: input.aiShareAggregatedInsights }
+            : {}),
+        })
+        .where(eq(organizations.id, tenant.organizationId));
+      await writeAuditLog({
+        organizationId: tenant.organizationId,
+        actorUserId: tenant.userId,
+        action: "admin.mutation",
+        resourceType: "organization_ai_policy",
+        resourceId: String(tenant.organizationId),
+        meta: JSON.stringify(input),
+      });
+      return { success: true };
+    }),
 
   /** Debug/aceite: lista memberships brutas */
   debugMemberships: protectedProcedure.query(async ({ ctx }) => {

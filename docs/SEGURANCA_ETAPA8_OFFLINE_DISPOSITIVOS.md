@@ -79,4 +79,5 @@ Manual:
 
 ## Próxima etapa
 
-- Etapa 9: IA, logs e governança
+- Etapa 9: concluída — ver `docs/SEGURANCA_ETAPA9_IA_LOGS_GOVERNANCA.md`
+- Etapa 10: testes, rollout e monitoramento

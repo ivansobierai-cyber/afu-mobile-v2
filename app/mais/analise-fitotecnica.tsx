@@ -103,6 +103,7 @@ export default function AnaliseFitotecnicaScreen() {
     condutividadeEletrica?: string | null;
   }) => ({
     tipoAmostra: TIPO_AMOSTRA[source.tipoAnalise ?? "solo"] ?? "solo",
+    propriedadeId: source.propriedadeId ?? form.propriedadeId ?? undefined,
     propriedadeNome: getPropriedadeNome(source.propriedadeId ?? form.propriedadeId),
     phSolo: source.phSolo ? parseFloat(source.phSolo) : parseNum(form.phSolo),
     phAgua: source.phAgua ? parseFloat(source.phAgua) : parseNum(form.phAgua),

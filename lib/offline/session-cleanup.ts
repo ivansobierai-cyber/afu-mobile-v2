@@ -57,5 +57,11 @@ export async function cleanupOfflineScope(
     } catch {
       // ignore
     }
+    try {
+      const { clearAllAiContexts } = await import("@/lib/ai/ai-context-store");
+      await clearAllAiContexts();
+    } catch {
+      // ignore
+    }
   }
 }

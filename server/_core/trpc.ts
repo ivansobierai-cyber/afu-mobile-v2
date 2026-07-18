@@ -38,20 +38,51 @@ const requireUser = t.middleware(async (opts) => {
 
 export const protectedProcedure = t.procedure.use(requireUser);
 
+/**
+ * Etapa 9 — admin autenticado + auditoria de acessos/mutações administrativas.
+ */
 export const adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
-    const { ctx, next } = opts;
+    const { ctx, next, path, type } = opts;
 
     if (!ctx.user || ctx.user.role !== "admin") {
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
-    return next({
+    const result = await next({
       ctx: {
         ...ctx,
         user: ctx.user,
       },
     });
+
+    try {
+      const { writeAuditLog } = await import("../private-files");
+      const { redactValue } = await import("./safe-logger");
+      let inputMeta: unknown;
+      try {
+        inputMeta = redactValue(await opts.getRawInput());
+      } catch {
+        inputMeta = undefined;
+      }
+      await writeAuditLog({
+        organizationId: null,
+        actorUserId: ctx.user.id,
+        action: type === "mutation" ? "admin.mutation" : "admin.access",
+        resourceType: "admin",
+        resourceId: path,
+        meta: JSON.stringify({
+          path,
+          type,
+          input: inputMeta,
+          ok: result.ok,
+        }),
+      });
+    } catch {
+      // auditoria não deve quebrar a operação admin
+    }
+
+    return result;
   }),
 );
 
