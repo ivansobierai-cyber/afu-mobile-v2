@@ -126,9 +126,13 @@ export type InsertProdutor = typeof produtores.$inferInsert;
 // ─────────────────────────────────────────────
 // TABELA: propriedades
 // ─────────────────────────────────────────────
-export const propriedades = mysqlTable("propriedades", {
+export const propriedades = mysqlTable(
+  "propriedades",
+  {
   id: int("id").autoincrement().primaryKey(),
   produtorId: int("produtorId").notNull(), // FK → produtores.id (um-para-muitos)
+  /** Segurança Etapa 3 — tenant */
+  organizationId: int("organizationId"),
   nome: varchar("nome", { length: 150 }).notNull(),
   cidade: varchar("cidade", { length: 100 }),
   estado: varchar("estado", { length: 100 }),
@@ -157,7 +161,12 @@ export const propriedades = mysqlTable("propriedades", {
   geometriaVersao: int("geometriaVersao").default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [
+    index("propriedades_organization_idx").on(t.organizationId),
+    index("propriedades_org_id_idx").on(t.organizationId, t.id),
+  ],
+);
 
 export type Propriedade = typeof propriedades.$inferSelect;
 export type InsertPropriedade = typeof propriedades.$inferInsert;
@@ -165,9 +174,12 @@ export type InsertPropriedade = typeof propriedades.$inferInsert;
 // ─────────────────────────────────────────────
 // TABELA: terrenos (talhões dentro de propriedades)
 // ─────────────────────────────────────────────
-export const terrenos = mysqlTable("terrenos", {
+export const terrenos = mysqlTable(
+  "terrenos",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(), // FK → propriedades.id
+  organizationId: int("organizationId"),
   nome: varchar("nome", { length: 100 }).notNull(),
   area: decimal("area", { precision: 10, scale: 2 }),
   tipoSolo: varchar("tipoSolo", { length: 100 }),
@@ -177,7 +189,12 @@ export const terrenos = mysqlTable("terrenos", {
   areaGeometricaHa: decimal("areaGeometricaHa", { precision: 12, scale: 4 }),
   geometriaOrigem: mysqlEnum("geometriaOrigemTalhao", ["desenhada", "gps", "importada", "integracao"]).default("desenhada"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+},
+  (t) => [
+    index("terrenos_organization_idx").on(t.organizationId),
+    index("terrenos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
 
 export type Terreno = typeof terrenos.$inferSelect;
 export type InsertTerreno = typeof terrenos.$inferInsert;
@@ -185,9 +202,12 @@ export type InsertTerreno = typeof terrenos.$inferInsert;
 // ─────────────────────────────────────────────
 // TABELA: culturas (cultivos por propriedade)
 // ─────────────────────────────────────────────
-export const culturas = mysqlTable("culturas", {
+export const culturas = mysqlTable(
+  "culturas",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(), // FK → propriedades.id
+  organizationId: int("organizationId"),
   terrenoId: int("terrenoId"), // FK → terrenos.id (opcional)
   nomeCultura: varchar("nomeCultura", { length: 100 }).notNull(),
   variedade: varchar("variedade", { length: 100 }),
@@ -207,7 +227,12 @@ export const culturas = mysqlTable("culturas", {
   culturaCatalogoId: int("culturaCatalogoId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [
+    index("culturas_organization_idx").on(t.organizationId),
+    index("culturas_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
 
 export type Cultura = typeof culturas.$inferSelect;
 export type InsertCultura = typeof culturas.$inferInsert;
@@ -215,9 +240,12 @@ export type InsertCultura = typeof culturas.$inferInsert;
 // ─────────────────────────────────────────────
 // TABELA: diagnosticos_ia
 // ─────────────────────────────────────────────
-export const diagnosticosIa = mysqlTable("diagnosticos_ia", {
+export const diagnosticosIa = mysqlTable(
+  "diagnosticos_ia",
+  {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId"), // FK → usuarios_afu.id
+  organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
   imagemUrl: text("imagemUrl"),
@@ -243,7 +271,12 @@ export const diagnosticosIa = mysqlTable("diagnosticos_ia", {
     "descartado",
   ]).default("pendente"),
   dataDiagnostico: timestamp("dataDiagnostico").defaultNow().notNull(),
-});
+},
+  (t) => [
+    index("diagnosticos_organization_idx").on(t.organizationId),
+    index("diagnosticos_org_created_idx").on(t.organizationId, t.dataDiagnostico),
+  ],
+);
 
 export type DiagnosticoIa = typeof diagnosticosIa.$inferSelect;
 export type InsertDiagnosticoIa = typeof diagnosticosIa.$inferInsert;
@@ -251,9 +284,12 @@ export type InsertDiagnosticoIa = typeof diagnosticosIa.$inferInsert;
 // ─────────────────────────────────────────────
 // TABELA: analises_fitotecnicas
 // ─────────────────────────────────────────────
-export const analisesFitotecnicas = mysqlTable("analises_fitotecnicas", {
+export const analisesFitotecnicas = mysqlTable(
+  "analises_fitotecnicas",
+  {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId"), // FK → usuarios_afu.id
+  organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
   tipoAnalise: mysqlEnum("tipoAnalise", [
@@ -278,7 +314,9 @@ export const analisesFitotecnicas = mysqlTable("analises_fitotecnicas", {
   resultadoTecnico: text("resultadoTecnico"), // JSON com interpretação da IA
   recomendacao: text("recomendacao"),
   dataAnalise: timestamp("dataAnalise").defaultNow().notNull(),
-});
+},
+  (t) => [index("analises_organization_idx").on(t.organizationId)],
+);
 
 export type AnaliseFitotecnica = typeof analisesFitotecnicas.$inferSelect;
 export type InsertAnaliseFitotecnica =
@@ -287,9 +325,12 @@ export type InsertAnaliseFitotecnica =
 // ─────────────────────────────────────────────
 // TABELA: relatorios
 // ─────────────────────────────────────────────
-export const relatorios = mysqlTable("relatorios", {
+export const relatorios = mysqlTable(
+  "relatorios",
+  {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId"), // FK → usuarios_afu.id
+  organizationId: int("organizationId"),
   diagnosticoId: int("diagnosticoId"), // FK → diagnosticos_ia.id
   analiseId: int("analiseId"), // FK → analises_fitotecnicas.id
   titulo: varchar("titulo", { length: 255 }).notNull(),
@@ -310,7 +351,9 @@ export const relatorios = mysqlTable("relatorios", {
   tecnicoResponsavelId: int("tecnicoResponsavelId"),
   conteudo: text("conteudo"), // JSON com dados do relatório
   dataEmissao: timestamp("dataEmissao").defaultNow().notNull(),
-});
+},
+  (t) => [index("relatorios_organization_idx").on(t.organizationId)],
+);
 
 export type Relatorio = typeof relatorios.$inferSelect;
 export type InsertRelatorio = typeof relatorios.$inferInsert;
@@ -379,9 +422,12 @@ export type InsertMaterialDidatico = typeof materiaisDidaticos.$inferInsert;
 // ─────────────────────────────────────────────
 // TABELA: calendario_cuidados
 // ─────────────────────────────────────────────
-export const calendarioCuidados = mysqlTable("calendario_cuidados", {
+export const calendarioCuidados = mysqlTable(
+  "calendario_cuidados",
+  {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId"), // FK → usuarios_afu.id
+  organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
   tipoAtividade: mysqlEnum("tipoAtividade", [
@@ -420,7 +466,9 @@ export const calendarioCuidados = mysqlTable("calendario_cuidados", {
   lembreteAtivo: boolean("lembreteAtivo").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [index("calendario_organization_idx").on(t.organizationId)],
+);
 
 export type CalendarioCuidado = typeof calendarioCuidados.$inferSelect;
 export type InsertCalendarioCuidado = typeof calendarioCuidados.$inferInsert;
@@ -430,9 +478,12 @@ export type InsertCalendarioCuidado = typeof calendarioCuidados.$inferInsert;
 // Trabalho operacional ligado à propriedade/talhão/cultivo.
 // Eventos de calendario_cuidados podem ser migrados com origem=calendario_legado.
 // ─────────────────────────────────────────────
-export const tarefasOperacionais = mysqlTable("tarefas_operacionais", {
+export const tarefasOperacionais = mysqlTable(
+  "tarefas_operacionais",
+  {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId").notNull(), // criador — usuarios_afu.id
+  organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId").notNull(),
   terrenoId: int("terrenoId"),
   culturaId: int("culturaId"),
@@ -479,7 +530,12 @@ export const tarefasOperacionais = mysqlTable("tarefas_operacionais", {
   clientMutationId: varchar("clientMutationId", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [
+    index("tarefas_organization_idx").on(t.organizationId),
+    index("tarefas_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
 
 export type TarefaOperacional = typeof tarefasOperacionais.$inferSelect;
 export type InsertTarefaOperacional = typeof tarefasOperacionais.$inferInsert;
@@ -509,9 +565,12 @@ export type InsertApontamentoOperacao = typeof apontamentosOperacao.$inferInsert
 // ─────────────────────────────────────────────
 // TABELA: sensores (IoT)
 // ─────────────────────────────────────────────
-export const sensores = mysqlTable("sensores", {
+export const sensores = mysqlTable(
+  "sensores",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(), // FK → propriedades.id
+  organizationId: int("organizationId"),
   tipoSensor: mysqlEnum("tipoSensor", [
     "temperatura",
     "umidade_solo",
@@ -536,7 +595,9 @@ export const sensores = mysqlTable("sensores", {
   unidadeLeitura: varchar("unidadeLeitura", { length: 20 }),
   dataInstalacao: date("dataInstalacao"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+},
+  (t) => [index("sensores_organization_idx").on(t.organizationId)],
+);
 
 export type Sensor = typeof sensores.$inferSelect;
 export type InsertSensor = typeof sensores.$inferInsert;
@@ -968,9 +1029,12 @@ export type InsertEconomiaCultura = typeof economiaCultura.$inferInsert;
 // ─────────────────────────────────────────────
 
 /** Etapa 6 — ocorrência de campo */
-export const ocorrenciasCampo = mysqlTable("ocorrencias_campo", {
+export const ocorrenciasCampo = mysqlTable(
+  "ocorrencias_campo",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
+  organizationId: int("organizationId"),
   terrenoId: int("terrenoId"),
   culturaId: int("culturaId"),
   usuarioId: int("usuarioId").notNull(),
@@ -1003,15 +1067,20 @@ export const ocorrenciasCampo = mysqlTable("ocorrencias_campo", {
   ]),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [index("ocorrencias_organization_idx").on(t.organizationId)],
+);
 
 export type OcorrenciaCampo = typeof ocorrenciasCampo.$inferSelect;
 export type InsertOcorrenciaCampo = typeof ocorrenciasCampo.$inferInsert;
 
 /** Etapa 7 — estoque agrícola (≠ marketplace) */
-export const estoqueItens = mysqlTable("estoque_itens", {
+export const estoqueItens = mysqlTable(
+  "estoque_itens",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
+  organizationId: int("organizationId"),
   nome: varchar("nome", { length: 150 }).notNull(),
   categoria: mysqlEnum("categoriaEstoque", [
     "fertilizante",
@@ -1026,7 +1095,9 @@ export const estoqueItens = mysqlTable("estoque_itens", {
   estoqueMinimo: decimal("estoqueMinimo", { precision: 14, scale: 3 }).default("0"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [index("estoque_itens_organization_idx").on(t.organizationId)],
+);
 
 export type EstoqueItem = typeof estoqueItens.$inferSelect;
 export type InsertEstoqueItem = typeof estoqueItens.$inferInsert;
@@ -1053,23 +1124,31 @@ export type EstoqueMovimento = typeof estoqueMovimentos.$inferSelect;
 export type InsertEstoqueMovimento = typeof estoqueMovimentos.$inferInsert;
 
 /** Etapa 8 — orçamento e custos */
-export const orcamentosSafra = mysqlTable("orcamentos_safra", {
+export const orcamentosSafra = mysqlTable(
+  "orcamentos_safra",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
+  organizationId: int("organizationId"),
   nomeSafra: varchar("nomeSafra", { length: 80 }).notNull(),
   orcamentoPrevisto: decimal("orcamentoPrevisto", { precision: 14, scale: 2 }).default("0").notNull(),
   custoRealizado: decimal("custoRealizado", { precision: 14, scale: 2 }).default("0").notNull(),
   moeda: varchar("moeda", { length: 8 }).default("BRL").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
-});
+},
+  (t) => [index("orcamentos_organization_idx").on(t.organizationId)],
+);
 
 export type OrcamentoSafra = typeof orcamentosSafra.$inferSelect;
 export type InsertOrcamentoSafra = typeof orcamentosSafra.$inferInsert;
 
-export const custosOperacao = mysqlTable("custos_operacao", {
+export const custosOperacao = mysqlTable(
+  "custos_operacao",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
+  organizationId: int("organizationId"),
   orcamentoId: int("orcamentoId"),
   tarefaId: int("tarefaId"),
   categoria: mysqlEnum("categoriaCusto", [
@@ -1085,22 +1164,29 @@ export const custosOperacao = mysqlTable("custos_operacao", {
   dataCusto: timestamp("dataCusto").defaultNow().notNull(),
   usuarioId: int("usuarioId").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+},
+  (t) => [index("custos_organization_idx").on(t.organizationId)],
+);
 
 export type CustoOperacao = typeof custosOperacao.$inferSelect;
 export type InsertCustoOperacao = typeof custosOperacao.$inferInsert;
 
 /** Etapa 4 — feed de atividade */
-export const atividadePropriedade = mysqlTable("atividade_propriedade", {
+export const atividadePropriedade = mysqlTable(
+  "atividade_propriedade",
+  {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
+  organizationId: int("organizationId"),
   usuarioId: int("usuarioId"),
   tipo: varchar("tipo", { length: 60 }).notNull(),
   titulo: varchar("titulo", { length: 200 }).notNull(),
   detalhe: text("detalhe"),
   gravidade: mysqlEnum("gravidadeAtividade", ["info", "atencao", "alto", "critico"]).default("info"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+},
+  (t) => [index("atividade_organization_idx").on(t.organizationId)],
+);
 
 export type AtividadePropriedade = typeof atividadePropriedade.$inferSelect;
 export type InsertAtividadePropriedade = typeof atividadePropriedade.$inferInsert;

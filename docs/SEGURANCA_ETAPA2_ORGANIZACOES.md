@@ -28,12 +28,16 @@
 
 `drizzle/0015_organizations.sql`
 
-## Fora do escopo (Etapa 3+)
+## Etapa 3
 
-- `organizationId` em propriedades, tarefas, estoque, etc.
-- RLS / repositório único
-- IDORs P0-1/2/3/5 (próximo hotfix recomendado)
+Ver `docs/SEGURANCA_ETAPA3_MIGRACAO_ORGANIZATION_ID.md` — `organizationId` preenchido nas tabelas privadas.
+
+## Ainda fora (Etapa 4+)
+
+- RLS / repositório único / filtros API por org
+- IDORs P0-1/2/3/5
 - Seletor visual de organização no app
+- `organizationId` NOT NULL
 
 ## Como validar
 

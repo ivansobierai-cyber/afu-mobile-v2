@@ -38,6 +38,8 @@
     "seed:marketplace": "tsx scripts/seed-marketplace.ts",
     "seed:comprador": "tsx scripts/seed-comprador.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "backfill:organizations": "tsx scripts/backfill-organizations.ts",
+    "backfill:organization-id": "tsx scripts/backfill-organization-id.ts",
     "weather:alerts": "tsx scripts/run-weather-alerts.ts",
     "eas:android:dev": "eas build --platform android --profile development",
     "eas:android:preview": "eas build --platform android --profile preview",

@@ -187,7 +187,16 @@ export async function getPropriedadeById(id: number) {
 export async function createPropriedade(data: InsertPropriedade) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(propriedades).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.produtorId) {
+    const prod = await db
+      .select({ organizationId: produtores.organizationId })
+      .from(produtores)
+      .where(eq(produtores.id, data.produtorId))
+      .limit(1);
+    organizationId = prod[0]?.organizationId ?? undefined;
+  }
+  const result = await db.insert(propriedades).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
@@ -221,7 +230,12 @@ export async function getTerrenoById(id: number) {
 export async function createTerreno(data: InsertTerreno) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(terrenos).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  const result = await db.insert(terrenos).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
@@ -296,7 +310,12 @@ export async function getCulturasByPropriedade(propriedadeId: number) {
 export async function createCultura(data: InsertCultura) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(culturas).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  const result = await db.insert(culturas).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
@@ -323,7 +342,20 @@ export async function getDiagnosticos(userId: number) {
 export async function createDiagnostico(data: InsertDiagnosticoIa) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(diagnosticosIa).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  if (organizationId == null && data.usuarioId) {
+    const prod = await db
+      .select({ organizationId: produtores.organizationId })
+      .from(produtores)
+      .where(eq(produtores.usuarioId, data.usuarioId))
+      .limit(1);
+    organizationId = prod[0]?.organizationId ?? undefined;
+  }
+  const result = await db.insert(diagnosticosIa).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
@@ -425,7 +457,12 @@ export async function getTarefaById(id: number) {
 export async function createTarefa(data: InsertTarefaOperacional) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(tarefasOperacionais).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  const result = await db.insert(tarefasOperacionais).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
