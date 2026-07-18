@@ -49,6 +49,17 @@ export function useCoreOfflineSync() {
         if (action === "create") result = await utils.client.coreData.calendario.create.mutate(payload as any);
         else if (action === "update" && id) result = await utils.client.coreData.calendario.update.mutate({ id, data: payload.data as any });
         else if (action === "delete" && id) result = await utils.client.coreData.calendario.delete.mutate({ id });
+      } else if (entity === "tarefa") {
+        if (action === "create") result = await utils.client.coreData.tarefas.create.mutate(payload as any);
+        else if (action === "update" && id) {
+          result = await utils.client.coreData.tarefas.transition.mutate({
+            id,
+            status: payload.status as any,
+            motivoCancelamento: payload.motivoCancelamento as string | undefined,
+            notasApontamento: payload.notasApontamento as string | undefined,
+            areaExecutada: payload.areaExecutada as number | undefined,
+          });
+        }
       }
 
       await Promise.all([
@@ -56,6 +67,8 @@ export function useCoreOfflineSync() {
         utils.coreData.cultivos.list.invalidate(),
         utils.coreData.calendario.list.invalidate(),
         utils.coreData.terrenos.listByPropriedade.invalidate(),
+        utils.coreData.tarefas.listByPropriedade.invalidate(),
+        utils.coreData.tarefas.resumoHoje.invalidate(),
       ]);
 
       return result;

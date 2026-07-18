@@ -2,10 +2,10 @@ import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { Platform } from "react-native";
+import { ActivityIndicator, Platform, Text, View } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import { useSession } from "@/hooks/use-session";
@@ -22,6 +22,7 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 import { CoreOfflineSyncManager } from "@/components/core-offline-sync-manager";
 import { PushNotificationManager } from "@/components/push-notification-manager";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { useColors } from "@/hooks/use-colors";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
@@ -39,11 +40,33 @@ export const unstable_settings = {
  *
  * Deve ser renderizado DENTRO dos providers (trpc + queryClient).
  */
+/** Bloqueia a árvore até a sessão resolver — evita dashboard falso. */
+function SessionGate({ children }: { children: React.ReactNode }) {
+  const { loading } = useSession();
+  const colors = useColors();
+
+  if (loading) {
+    return (
+      <View
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}
+        accessibilityLabel="Verificando sessão"
+        accessibilityRole="progressbar"
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={{ marginTop: 14, fontSize: 15, color: colors.muted, fontWeight: "600" }}>
+          Verificando sessão…
+        </Text>
+      </View>
+    );
+  }
+
+  return <>{children}</>;
+}
+
 function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
   const { isAuthenticated, onboardingPendente, contaSuspensa, loading } = useSession();
-  const hasRedirected = useRef(false);
 
   useEffect(() => {
     // Aguarda o carregamento da sessão antes de agir
@@ -159,23 +182,24 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-          {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-          {/* in order for ios apps tab switching to work properly, use presentation: "fullScreenModal" for login page, whenever you decide to use presentation: "modal*/}
-          <AuthGuard />
-          <CoreOfflineSyncManager />
-          <PushNotificationManager />
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="oauth/callback" />
-            <Stack.Screen name="admin" />
-            <Stack.Screen name="mais" />
-            <Stack.Screen name="propriedades" />
-            <Stack.Screen name="cultivos" />
-            <Stack.Screen name="auth" />
-          </Stack>
-          <StatusBar style="auto" />
-          {Platform.OS === "web" ? <SpeedInsights /> : null}
+          <SessionGate>
+            {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
+            {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
+            <AuthGuard />
+            <CoreOfflineSyncManager />
+            <PushNotificationManager />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="oauth/callback" />
+              <Stack.Screen name="admin" />
+              <Stack.Screen name="mais" />
+              <Stack.Screen name="propriedades" />
+              <Stack.Screen name="cultivos" />
+              <Stack.Screen name="auth" />
+            </Stack>
+            <StatusBar style="auto" />
+            {Platform.OS === "web" ? <SpeedInsights /> : null}
+          </SessionGate>
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>

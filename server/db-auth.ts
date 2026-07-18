@@ -223,6 +223,9 @@ export async function createUserWithEmail(data: {
     // Gerar openId único para usuários de e-mail
     const openId = `email_${crypto.randomUUID()}`;
 
+    // Administrador precisa de role=admin (aba Mais + RouteGuard)
+    const role = data.profile === "administrador" ? "admin" : "user";
+
     // Criar usuário base
     const result = await db.insert(users).values({
       openId,
@@ -231,7 +234,7 @@ export async function createUserWithEmail(data: {
       passwordHash,
       loginMethod: 'email',
       emailVerified: false,
-      role: 'user',
+      role,
     });
 
     const userId = Number(result[0].insertId);

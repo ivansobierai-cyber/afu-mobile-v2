@@ -351,10 +351,11 @@ export default function DashboardScreen() {
           <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF" }}>AFU Agro</Text>
-              <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)", marginTop: 2 }}>
-                {isAuthenticated && primeiroNome
-                  ? `Olá, ${primeiroNome}`
-                  : "Planta Saudável · MVP 1.0"}
+              <Text style={{ fontSize: 15, fontWeight: "600", color: "#FFFFFF", marginTop: 2 }}>
+                Planta Saudável
+              </Text>
+              <Text style={{ fontSize: 12, color: "rgba(255,255,255,0.8)", marginTop: 2 }}>
+                {isAuthenticated && primeiroNome ? `Olá, ${primeiroNome}` : "MVP 1.0 · diagnóstico e manejo"}
               </Text>
             </View>
             <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
@@ -427,8 +428,14 @@ export default function DashboardScreen() {
         </View>
 
         <View style={styles.panel}>
+          <PlantaSaudavelHubCard
+            diagnosticos={diagnosticos.length}
+            analises={analises.length}
+            laudos={relatorios.length}
+          />
+
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Painel</Text>
+            <Text style={styles.sectionTitle}>Atalhos</Text>
             <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
               {(loadingProp || loadingCult || loadingDiag) && !refreshing ? (
                 <ActivityIndicator size="small" color={colors.primary} />
@@ -436,18 +443,12 @@ export default function DashboardScreen() {
               <TouchableOpacity
                 style={styles.settingsBtn}
                 onPress={() => setCardsModalOpen(true)}
-                accessibilityLabel="Personalizar painel"
+                accessibilityLabel="Personalizar atalhos"
               >
                 <IconSymbol name="gear" size={18} color={colors.muted} />
               </TouchableOpacity>
             </View>
           </View>
-
-          <PlantaSaudavelHubCard
-            diagnosticos={diagnosticos.length}
-            analises={analises.length}
-            laudos={relatorios.length}
-          />
 
           <DashboardStatGrid>
             {visibleStatItems.map((item) => (

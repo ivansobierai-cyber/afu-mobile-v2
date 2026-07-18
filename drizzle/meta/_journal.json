@@ -92,6 +92,20 @@
       "when": 1784306197807,
       "tag": "0012_confused_mojo",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1784358000000,
+      "tag": "0013_tarefas_operacionais",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1784360000000,
+      "tag": "0014_propriedades_etapas_4_10",
+      "breakpoints": true
     }
   ]
 }

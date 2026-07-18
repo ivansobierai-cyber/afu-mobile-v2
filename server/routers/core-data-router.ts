@@ -15,6 +15,7 @@ import {
   updatePropriedade,
   deletePropriedade,
   getTerrenosByPropriedade,
+  getTerrenoById,
   createTerreno,
   updateTerreno,
   deleteTerreno,
@@ -24,10 +25,14 @@ import {
   updateCultura,
   deleteCultura,
   getCalendario,
+  getEventoById,
   createEvento,
   updateEvento,
   deleteEvento,
+  propriedadeBelongsToProdutor,
 } from "../db";
+import { tarefasRouter } from "./tarefas-router";
+import { propriedadeExpansaoRouter } from "./propriedade-expansao-router";
 import { getDb } from "../db";
 import { sendPushToUsuario } from "../services/push-delivery";
 import { produtores } from "../../drizzle/schema";
@@ -119,8 +124,13 @@ const propriedadesRouter = router({
   get: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const produtorId = await getProdutorId(perfil.id);
       const prop = await getPropriedadeById(input.id);
-      if (!prop) throw new TRPCError({ code: "NOT_FOUND", message: "Propriedade não encontrada" });
+      if (!prop || prop.produtorId !== produtorId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Propriedade não encontrada" });
+      }
       return prop;
     }),
 
@@ -142,7 +152,11 @@ const propriedadesRouter = router({
   update: protectedProcedure
     .input(z.object({ id: z.number().int().positive(), data: propriedadeInput.partial() }))
     .mutation(async ({ ctx, input }) => {
-      await getPropriedadeById(input.id); // verifica existência
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const produtorId = await getProdutorId(perfil.id);
+      const owned = await propriedadeBelongsToProdutor(input.id, produtorId);
+      if (!owned) throw new TRPCError({ code: "NOT_FOUND", message: "Propriedade não encontrada" });
       return updatePropriedade(input.id, {
         ...input.data,
         tamanhoArea: input.data.tamanhoArea?.toString(),
@@ -153,7 +167,12 @@ const propriedadesRouter = router({
 
   delete: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const produtorId = await getProdutorId(perfil.id);
+      const owned = await propriedadeBelongsToProdutor(input.id, produtorId);
+      if (!owned) throw new TRPCError({ code: "NOT_FOUND", message: "Propriedade não encontrada" });
       await deletePropriedade(input.id);
       return { success: true };
     }),
@@ -173,26 +192,45 @@ const propriedadesRouter = router({
 });
 
 // ─── Router de Terrenos ───────────────────────────────────────────────────────
+async function assertOwnsPropriedade(userId: number, propriedadeId: number): Promise<number> {
+  const perfil = await getUsuarioAfuByUserId(userId);
+  if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+  const produtorId = await getProdutorId(perfil.id);
+  const owned = await propriedadeBelongsToProdutor(propriedadeId, produtorId);
+  if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "Propriedade não pertence ao usuário" });
+  return produtorId;
+}
+
 const terrenosRouter = router({
   listByPropriedade: protectedProcedure
     .input(z.object({ propriedadeId: z.number().int().positive() }))
-    .query(async ({ input }) => getTerrenosByPropriedade(input.propriedadeId)),
+    .query(async ({ ctx, input }) => {
+      await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      return getTerrenosByPropriedade(input.propriedadeId);
+    }),
 
   create: protectedProcedure
     .input(terrenoInput)
-    .mutation(async ({ input }) =>
-      createTerreno({ ...input, area: input.area?.toString() } as any)
-    ),
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      return createTerreno({ ...input, area: input.area?.toString() } as any);
+    }),
 
   update: protectedProcedure
     .input(z.object({ id: z.number().int().positive(), data: terrenoInput.partial() }))
-    .mutation(async ({ input }) =>
-      updateTerreno(input.id, { ...input.data, area: input.data.area?.toString() } as any)
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const terreno = await getTerrenoById(input.id);
+      if (!terreno) throw new TRPCError({ code: "NOT_FOUND", message: "Talhão não encontrado" });
+      await assertOwnsPropriedade(ctx.user.id, terreno.propriedadeId);
+      return updateTerreno(input.id, { ...input.data, area: input.data.area?.toString() } as any);
+    }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const terreno = await getTerrenoById(input.id);
+      if (!terreno) throw new TRPCError({ code: "NOT_FOUND", message: "Talhão não encontrado" });
+      await assertOwnsPropriedade(ctx.user.id, terreno.propriedadeId);
       await deleteTerreno(input.id);
       return { success: true };
     }),
@@ -208,31 +246,49 @@ const cultivosRouter = router({
 
   listByPropriedade: protectedProcedure
     .input(z.object({ propriedadeId: z.number().int().positive() }))
-    .query(async ({ input }) => getCulturasByPropriedade(input.propriedadeId)),
+    .query(async ({ ctx, input }) => {
+      await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      return getCulturasByPropriedade(input.propriedadeId);
+    }),
 
   create: protectedProcedure
     .input(cultivoInput)
-    .mutation(async ({ input }) =>
-      createCultura({
+    .mutation(async ({ ctx, input }) => {
+      await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      return createCultura({
         ...input,
         areaPlantada: input.areaPlantada?.toString(),
         producaoEstimada: input.producaoEstimada?.toString(),
-      } as any)
-    ),
+      } as any);
+    }),
 
   update: protectedProcedure
     .input(z.object({ id: z.number().int().positive(), data: cultivoInput.partial() }))
-    .mutation(async ({ input }) =>
-      updateCultura(input.id, {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const meus = await getCulturas(perfil.id);
+      const atual = meus.find((c) => c.id === input.id);
+      if (!atual) throw new TRPCError({ code: "NOT_FOUND", message: "Cultivo não encontrado" });
+      if (input.data.propriedadeId) {
+        await assertOwnsPropriedade(ctx.user.id, input.data.propriedadeId);
+      }
+      return updateCultura(input.id, {
         ...input.data,
         areaPlantada: input.data.areaPlantada?.toString(),
         producaoEstimada: input.data.producaoEstimada?.toString(),
-      } as any)
-    ),
+      } as any);
+    }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const meus = await getCulturas(perfil.id);
+      if (!meus.some((c) => c.id === input.id)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Cultivo não encontrado" });
+      }
       await deleteCultura(input.id);
       return { success: true };
     }),
@@ -259,6 +315,7 @@ const calendarioRouter = router({
         status: z.enum(["pendente", "em_andamento", "concluido", "cancelado"]).optional(),
         prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
         culturaId: z.number().int().positive().optional(),
+        propriedadeId: z.number().int().positive().optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -269,6 +326,9 @@ const calendarioRouter = router({
       if (input?.status) filtrados = filtrados.filter((e) => e.status === input.status);
       if (input?.prioridade) filtrados = filtrados.filter((e) => e.prioridade === input.prioridade);
       if (input?.culturaId) filtrados = filtrados.filter((e) => e.culturaId === input.culturaId);
+      if (input?.propriedadeId) {
+        filtrados = filtrados.filter((e) => e.propriedadeId === input.propriedadeId);
+      }
       return filtrados;
     }),
 
@@ -298,16 +358,28 @@ const calendarioRouter = router({
 
   update: protectedProcedure
     .input(z.object({ id: z.number().int().positive(), data: eventoInput.partial() }))
-    .mutation(async ({ input }) =>
-      updateEvento(input.id, {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const evento = await getEventoById(input.id);
+      if (!evento || evento.usuarioId !== perfil.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Evento não encontrado" });
+      }
+      return updateEvento(input.id, {
         ...input.data,
         dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
-      } as any)
-    ),
+      } as any);
+    }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const evento = await getEventoById(input.id);
+      if (!evento || evento.usuarioId !== perfil.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Evento não encontrado" });
+      }
       await deleteEvento(input.id);
       return { success: true };
     }),
@@ -332,4 +404,7 @@ export const coreDataRouter = router({
   terrenos: terrenosRouter,
   cultivos: cultivosRouter,
   calendario: calendarioRouter,
+  tarefas: tarefasRouter,
+  /** Etapas 4–10: alertas, geometria, ocorrências, estoque, custos, métricas */
+  expansao: propriedadeExpansaoRouter,
 });

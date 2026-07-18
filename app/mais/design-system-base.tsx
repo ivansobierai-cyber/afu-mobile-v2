@@ -186,8 +186,8 @@ export default function DesignSystemBaseScreen() {
                 { token: "--color-muted", val: "#687076 (light)" },
                 { token: "--color-border", val: "#E5E7EB (light)" },
                 { token: "--color-success", val: "#22C55E" },
-                { token: "--color-warning", val: "#F59E0B" },
-                { token: "--color-error", val: "#EF4444" },
+                { token: "--color-warning", val: "#EF6C00" },
+                { token: "--color-error", val: "#C62828" },
               ].map((r) => (
                 <View key={r.token} className="flex-row py-1">
                   <Text style={{ fontFamily: "monospace", color: "#AD1457" }} className="text-xs flex-1">{r.token}</Text>

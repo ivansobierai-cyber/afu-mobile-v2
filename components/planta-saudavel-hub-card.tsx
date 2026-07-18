@@ -14,10 +14,11 @@ export type PlantaSaudavelAction = {
   color?: string;
 };
 
-/** Atalhos Planta Saudável — rotas já existentes no app */
+/** Atalhos Planta Saudável — caminhos canônicos do MVP */
 export const PLANTA_SAUDAVEL_ACTIONS: PlantaSaudavelAction[] = [
-  { id: "planta", label: "Planta", icon: "leaf.fill", route: "/(tabs)/diagnostico" },
-  { id: "dados", label: "Dados", icon: "chart.bar.fill", route: "/mais/analise-fitotecnica" },
+  { id: "diagnostico", label: "Diagnóstico", icon: "camera.fill", route: "/(tabs)/diagnostico" },
+  { id: "propriedades", label: "Propriedades", icon: "map.fill", route: "/(tabs)/propriedades" },
+  { id: "analises", label: "Análises", icon: "flask.fill", route: "/mais/analise-fitotecnica" },
   { id: "laudos", label: "Laudos", icon: "doc.fill", route: "/mais/relatorios" },
 ];
 
@@ -36,8 +37,8 @@ export function PlantaSaudavelHubCard({
   const brand = MODULE_COLORS.diagnostico;
 
   const badgeFor = (id: string) => {
-    if (id === "planta") return diagnosticos;
-    if (id === "dados") return analises;
+    if (id === "diagnostico") return diagnosticos;
+    if (id === "analises") return analises;
     if (id === "laudos") return laudos;
     return 0;
   };
@@ -56,7 +57,7 @@ export function PlantaSaudavelHubCard({
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Planta Saudável</Text>
-          <Text style={styles.subtitle}>Planta · dados · laudos</Text>
+          <Text style={styles.subtitle}>Diagnóstico · análises · laudos</Text>
         </View>
         <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.8)" />
       </TouchableOpacity>

@@ -114,6 +114,8 @@ const MAPPING = {
   "map": "map",
   "qrcode": "qr-code",
   "banknote.fill": "payments",
+  "tray": "inbox",
+  "wifi.slash": "wifi-off",
 } as const satisfies Record<string, MaterialIconName>;
 
 export type IconSymbolName = keyof typeof MAPPING;

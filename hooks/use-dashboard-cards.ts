@@ -17,18 +17,19 @@ export type DashboardCardConfig = {
   visible: boolean;
 };
 
-const STORAGE_KEY = "afu:dashboard-cards";
+/** v2: viewport inicial só com 4 cards essenciais; demais no personalizar */
+const STORAGE_KEY = "afu:dashboard-cards:v2";
 
 export const DEFAULT_DASHBOARD_CARDS: DashboardCardConfig[] = [
   { id: "propriedades", visible: true },
   { id: "cultivos", visible: true },
   { id: "diagnostico", visible: true },
-  { id: "laboratorio", visible: true },
-  { id: "laudos", visible: true },
   { id: "eventos", visible: true },
-  { id: "marketplace", visible: true },
-  { id: "clima", visible: true },
-  { id: "materiais", visible: true },
+  { id: "laboratorio", visible: false },
+  { id: "laudos", visible: false },
+  { id: "marketplace", visible: false },
+  { id: "clima", visible: false },
+  { id: "materiais", visible: false },
 ];
 
 const VALID_IDS = new Set<string>(DEFAULT_DASHBOARD_CARDS.map((c) => c.id));
