@@ -145,14 +145,14 @@ function AuthGuard() {
   return null;
 }
 
-/** Monta sync/push e telas protegidas só com sessão autenticada. */
+/** Monta sync/push só com sessão autenticada. Push é stub no web (.web.tsx). */
 function AuthenticatedRuntime() {
   const { isAuthenticated, loading } = useSession();
   if (loading || !isAuthenticated) return null;
   return (
     <>
       <CoreOfflineSyncManager />
-      <PushNotificationManager />
+      {Platform.OS !== "web" ? <PushNotificationManager /> : null}
     </>
   );
 }
