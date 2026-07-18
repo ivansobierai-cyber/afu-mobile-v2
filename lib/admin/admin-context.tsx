@@ -1,6 +1,14 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Modulo, Conteudo, RegistroAgricola, ItemMonitoramento, SyncQueue, AdminState, SyncStatus } from './types';
+import { Modulo, Conteudo, AdminState, SyncStatus } from './types';
+import {
+  adminKeys,
+  buildAdminScope,
+  discardLegacyAdminStorage,
+  isValidAdminScope,
+  type AdminStorageScope,
+} from './admin-storage-scope';
+import { trpc } from '@/lib/trpc';
 
 interface AdminContextType {
   state: AdminState;
@@ -20,66 +28,77 @@ interface AdminContextType {
 
 const AdminContext = createContext<AdminContextType | undefined>(undefined);
 
-const STORAGE_KEYS = {
-  MODULOS: 'admin_modulos',
-  CONTEUDOS: 'admin_conteudos',
-  REGISTROS: 'admin_registros',
-  ITENS: 'admin_itens',
-  SYNC_QUEUE: 'admin_sync_queue',
-  LAST_SYNC: 'admin_last_sync',
+const EMPTY_STATE: AdminState = {
+  modulos: [],
+  conteudos: [],
+  registros: [],
+  itens: [],
+  syncQueue: [],
+  isOnline: true,
+  isSyncing: false,
+  lastSync: 0,
 };
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
-  const [state, setState] = useState<AdminState>({
-    modulos: [],
-    conteudos: [],
-    registros: [],
-    itens: [],
-    syncQueue: [],
-    isOnline: true,
-    isSyncing: false,
-    lastSync: 0,
-  });
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const scope = buildAdminScope(session?.user?.id, session?.activeOrganizationId);
+  const scopeRef = useRef<AdminStorageScope | null>(scope);
+  scopeRef.current = scope;
 
-  // Carregar dados do AsyncStorage ao iniciar
-  useEffect(() => {
-    carregarDados();
-  }, []);
+  const [state, setState] = useState<AdminState>(EMPTY_STATE);
 
-  const carregarDados = async () => {
+  const carregarDados = useCallback(async (nextScope: AdminStorageScope | null) => {
+    await discardLegacyAdminStorage();
+    if (!isValidAdminScope(nextScope)) {
+      setState((prev) => ({ ...EMPTY_STATE, isOnline: prev.isOnline }));
+      return;
+    }
+    const keys = adminKeys(nextScope);
     try {
       const [modulos, conteudos, registros, itens, syncQueue, lastSync] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEYS.MODULOS),
-        AsyncStorage.getItem(STORAGE_KEYS.CONTEUDOS),
-        AsyncStorage.getItem(STORAGE_KEYS.REGISTROS),
-        AsyncStorage.getItem(STORAGE_KEYS.ITENS),
-        AsyncStorage.getItem(STORAGE_KEYS.SYNC_QUEUE),
-        AsyncStorage.getItem(STORAGE_KEYS.LAST_SYNC),
+        AsyncStorage.getItem(keys.MODULOS),
+        AsyncStorage.getItem(keys.CONTEUDOS),
+        AsyncStorage.getItem(keys.REGISTROS),
+        AsyncStorage.getItem(keys.ITENS),
+        AsyncStorage.getItem(keys.SYNC_QUEUE),
+        AsyncStorage.getItem(keys.LAST_SYNC),
       ]);
 
-      setState(prev => ({
+      setState((prev) => ({
         ...prev,
         modulos: modulos ? JSON.parse(modulos) : [],
         conteudos: conteudos ? JSON.parse(conteudos) : [],
         registros: registros ? JSON.parse(registros) : [],
         itens: itens ? JSON.parse(itens) : [],
         syncQueue: syncQueue ? JSON.parse(syncQueue) : [],
-        lastSync: lastSync ? parseInt(lastSync) : 0,
+        lastSync: lastSync ? parseInt(lastSync, 10) : 0,
+        isSyncing: false,
       }));
     } catch (error) {
       console.error('Erro ao carregar dados:', error);
+      setState((prev) => ({ ...EMPTY_STATE, isOnline: prev.isOnline }));
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    void carregarDados(scope);
+  }, [scope?.userId, scope?.organizationId, carregarDados]);
 
   const salvarDados = useCallback(async (novoState: AdminState) => {
+    const current = scopeRef.current;
+    if (!isValidAdminScope(current)) {
+      setState(novoState);
+      return;
+    }
+    const keys = adminKeys(current);
     try {
       await Promise.all([
-        AsyncStorage.setItem(STORAGE_KEYS.MODULOS, JSON.stringify(novoState.modulos)),
-        AsyncStorage.setItem(STORAGE_KEYS.CONTEUDOS, JSON.stringify(novoState.conteudos)),
-        AsyncStorage.setItem(STORAGE_KEYS.REGISTROS, JSON.stringify(novoState.registros)),
-        AsyncStorage.setItem(STORAGE_KEYS.ITENS, JSON.stringify(novoState.itens)),
-        AsyncStorage.setItem(STORAGE_KEYS.SYNC_QUEUE, JSON.stringify(novoState.syncQueue)),
-        AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, novoState.lastSync.toString()),
+        AsyncStorage.setItem(keys.MODULOS, JSON.stringify(novoState.modulos)),
+        AsyncStorage.setItem(keys.CONTEUDOS, JSON.stringify(novoState.conteudos)),
+        AsyncStorage.setItem(keys.REGISTROS, JSON.stringify(novoState.registros)),
+        AsyncStorage.setItem(keys.ITENS, JSON.stringify(novoState.itens)),
+        AsyncStorage.setItem(keys.SYNC_QUEUE, JSON.stringify(novoState.syncQueue)),
+        AsyncStorage.setItem(keys.LAST_SYNC, novoState.lastSync.toString()),
       ]);
       setState(novoState);
     } catch (error) {

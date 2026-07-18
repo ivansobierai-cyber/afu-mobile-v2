@@ -163,6 +163,20 @@ export async function setMembershipStatus(
 ) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
+
+  const rows = await db
+    .select()
+    .from(organizationMemberships)
+    .where(
+      and(
+        eq(organizationMemberships.id, membershipId),
+        eq(organizationMemberships.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  const membership = rows[0];
+  if (!membership) return;
+
   await db
     .update(organizationMemberships)
     .set({ status })
@@ -172,6 +186,21 @@ export async function setMembershipStatus(
         eq(organizationMemberships.organizationId, organizationId),
       ),
     );
+
+  // Remoção/suspensão: limpa activeOrganizationId imediatamente (não espera próximo resolveSession)
+  if (status === "removido" || status === "suspenso") {
+    const perfilRows = await db
+      .select()
+      .from(usuariosAfu)
+      .where(eq(usuariosAfu.userId, membership.userId))
+      .limit(1);
+    const perfil = perfilRows[0];
+    if (perfil?.activeOrganizationId === organizationId) {
+      const remaining = await listActiveMemberships(membership.userId);
+      const nextId = remaining[0]?.organization.id ?? null;
+      await setActiveOrganizationId(perfil.id, nextId);
+    }
+  }
 }
 
 /**

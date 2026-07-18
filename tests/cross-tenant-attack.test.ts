@@ -130,14 +130,27 @@ describe.skipIf(!hasDb)("Etapa 10 — cross-tenant attack suite", () => {
   });
 
   it("usuário removido tenta sincronizar / acessar → bloqueado", async () => {
-    const { setMembershipStatus, getActiveMembership } = await import(
+    const { setMembershipStatus, getActiveMembership, setActiveOrganizationId } = await import(
       "../server/db-organizations"
     );
+    const { getDb } = await import("../server/db");
+    const { usuariosAfu } = await import("../drizzle/schema");
+    const { eq } = await import("drizzle-orm");
+
+    await setActiveOrganizationId(a.perfilId, a.organizationId);
     await setMembershipStatus(a.membershipId, a.organizationId, "removido");
 
     try {
       const membership = await getActiveMembership(a.userId, a.organizationId);
       expect(membership).toBeNull();
+
+      const db = await getDb();
+      const perfil = db
+        ? (
+            await db.select().from(usuariosAfu).where(eq(usuariosAfu.id, a.perfilId)).limit(1)
+          )[0]
+        : null;
+      expect(perfil?.activeOrganizationId ?? null).toBeNull();
 
       await expect(
         a.caller.coreData.propriedades.list({ cacheScope: a.organizationId }),
@@ -147,10 +160,12 @@ describe.skipIf(!hasDb)("Etapa 10 — cross-tenant attack suite", () => {
         a.caller.coreData.propriedades.get({ id: a.propriedadeId }),
       ).rejects.toBeInstanceOf(TRPCError);
 
-      evidence.push({ case: "removed_member_sync", result: "FORBIDDEN/blocked" });
+      evidence.push({
+        case: "removed_member_sync",
+        result: "FORBIDDEN/blocked+activeOrganizationId_cleared",
+      });
     } finally {
       await setMembershipStatus(a.membershipId, a.organizationId, "ativo");
-      const { setActiveOrganizationId } = await import("../server/db-organizations");
       await setActiveOrganizationId(a.perfilId, a.organizationId);
     }
   });

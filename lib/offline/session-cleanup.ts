@@ -21,6 +21,12 @@ export async function cleanupOfflineScope(
   mode: OfflineCleanupMode,
 ): Promise<void> {
   await discardLegacyGlobalQueue();
+  try {
+    const { discardLegacyAdminStorage } = await import("@/lib/admin/admin-storage-scope");
+    await discardLegacyAdminStorage();
+  } catch {
+    // ignore
+  }
 
   if (!scope) {
     try {

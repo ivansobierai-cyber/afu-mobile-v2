@@ -15,6 +15,8 @@ const tests = [
   "tests/cross-tenant-attack.test.ts",
   "tests/tenant-db.isolation.test.ts",
   "tests/private-files.test.ts",
+  "tests/storage-proxy.test.ts",
+  "tests/admin-storage-scope.test.ts",
   "tests/trpc-cache-scope.test.ts",
   "tests/offline-tenant-scope.test.ts",
   "tests/core-mutation-queue.test.ts",

@@ -16,6 +16,9 @@
 | Login | `ensurePersonalOrganization` só em login/signup (explícito) |
 | Offline removido | `tests/etapa10-offline-removed-member.test.ts` — FORBIDDEN → conflito, fila não reenvia |
 | Rollback ensaio | `tests/etapa10-rollback-rehearsal.test.ts` + SQL reverso documentado |
+| Proxy HTTP | `tests/storage-proxy.test.ts` — `/manus-storage` auth, token expirado, cross-org |
+| Admin AsyncStorage | `lib/admin/admin-storage-scope.ts` — chaves `afu:admin:u{user}:o{org}:*` |
+| Membership → activeOrg | `setMembershipStatus(removido/suspenso)` limpa `activeOrganizationId` na hora |
 | Runner | `npm run test:security:etapa10` → grava JSON em `docs/evidencias/` |
 
 ---
@@ -27,13 +30,14 @@ npm run test:security:etapa10
 # ou:
 npm run test -- tests/cross-tenant-attack.test.ts \
   tests/tenant-db.isolation.test.ts tests/private-files.test.ts \
+  tests/storage-proxy.test.ts tests/admin-storage-scope.test.ts \
   tests/trpc-cache-scope.test.ts tests/offline-tenant-scope.test.ts \
   tests/core-mutation-queue.test.ts tests/etapa10-offline-removed-member.test.ts \
   tests/etapa10-rollback-rehearsal.test.ts tests/ai-governance.test.ts \
   tests/tenant-access.test.ts tests/org-roles.test.ts
 ```
 
-Resultado local (MySQL `afu_mobile`): **suite Etapa 10 passou** (cross-tenant 14/14 + isolation + offline + AI + roles).
+Resultado local (MySQL `afu_mobile`): **suite Etapa 10 passou** (cross-tenant + proxy HTTP + admin scope + isolation + AI + roles).
 
 ---
 
@@ -50,9 +54,13 @@ Resultado local (MySQL `afu_mobile`): **suite Etapa 10 passou** (cross-tenant 14
 | Baixar relatório | A | `relatorioId` B | `NOT_FOUND` |
 | Baixar arquivo | A | `storageKey` B | `NOT_FOUND: Arquivo não encontrado` |
 | ACL storage | A | chave B | `TRPCError` |
+| Proxy HTTP sem auth | — | `/manus-storage/*` | `401` |
+| Proxy token expirado | A | própria chave | `401` |
+| Proxy token key ≠ URL | A | chave B | `403` |
+| Proxy cross-org (token/Bearer) | A | chave B | `403`/`404` |
 | Cache relatório | A/B | mesmos filtros | invalidar A não apaga B |
 | Dashboard stats | A/B | — | `A=1,B=1` isolados |
-| Membership removido | A | própria org | `FORBIDDEN` / sem membership ativo |
+| Membership removido | A | própria org | `FORBIDDEN` + `activeOrganizationId=null` |
 | IA + property B | A | `propriedadeId` B | `NOT_FOUND` (antes do LLM) |
 | Fila offline + FORBIDDEN | sync | — | item vira conflito `permission_denied` |
 
@@ -84,13 +92,13 @@ Ensaio de rollback validado em teste (arquivos + schema presentes; SQL reverso d
 
 ## 6. Riscos restantes
 
-| Risco | Severidade | Mitigação sugerida |
+| Risco | Severidade | Mitigação / status |
 |-------|------------|-------------------|
-| Proxy `/manus-storage` sem teste HTTP automatizado nesta suite | Média | Adicionar smoke Express + token expirado em CI |
-| Admin offline (`admin_*` AsyncStorage) ainda legado em telas admin | Baixa | Namespace admin na próxima iteração |
+| Proxy `/manus-storage` sem teste HTTP | ~~Média~~ | **Corrigido** — `tests/storage-proxy.test.ts` no runner Etapa 10 |
+| Admin offline `admin_*` global | ~~Baixa~~ | **Corrigido** — namespace `afu:admin:u*:o*:*` + descarte de legado |
+| `activeOrganizationId` órfão após remoção | ~~Baixa~~ | **Corrigido** — `setMembershipStatus` limpa na hora |
 | Seeds demo com senha conhecida | Baixa (só dev) | Não usar em staging compartilhado |
-| Feature flags de rollout gradual | Baixa | Usar `AI_ALLOW_TRAINING=false` e flags EAS já existentes |
-| Orphans se membership removido sem limpar `activeOrganizationId` | Baixa | Já limpa no resolve; monitorar métricas |
+| Feature flags de rollout gradual | Baixa | Manter `AI_ALLOW_TRAINING=false` e flags EAS |
 
 ---
 
@@ -115,8 +123,9 @@ Critérios de aceite atendidos:
 - [x] Usuário removido não sincroniza/acessa a org antiga
 - [x] Rollback ensaiado (documentado + checagens)
 - [x] Evidências registradas
+- [x] Riscos médios/baixos da §6 (proxy, admin storage, activeOrg) corrigidos
 
-Bloqueadores abertos: nenhum crítico. Itens da §6 são follow-ups, não gate.
+Bloqueadores abertos: nenhum crítico. Restam só itens operacionais de staging (seeds demo, flags IA).
 
 ---
 
