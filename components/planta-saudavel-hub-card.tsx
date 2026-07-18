@@ -18,7 +18,7 @@ export type PlantaSaudavelAction = {
 export const PLANTA_SAUDAVEL_ACTIONS: PlantaSaudavelAction[] = [
   { id: "diagnostico", label: "Diagnóstico", icon: "camera.fill", route: "/(tabs)/diagnostico" },
   { id: "propriedades", label: "Propriedades", icon: "map.fill", route: "/(tabs)/propriedades" },
-  { id: "calendario", label: "Calendário", icon: "calendar", route: "/mais/calendario" },
+  { id: "analises", label: "Análises", icon: "flask.fill", route: "/mais/analise-fitotecnica" },
   { id: "laudos", label: "Laudos", icon: "doc.fill", route: "/mais/relatorios" },
 ];
 

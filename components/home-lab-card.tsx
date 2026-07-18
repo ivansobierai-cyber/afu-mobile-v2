@@ -35,6 +35,31 @@ type LabCounts = {
   laudos: number;
 };
 
+/** Opções do cabeçalho — Análises e Laudos saíram do grid */
+const LAB_HEADER_OPTIONS: LabMenuItem[] = [
+  {
+    label: "Diagnósticos",
+    subtitle: "Foto + IA",
+    icon: "camera.fill",
+    color: "#FFFFFF",
+    route: "/(tabs)/diagnostico",
+  },
+  {
+    label: "Análises",
+    subtitle: "Solo · foliar · água",
+    icon: "flask.fill",
+    color: "#FFFFFF",
+    route: "/mais/analise-fitotecnica",
+  },
+  {
+    label: "Laudos",
+    subtitle: "PDFs técnicos",
+    icon: "doc.fill",
+    color: "#FFFFFF",
+    route: "/mais/relatorios",
+  },
+];
+
 const LAB_ITEMS: LabMenuItem[] = [
   {
     label: "Novo Diagnóstico",
@@ -49,20 +74,6 @@ const LAB_ITEMS: LabMenuItem[] = [
     icon: "clock.fill",
     color: LAB_COLORS.muted,
     route: "/(tabs)/diagnostico?historico=1",
-  },
-  {
-    label: "Análises",
-    subtitle: "Solo · foliar · água",
-    icon: "flask.fill",
-    color: LAB_COLORS.warning,
-    route: "/mais/analise-fitotecnica",
-  },
-  {
-    label: "Laudos",
-    subtitle: "PDFs técnicos",
-    icon: "doc.fill",
-    color: LAB_COLORS.accent,
-    route: "/mais/relatorios",
   },
   {
     label: "Catálogo",
@@ -97,10 +108,15 @@ const LAB_ITEMS: LabMenuItem[] = [
 function withBadges(items: LabMenuItem[], counts: LabCounts): LabMenuItem[] {
   return items.map((item) => {
     if (item.route.includes("historico=1")) return { ...item, badge: counts.diagnosticos };
-    if (item.route === "/mais/analise-fitotecnica") return { ...item, badge: counts.analises };
-    if (item.route === "/mais/relatorios") return { ...item, badge: counts.laudos };
     return item;
   });
+}
+
+function headerBadge(route: string, counts: LabCounts): number {
+  if (route === "/(tabs)/diagnostico") return counts.diagnosticos;
+  if (route === "/mais/analise-fitotecnica") return counts.analises;
+  if (route === "/mais/relatorios") return counts.laudos;
+  return 0;
 }
 
 /** Card compacto no dashboard */
@@ -216,6 +232,7 @@ export function LaboratorioPanel({ diagnosticos, analises, laudos }: LabCounts) 
 
   return (
     <View style={styles.card}>
+      {/* Painel de opções do cabeçalho — Análises e Laudos (e Diagnósticos) */}
       <View
         style={{
           flexDirection: "row",
@@ -225,16 +242,30 @@ export function LaboratorioPanel({ diagnosticos, analises, laudos }: LabCounts) 
           backgroundColor: LAB_COLORS.brandLight,
         }}
       >
-        {[
-          { label: "Diagnósticos", value: diagnosticos },
-          { label: "Análises", value: analises },
-          { label: "Laudos", value: laudos },
-        ].map((stat) => (
-          <View key={stat.label} style={styles.summaryChip}>
-            <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "700" }}>{stat.value}</Text>
-            <Text style={{ color: "rgba(255,255,255,0.8)", fontSize: 10, marginTop: 2 }}>{stat.label}</Text>
-          </View>
-        ))}
+        {LAB_HEADER_OPTIONS.map((opt) => {
+          const value = headerBadge(opt.route, { diagnosticos, analises, laudos });
+          return (
+            <TouchableOpacity
+              key={opt.route}
+              style={styles.summaryChip}
+              onPress={() => router.push(opt.route as any)}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel={`${opt.label}: ${opt.subtitle}`}
+            >
+              <IconSymbol name={opt.icon} size={16} color="#FFFFFF" />
+              <Text style={{ color: "#FFFFFF", fontSize: 17, fontWeight: "700", marginTop: 4 }}>
+                {value}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.95)", fontSize: 11, fontWeight: "700", marginTop: 2 }}>
+                {opt.label}
+              </Text>
+              <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 9, marginTop: 1 }} numberOfLines={1}>
+                {opt.subtitle}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       <View
