@@ -224,10 +224,12 @@ const filesRouter = router({
 
 // ─── Router de Análise Fitotécnica (Etapa 4/5) ────────────────────────────────
 const analisesFitotecnicasRouter = router({
-  list: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    return createTenantDb(tenant.organizationId).listAnalises();
-  }),
+  list: organizationProcedure
+    .input(z.object({ cacheScope: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      return createTenantDb(tenant.organizationId).listAnalises();
+    }),
 
   get: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))

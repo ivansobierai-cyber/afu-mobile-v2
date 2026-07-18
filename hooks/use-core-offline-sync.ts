@@ -11,6 +11,7 @@ import {
   type CoreEntity,
 } from "@/lib/offline/core-mutation-queue";
 import { trpc } from "@/lib/trpc";
+import { tenantCacheInput } from "@/lib/trpc-cache-scope";
 
 /**
  * Fila offline para mutações core (propriedades, cultivos, terrenos, eventos).
@@ -18,6 +19,8 @@ import { trpc } from "@/lib/trpc";
  */
 export function useCoreOfflineSync() {
   const utils = trpc.useUtils();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const scope = tenantCacheInput(session?.activeOrganizationId);
   const [isOnline, setIsOnline] = useState(true);
   const [pending, setPending] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -63,9 +66,10 @@ export function useCoreOfflineSync() {
       }
 
       await Promise.all([
-        utils.coreData.propriedades.list.invalidate(),
-        utils.coreData.cultivos.list.invalidate(),
-        utils.coreData.calendario.list.invalidate(),
+        utils.coreData.propriedades.list.invalidate(scope),
+        utils.coreData.cultivos.list.invalidate(scope),
+        utils.coreData.calendario.list.invalidate(scope),
+        utils.coreData.dashboard.stats.invalidate(scope),
         utils.coreData.terrenos.listByPropriedade.invalidate(),
         utils.coreData.tarefas.listByPropriedade.invalidate(),
         utils.coreData.tarefas.resumoHoje.invalidate(),
@@ -73,7 +77,7 @@ export function useCoreOfflineSync() {
 
       return result;
     },
-    [utils]
+    [utils, scope]
   );
 
   const syncNow = useCallback(async () => {

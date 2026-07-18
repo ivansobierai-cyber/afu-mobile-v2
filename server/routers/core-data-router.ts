@@ -7,6 +7,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { and, eq, desc } from "drizzle-orm";
 import { router, organizationProcedure, orgPermissionProcedure } from "../_core/trpc";
+import { tenantCacheScopeSchema } from "../../lib/trpc-cache-scope";
+import { createTenantDb } from "../tenant-db";
 import {
   createPropriedade,
   updatePropriedade,
@@ -98,11 +100,13 @@ const eventoInput = z.object({
 
 // ─── Router de Propriedades ───────────────────────────────────────────────────
 const propriedadesRouter = router({
-  list: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    requireOrgPermission(tenant, "property.read");
-    return listPropriedadesInTenant(tenant);
-  }),
+  list: organizationProcedure
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      return listPropriedadesInTenant(tenant);
+    }),
 
   get: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
@@ -153,21 +157,23 @@ const propriedadesRouter = router({
       return { success: true };
     }),
 
-  stats: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    requireOrgPermission(tenant, "property.read");
-    const lista = await listPropriedadesInTenant(tenant);
-    const porTipo: Record<string, number> = {};
-    lista.forEach((p) => {
-      const tipo = p.tipoProducao ?? "outro";
-      porTipo[tipo] = (porTipo[tipo] ?? 0) + 1;
-    });
-    return {
-      total: lista.length,
-      porTipo,
-      areaTotal: lista.reduce((s, p) => s + Number(p.tamanhoArea ?? 0), 0),
-    };
-  }),
+  stats: organizationProcedure
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const lista = await listPropriedadesInTenant(tenant);
+      const porTipo: Record<string, number> = {};
+      lista.forEach((p) => {
+        const tipo = p.tipoProducao ?? "outro";
+        porTipo[tipo] = (porTipo[tipo] ?? 0) + 1;
+      });
+      return {
+        total: lista.length,
+        porTipo,
+        areaTotal: lista.reduce((s, p) => s + Number(p.tamanhoArea ?? 0), 0),
+      };
+    }),
 });
 
 // ─── Router de Terrenos ───────────────────────────────────────────────────────
@@ -230,11 +236,13 @@ async function listCulturasInTenant(organizationId: number) {
 }
 
 const cultivosRouter = router({
-  list: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    requireOrgPermission(tenant, "property.read");
-    return listCulturasInTenant(tenant.organizationId);
-  }),
+  list: organizationProcedure
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      return listCulturasInTenant(tenant.organizationId);
+    }),
 
   listByPropriedade: organizationProcedure
     .input(z.object({ propriedadeId: z.number().int().positive() }))
@@ -290,30 +298,35 @@ const cultivosRouter = router({
       return { success: true };
     }),
 
-  stats: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    requireOrgPermission(tenant, "property.read");
-    const lista = await listCulturasInTenant(tenant.organizationId);
-    return {
-      total: lista.length,
-      ativos: lista.filter((c) => c.status === "em_andamento").length,
-      planejados: lista.filter((c) => c.status === "planejado").length,
-      colhidos: lista.filter((c) => c.status === "colhido").length,
-      perdidos: lista.filter((c) => c.status === "perdido").length,
-    };
-  }),
+  stats: organizationProcedure
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const lista = await listCulturasInTenant(tenant.organizationId);
+      return {
+        total: lista.length,
+        ativos: lista.filter((c) => c.status === "em_andamento").length,
+        planejados: lista.filter((c) => c.status === "planejado").length,
+        colhidos: lista.filter((c) => c.status === "colhido").length,
+        perdidos: lista.filter((c) => c.status === "perdido").length,
+      };
+    }),
 });
 
 // ─── Router de Calendário ─────────────────────────────────────────────────────
 const calendarioRouter = router({
   list: organizationProcedure
     .input(
-      z.object({
-        status: z.enum(["pendente", "em_andamento", "concluido", "cancelado"]).optional(),
-        prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
-        culturaId: z.number().int().positive().optional(),
-        propriedadeId: z.number().int().positive().optional(),
-      }).optional(),
+      z
+        .object({
+          status: z.enum(["pendente", "em_andamento", "concluido", "cancelado"]).optional(),
+          prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
+          culturaId: z.number().int().positive().optional(),
+          propriedadeId: z.number().int().positive().optional(),
+          cacheScope: z.number().int().positive().optional(),
+        })
+        .optional(),
     )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
@@ -406,23 +419,36 @@ const calendarioRouter = router({
       return { success: true };
     }),
 
-  stats: organizationProcedure.query(async ({ ctx }) => {
-    const tenant = getCtxTenant(ctx);
-    requireOrgPermission(tenant, "operations.read");
-    const db = await getDb();
-    if (!db) return { total: 0, pendentes: 0, criticos: 0 };
-    const eventos = await db
-      .select()
-      .from(calendarioCuidados)
-      .where(eq(calendarioCuidados.organizationId, tenant.organizationId));
-    return {
-      total: eventos.length,
-      pendentes: eventos.filter((e) => e.status === "pendente").length,
-      emAndamento: eventos.filter((e) => e.status === "em_andamento").length,
-      concluidos: eventos.filter((e) => e.status === "concluido").length,
-      criticos: eventos.filter((e) => e.prioridade === "critica" && e.status === "pendente").length,
-    };
-  }),
+  stats: organizationProcedure
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const db = await getDb();
+      if (!db) return { total: 0, pendentes: 0, criticos: 0 };
+      const eventos = await db
+        .select()
+        .from(calendarioCuidados)
+        .where(eq(calendarioCuidados.organizationId, tenant.organizationId));
+      return {
+        total: eventos.length,
+        pendentes: eventos.filter((e) => e.status === "pendente").length,
+        emAndamento: eventos.filter((e) => e.status === "em_andamento").length,
+        concluidos: eventos.filter((e) => e.status === "concluido").length,
+        criticos: eventos.filter((e) => e.prioridade === "critica" && e.status === "pendente").length,
+      };
+    }),
+});
+
+/** Etapa 7 — KPIs do dashboard sempre filtrados pela org ativa */
+const dashboardRouter = router({
+  stats: organizationProcedure
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      return createTenantDb(tenant.organizationId).dashboardStats(tenant.perfilId);
+    }),
 });
 
 export const coreDataRouter = router({
@@ -431,6 +457,7 @@ export const coreDataRouter = router({
   cultivos: cultivosRouter,
   calendario: calendarioRouter,
   tarefas: tarefasRouter,
+  dashboard: dashboardRouter,
   /** Etapas 4–10: alertas, geometria, ocorrências, estoque, custos, métricas */
   expansao: propriedadeExpansaoRouter,
 });

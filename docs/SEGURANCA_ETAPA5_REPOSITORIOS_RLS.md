@@ -67,3 +67,4 @@ O teste de isolamento usa o MySQL local com ≥2 orgs (seed/backfill).
 ## Próxima etapa
 
 - Etapa 6: concluída — ver `docs/SEGURANCA_ETAPA6_ARQUIVOS_RELATORIOS.md`
+- Etapa 7: concluída — ver `docs/SEGURANCA_ETAPA7_DASHBOARD_METRICAS_CACHE.md`

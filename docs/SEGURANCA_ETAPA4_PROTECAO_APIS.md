@@ -60,7 +60,7 @@ Alterar um ID na URL/API **não revela** dados de outro cliente → `NOT_FOUND` 
 
 - Etapa 5: concluída — ver `docs/SEGURANCA_ETAPA5_REPOSITORIOS_RLS.md`
 - Etapa 6: concluída — ver `docs/SEGURANCA_ETAPA6_ARQUIVOS_RELATORIOS.md`
-- Etapa 7: dashboard/métricas e cache
+- Etapa 7: concluída — ver `docs/SEGURANCA_ETAPA7_DASHBOARD_METRICAS_CACHE.md`
 - Etapa 8: fila offline namespaced por org
 
 ---

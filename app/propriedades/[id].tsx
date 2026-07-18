@@ -108,16 +108,25 @@ export default function PropriedadeDetailScreen() {
     { propriedadeId: propId },
     { enabled: propId > 0 },
   );
+  const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const orgScope = sessionProp?.activeOrganizationId ?? undefined;
   const { data: overview } = trpc.coreData.expansao.overview.useQuery(
-    { propriedadeId: propId },
-    { enabled: propId > 0 },
+    { propriedadeId: propId, nomeSafra: safraLabel, cacheScope: orgScope },
+    { enabled: propId > 0 && !!orgScope },
   );
 
   const setGeometria = trpc.coreData.expansao.setGeometriaPropriedade.useMutation({
     onSuccess: async () => {
       await utils.coreData.propriedades.get.invalidate({ id: propId });
-      await utils.coreData.expansao.overview.invalidate({ propriedadeId: propId });
-      await utils.coreData.expansao.alertas.invalidate({ propriedadeId: propId });
+      await utils.coreData.expansao.overview.invalidate({
+        propriedadeId: propId,
+        nomeSafra: safraLabel,
+        cacheScope: orgScope,
+      });
+      await utils.coreData.expansao.alertas.invalidate({
+        propriedadeId: propId,
+        cacheScope: orgScope,
+      });
     },
   });
 
@@ -883,7 +892,10 @@ export default function PropriedadeDetailScreen() {
               <PropriedadeCustosPanel propriedadeId={propriedade.id} safraLabel={safraLabel} />
             )}
             {maisSection === "indicadores" && (
-              <PropriedadeMetricasPanel propriedadeId={propriedade.id} />
+              <PropriedadeMetricasPanel
+                propriedadeId={propriedade.id}
+                nomeSafra={safraLabel}
+              />
             )}
           </>
         )}

@@ -20,6 +20,7 @@ import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { getDeviceCoordinates } from "@/hooks/use-device-location";
 import { hasValidCoordinates, parseCoordinate, parseCoordinateInput } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const TIPOS_PRODUCAO = [
   { value: "graos", label: "Grãos" },
@@ -61,7 +62,11 @@ export default function PropriedadesScreen() {
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
 
-  const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery(
+    cacheInput,
+    { enabled: !!activeOrganizationId },
+  );
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);

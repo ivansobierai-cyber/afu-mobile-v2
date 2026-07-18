@@ -60,4 +60,5 @@ npm run test -- tests/private-files.test.ts
 
 ## Próxima etapa
 
-- Etapa 7: dashboard/métricas e namespacing amplo de cache React Query
+- Etapa 7: concluída — ver `docs/SEGURANCA_ETAPA7_DASHBOARD_METRICAS_CACHE.md`
+- Etapa 8: offline e dispositivos

@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 import { openLaudoHtml } from "@/lib/laudo-html";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const TIPO_LABELS: Record<string, string> = {
   diagnostico: "Laudo Diagnóstico",
@@ -48,18 +49,17 @@ export default function RelatoriosScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
-  const orgScope = session?.activeOrganizationId ?? undefined;
+  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
   const { data: relatorios = [], isLoading, refetch } = trpc.secondaryData.relatorios.list.useQuery(
-    { cacheScope: orgScope },
-    { enabled: !!orgScope || !!session?.user },
+    cacheInput,
+    { enabled: !!activeOrganizationId },
   );
   const downloadUrlMutation = trpc.secondaryData.relatorios.getDownloadUrl.useMutation();
   const createMutation = trpc.secondaryData.relatorios.create.useMutation({
-    onSuccess: () => utils.secondaryData.relatorios.list.invalidate(),
+    onSuccess: () => utils.secondaryData.relatorios.list.invalidate(cacheInput),
   });
   const deleteMutation = trpc.secondaryData.relatorios.delete.useMutation({
-    onSuccess: () => utils.secondaryData.relatorios.list.invalidate(),
+    onSuccess: () => utils.secondaryData.relatorios.list.invalidate(cacheInput),
   });
   const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
@@ -146,7 +146,7 @@ export default function RelatoriosScreen() {
       } else {
         await openLaudoHtml(result.html, result.titulo);
       }
-      void utils.secondaryData.relatorios.list.invalidate();
+      void utils.secondaryData.relatorios.list.invalidate(cacheInput);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Não foi possível gerar o PDF.";
       Alert.alert("Erro", message);

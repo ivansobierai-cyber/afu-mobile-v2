@@ -11,6 +11,7 @@ import { trpc } from "@/lib/trpc";
 import { AreaValidationAlert } from "@/components/area-validation-alert";
 import { useAreaValidation } from "@/hooks/use-area-validation";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#38A169", planejado: "#D97706", colhido: "#6B7C6E", perdido: "#E53E3E",
@@ -50,8 +51,15 @@ export default function CultivosScreen() {
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
 
-  const { data: cultivos = [], isLoading, refetch } = trpc.coreData.cultivos.list.useQuery();
-  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const tenantReady = !!activeOrganizationId;
+  const { data: cultivos = [], isLoading, refetch } = trpc.coreData.cultivos.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -75,7 +83,9 @@ export default function CultivosScreen() {
     if (match) setSelectedTerreno(match);
   }, [editingId, modalVisible, terrenos, cultivos]);
 
-  const { data: cultivosTerreno = [] } = trpc.coreData.cultivos.list.useQuery();
+  const { data: cultivosTerreno = [] } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
   const areaPlantadaExistente = cultivosTerreno
     .filter((c) => c.terrenoId === selectedTerreno?.id && c.id !== editingId)

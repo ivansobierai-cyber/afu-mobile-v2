@@ -45,6 +45,8 @@ import {
   TENANT_NOT_FOUND,
   type TenantContext,
 } from "../tenant-access";
+import { createTenantDb } from "../tenant-db";
+import { safraLabelsMatch } from "../../lib/propriedades/safra-label";
 
 async function assertPropertyInTenant(tenant: TenantContext, propriedadeId: number) {
   requireOrgPermission(tenant, "property.read");
@@ -54,17 +56,23 @@ async function assertPropertyInTenant(tenant: TenantContext, propriedadeId: numb
 export const propriedadeExpansaoRouter = router({
   // ── Etapa 4: alertas + feed ───────────────────────────────────────────────
   alertas: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        cacheScope: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await assertPropertyInTenant(tenant, input.propriedadeId);
+      const tdb = createTenantDb(tenant.organizationId);
       const [tarefas, cultivos, estoque, orcamentos, ocorrencias, prop] = await Promise.all([
-        getTarefasByPropriedade(input.propriedadeId),
-        getCulturasByPropriedade(input.propriedadeId),
-        listEstoque(input.propriedadeId),
-        listOrcamentos(input.propriedadeId),
-        listOcorrencias(input.propriedadeId),
-        getPropriedadeById(input.propriedadeId),
+        tdb.listTarefasByPropriedade(input.propriedadeId),
+        tdb.listCulturasByPropriedade(input.propriedadeId),
+        tdb.listEstoque(input.propriedadeId),
+        tdb.listOrcamentos(input.propriedadeId),
+        tdb.listOcorrencias(input.propriedadeId),
+        tdb.requirePropriedade(input.propriedadeId),
       ]);
       return gerarAlertas({
         tarefas,
@@ -83,11 +91,20 @@ export const propriedadeExpansaoRouter = router({
     }),
 
   atividades: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive(), limit: z.number().int().positive().max(100).optional() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        limit: z.number().int().positive().max(100).optional(),
+        cacheScope: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await assertPropertyInTenant(tenant, input.propriedadeId);
-      return listAtividades(input.propriedadeId, input.limit ?? 30);
+      return createTenantDb(tenant.organizationId).listAtividades(
+        input.propriedadeId,
+        input.limit ?? 30,
+      );
     }),
 
   // ── Etapa 5: geometria ────────────────────────────────────────────────────
@@ -447,19 +464,36 @@ export const propriedadeExpansaoRouter = router({
       }),
   }),
 
-  // ── Etapa 10: métricas ────────────────────────────────────────────────────
+  // ── Etapa 10 / Segurança Etapa 7: métricas (tenant-db + safra) ─────────────
   metricas: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        nomeSafra: z.string().min(1).max(80).optional(),
+        cacheScope: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await assertPropertyInTenant(tenant, input.propriedadeId);
-      const [tarefas, terrenos, custos, ocorrencias, estoque] = await Promise.all([
-        getTarefasByPropriedade(input.propriedadeId),
-        getTerrenosByPropriedade(input.propriedadeId),
-        listCustos(input.propriedadeId),
-        listOcorrencias(input.propriedadeId),
-        listEstoque(input.propriedadeId),
+      const tdb = createTenantDb(tenant.organizationId);
+      const [tarefas, terrenos, custosAll, ocorrencias, estoque, orcamentos] = await Promise.all([
+        tdb.listTarefasByPropriedade(input.propriedadeId),
+        tdb.listTerrenosByPropriedade(input.propriedadeId),
+        tdb.listCustos(input.propriedadeId),
+        tdb.listOcorrencias(input.propriedadeId),
+        tdb.listEstoque(input.propriedadeId),
+        tdb.listOrcamentos(input.propriedadeId),
       ]);
+
+      const orcamentosSafra = input.nomeSafra
+        ? orcamentos.filter((o) => safraLabelsMatch(o.nomeSafra, input.nomeSafra))
+        : orcamentos;
+      const orcamentoIds = new Set(orcamentosSafra.map((o) => o.id));
+      const custos = input.nomeSafra
+        ? custosAll.filter((c) => c.orcamentoId != null && orcamentoIds.has(c.orcamentoId))
+        : custosAll;
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       const abertas = tarefas.filter((t) => STATUS_ABERTOS.includes(t.status as TarefaStatus));
@@ -479,7 +513,14 @@ export const propriedadeExpansaoRouter = router({
       };
 
       return {
-        periodo: { inicio: null, fim: new Date().toISOString(), label: "atual" },
+        periodo: {
+          inicio: null,
+          fim: new Date().toISOString(),
+          label: input.nomeSafra ?? "atual",
+          nomeSafra: input.nomeSafra ?? null,
+        },
+        organizationId: tenant.organizationId,
+        propriedadeId: input.propriedadeId,
         catalogo: METRICAS_CATALOGO.map((m) => ({
           ...m,
           valor: valores[m.id] ?? null,
@@ -493,6 +534,9 @@ export const propriedadeExpansaoRouter = router({
             areaHa > 0 ? "Área de talhões preenchida" : "Sem área de talhões",
             tarefas.length > 0 ? "Há tarefas registradas" : "Sem tarefas",
             estoque.length > 0 ? "Estoque iniciado" : "Estoque vazio",
+            input.nomeSafra
+              ? `Safra filtrada: ${input.nomeSafra} (${orcamentosSafra.length} orçamento(s))`
+              : "Sem filtro de safra",
           ],
         },
       };
@@ -502,26 +546,33 @@ export const propriedadeExpansaoRouter = router({
       }
     }),
 
-  /** Agregador visão geral (Etapa 2/10) */
+  /** Agregador visão geral — dados só via tenant-db */
   overview: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        nomeSafra: z.string().min(1).max(80).optional(),
+        cacheScope: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await assertPropertyInTenant(tenant, input.propriedadeId);
-      const [tarefas, cultivos, terrenos, estoque, orcamentos, ocorrencias, atividades, prop] =
+      const tdb = createTenantDb(tenant.organizationId);
+      const [tarefas, cultivos, terrenos, estoque, orcamentosAll, ocorrencias, atividades, prop] =
         await Promise.all([
-          getTarefasByPropriedade(input.propriedadeId),
-          getCulturasByPropriedade(input.propriedadeId),
-          getTerrenosByPropriedade(input.propriedadeId),
-          listEstoque(input.propriedadeId),
-          listOrcamentos(input.propriedadeId),
-          listOcorrencias(input.propriedadeId),
-          listAtividades(input.propriedadeId, 10),
-          getPropriedadeById(input.propriedadeId),
+          tdb.listTarefasByPropriedade(input.propriedadeId),
+          tdb.listCulturasByPropriedade(input.propriedadeId),
+          tdb.listTerrenosByPropriedade(input.propriedadeId),
+          tdb.listEstoque(input.propriedadeId),
+          tdb.listOrcamentos(input.propriedadeId),
+          tdb.listOcorrencias(input.propriedadeId),
+          tdb.listAtividades(input.propriedadeId, 10),
+          tdb.requirePropriedade(input.propriedadeId),
         ]);
-      if (prop && prop.organizationId != null && prop.organizationId !== tenant.organizationId) {
-        throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
-      }
+      const orcamentos = input.nomeSafra
+        ? orcamentosAll.filter((o) => safraLabelsMatch(o.nomeSafra, input.nomeSafra))
+        : orcamentosAll;
       const alertas = gerarAlertas({
         tarefas,
         cultivos,
@@ -538,12 +589,15 @@ export const propriedadeExpansaoRouter = router({
       });
       return {
         propriedade: prop,
+        organizationId: tenant.organizationId,
+        nomeSafra: input.nomeSafra ?? null,
         contagens: {
           talhoes: terrenos.length,
           cultivos: cultivos.length,
           tarefasAbertas: tarefas.filter((t) => STATUS_ABERTOS.includes(t.status as TarefaStatus)).length,
           ocorrenciasAbertas: ocorrencias.filter((o) => o.status === "aberta").length,
           itensEstoque: estoque.length,
+          orcamentosSafra: orcamentos.length,
         },
         alertas: alertas.slice(0, 10),
         atividades,

@@ -16,11 +16,16 @@ import { useColors } from "@/hooks/use-colors";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 export default function TempoScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { data: propriedades = [], isLoading } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { data: propriedades = [], isLoading } = trpc.coreData.propriedades.list.useQuery(
+    cacheInput,
+    { enabled: !!activeOrganizationId },
+  );
 
   const comGps = propriedades.filter((p) =>
     hasValidCoordinates(parseCoordinate(p.latitude), parseCoordinate(p.longitude)),

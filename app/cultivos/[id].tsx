@@ -6,6 +6,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { trpc } from "@/lib/trpc";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#38A169",
@@ -41,7 +42,10 @@ export default function CultivoDetailScreen() {
   const { runMutation } = useRunCoreMutation();
   const [advancingFase, setAdvancingFase] = useState(false);
 
-  const { data: cultivos = [], isLoading } = trpc.coreData.cultivos.list.useQuery();
+  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { data: cultivos = [], isLoading } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
+    enabled: !!activeOrganizationId,
+  });
   const cultivo = cultivos.find((c) => c.id === cultivoId) ?? null;
 
   const advanceFase = async () => {

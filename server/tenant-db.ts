@@ -287,6 +287,14 @@ export function createTenantDb(organizationId: number) {
       return tenantDeleteById(orgId, analisesFitotecnicas, id);
     },
 
+    async listDiagnosticos() {
+      const db = await requireDb();
+      return db
+        .select()
+        .from(diagnosticosIa)
+        .where(eq(diagnosticosIa.organizationId, orgId))
+        .orderBy(desc(diagnosticosIa.dataDiagnostico));
+    },
     async getDiagnostico(id: number) {
       return tenantGetById<typeof diagnosticosIa.$inferSelect>(orgId, diagnosticosIa, id);
     },

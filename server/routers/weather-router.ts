@@ -28,7 +28,12 @@ export const weatherRouter = router({
     ),
 
   byPropriedade: organizationProcedure
-    .input(z.object({ propriedadeId: z.number().int().positive() }))
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        cacheScope: z.number().int().positive().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "property.read");

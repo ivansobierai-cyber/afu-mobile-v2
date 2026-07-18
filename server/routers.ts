@@ -16,12 +16,7 @@ import {
 } from "./private-files";
 import { ENV } from "./_core/env";
 import { invokeLLM } from "./_core/llm";
-import {
-  getDiagnosticos,
-  createDiagnostico,
-  getUsuarioAfuByUserId,
-  createRelatorio,
-} from "./db";
+import { createDiagnostico, createRelatorio } from "./db";
 import { sendPushToUsuario } from "./services/push-delivery";
 import { authRouter } from "./routers/auth-router";
 import { culturasPragasRouter } from "./routers/culturas-pragas-router";
@@ -35,16 +30,20 @@ import { pilotoRouter } from "./routers/piloto-router";
 import { organizationsRouter } from "./routers/organizations-router";
 
 const diagnosticoRouter = router({
-  historico: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return [];
-    return getDiagnosticos(perfil.id);
-  }),
-  salvar: protectedProcedure
+  /** Etapa 7 — histórico da organização ativa (não só do usuário) */
+  historico: organizationProcedure
+    .input(z.object({ cacheScope: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      const { createTenantDb } = await import("./tenant-db");
+      return createTenantDb(tenant.organizationId).listDiagnosticos();
+    }),
+  salvar: organizationProcedure
     .input(z.object({
       culturaNome: z.string(),
       sintomas: z.string().optional(),
       culturaId: z.number().int().positive().optional(),
+      propriedadeId: z.number().int().positive().optional(),
       parteAnalisada: z.string(),
       problema: z.string(),
       tipo: z.string(),
@@ -57,10 +56,17 @@ const diagnosticoRouter = router({
       imagemUrl: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new Error("Perfil não encontrado");
+      const tenant = getCtxTenant(ctx);
+      if (input.propriedadeId || input.culturaId) {
+        await assertRelatedIdsInTenant(tenant, {
+          propriedadeId: input.propriedadeId,
+          culturaId: input.culturaId,
+        });
+      }
       const created = await createDiagnostico({
-        usuarioId: perfil.id,
+        usuarioId: tenant.perfilId,
+        organizationId: tenant.organizationId,
+        propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
         partePlanta: input.parteAnalisada,
         sintomasInformados: input.sintomas ?? null,
@@ -85,7 +91,7 @@ const diagnosticoRouter = router({
       });
 
       if (input.severidade === "grave" || input.severidade === "critica") {
-        void sendPushToUsuario(perfil.id, {
+        void sendPushToUsuario(tenant.perfilId, {
           title: "Alerta fitossanitário",
           body: `${input.problema} detectado em ${input.culturaNome}. Abra o diagnóstico para ver recomendações.`,
           data: { type: "diagnostico", diagnosticoId: String(created) },
