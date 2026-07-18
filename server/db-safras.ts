@@ -159,3 +159,98 @@ export async function ensureDefaultSafra(opts: {
   if (!created) throw new Error("Failed to create default safra");
   return created;
 }
+
+/** Encerra safra (modo histórico). Remove isDefault. */
+export async function closeSafra(opts: {
+  organizationId: number;
+  propriedadeId: number;
+  safraId: number;
+}): Promise<Safra> {
+  const row = await requireSafraInProperty(
+    opts.organizationId,
+    opts.propriedadeId,
+    opts.safraId,
+  );
+  if (row.status === "encerrada" || row.status === "arquivada") {
+    return row;
+  }
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db
+    .update(safras)
+    .set({
+      status: "encerrada",
+      isDefault: false,
+      closedAt: new Date(),
+    })
+    .where(
+      and(
+        eq(safras.id, opts.safraId),
+        eq(safras.organizationId, opts.organizationId),
+        eq(safras.propriedadeId, opts.propriedadeId),
+      ),
+    );
+  const updated = await requireSafraInProperty(
+    opts.organizationId,
+    opts.propriedadeId,
+    opts.safraId,
+  );
+  return updated;
+}
+
+/**
+ * Reabre safra encerrada → ativa.
+ * Se makeDefault, torna-se a safra padrão da propriedade.
+ */
+export async function reopenSafra(opts: {
+  organizationId: number;
+  propriedadeId: number;
+  safraId: number;
+  makeDefault?: boolean;
+}): Promise<Safra> {
+  const row = await requireSafraInProperty(
+    opts.organizationId,
+    opts.propriedadeId,
+    opts.safraId,
+  );
+  if (row.status === "arquivada") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Safra arquivada não pode ser reaberta por este fluxo.",
+    });
+  }
+  if (row.status === "ativa" || row.status === "planejada") {
+    return row;
+  }
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+
+  if (opts.makeDefault) {
+    await db
+      .update(safras)
+      .set({ isDefault: false })
+      .where(
+        and(
+          eq(safras.organizationId, opts.organizationId),
+          eq(safras.propriedadeId, opts.propriedadeId),
+          eq(safras.isDefault, true),
+        ),
+      );
+  }
+
+  await db
+    .update(safras)
+    .set({
+      status: "ativa",
+      closedAt: null,
+      isDefault: opts.makeDefault ?? false,
+    })
+    .where(
+      and(
+        eq(safras.id, opts.safraId),
+        eq(safras.organizationId, opts.organizationId),
+        eq(safras.propriedadeId, opts.propriedadeId),
+      ),
+    );
+  return requireSafraInProperty(opts.organizationId, opts.propriedadeId, opts.safraId);
+}

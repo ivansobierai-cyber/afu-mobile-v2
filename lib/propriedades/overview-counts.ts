@@ -14,13 +14,14 @@ export function resolveCultivosShortcutValue(opts: {
 export function adminMenuVisibility(capabilities: {
   canWriteProperty: boolean;
   canExport: boolean;
+  canArchiveProperty?: boolean;
   canDeleteProperty: boolean;
 }) {
   return {
     showEditar: capabilities.canWriteProperty,
     showExportar: capabilities.canExport,
-    /** Arquivar soft ainda não implementado — nunca mostrar como ação ativa */
-    showArquivar: false,
+    showArquivar: Boolean(capabilities.canArchiveProperty),
+    /** Exclusão definitiva só com property.delete — preferir arquivar */
     showExcluir: capabilities.canDeleteProperty,
   };
 }

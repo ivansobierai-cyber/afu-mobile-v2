@@ -40,7 +40,13 @@ export type AuditAction =
   | "admin.mutation"
   | "admin.break_glass"
   | "access.denied"
-  | "access.granted";
+  | "access.granted"
+  | "safra.close"
+  | "safra.reopen"
+  | "safra.write_blocked"
+  | "property.archive"
+  | "property.restore"
+  | "property.delete";
 
 /** Auditoria de tentativa bloqueada (cross-tenant / sem membership / sem permissão). */
 export async function auditAccessDenied(opts: {

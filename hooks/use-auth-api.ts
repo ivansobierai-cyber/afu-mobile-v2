@@ -232,7 +232,11 @@ export function useAuthAPI() {
               if (entity === "propriedade") {
                 if (action === "create") await utils.client.coreData.propriedades.create.mutate(payload as any);
                 else if (action === "update" && id) await utils.client.coreData.propriedades.update.mutate({ id, data: payload.data as any });
-                else if (action === "delete" && id) await utils.client.coreData.propriedades.delete.mutate({ id });
+                else if (action === "delete" && id)
+                  await utils.client.coreData.propriedades.delete.mutate({
+                    id,
+                    confirmNome: String(payload.confirmNome ?? payload.nome ?? ""),
+                  });
               } else if (entity === "cultivo") {
                 if (action === "create") await utils.client.coreData.cultivos.create.mutate(payload as any);
                 else if (action === "update" && id) await utils.client.coreData.cultivos.update.mutate({ id, data: payload.data as any });

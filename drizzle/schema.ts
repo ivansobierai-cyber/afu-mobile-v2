@@ -159,12 +159,17 @@ export const propriedades = mysqlTable(
   areaGeometricaHa: decimal("areaGeometricaHa", { precision: 12, scale: 4 }),
   geometriaOrigem: mysqlEnum("geometriaOrigem", ["desenhada", "gps", "importada", "integracao"]).default("desenhada"),
   geometriaVersao: int("geometriaVersao").default(1),
+  /** Soft-archive (correção Etapa 7) — preferível à exclusão */
+  archivedAt: timestamp("archivedAt"),
+  archivedByUserId: int("archivedByUserId"),
+  archiveMotivo: varchar("archiveMotivo", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
   (t) => [
     index("propriedades_organization_idx").on(t.organizationId),
     index("propriedades_org_id_idx").on(t.organizationId, t.id),
+    index("propriedades_org_archived_idx").on(t.organizationId, t.archivedAt),
   ],
 );
 

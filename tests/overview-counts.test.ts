@@ -25,11 +25,12 @@ describe("overview-counts (correção Etapa 1)", () => {
     ).toBe(0);
   });
 
-  it("RBAC UI: auditor sem write/delete; export só com reports.export", () => {
+  it("RBAC UI: auditor sem write/archive/delete; export só com reports.export", () => {
     expect(
       adminMenuVisibility({
         canWriteProperty: false,
         canExport: true,
+        canArchiveProperty: false,
         canDeleteProperty: false,
       }),
     ).toEqual({
@@ -40,13 +41,14 @@ describe("overview-counts (correção Etapa 1)", () => {
     });
   });
 
-  it("arquivar nunca aparece enquanto não implementado", () => {
+  it("arquivar aparece com property.archive; excluir só com property.delete", () => {
     const vis = adminMenuVisibility({
       canWriteProperty: true,
       canExport: true,
-      canDeleteProperty: true,
+      canArchiveProperty: true,
+      canDeleteProperty: false,
     });
-    expect(vis.showArquivar).toBe(false);
-    expect(vis.showExcluir).toBe(true);
+    expect(vis.showArquivar).toBe(true);
+    expect(vis.showExcluir).toBe(false);
   });
 });

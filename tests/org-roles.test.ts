@@ -36,7 +36,18 @@ describe("org-roles matrix", () => {
     expect(roleHasPermission("auditor", "operations.write")).toBe(false);
     expect(roleHasPermission("auditor", "finance.read")).toBe(true);
     expect(roleHasPermission("auditor", "reports.read")).toBe(true);
+    expect(roleHasPermission("auditor", "property.archive")).toBe(false);
+    expect(roleHasPermission("auditor", "property.delete")).toBe(false);
+    expect(roleHasPermission("auditor", "safra.reopen")).toBe(false);
     expect(() => assertRolePermission("auditor", "finance.write")).toThrow(/não possui/);
+  });
+
+  it("gerente arquiva e reabre safra; delete só proprietário/admin", () => {
+    expect(roleHasPermission("gerente", "property.archive")).toBe(true);
+    expect(roleHasPermission("gerente", "safra.close")).toBe(true);
+    expect(roleHasPermission("gerente", "safra.reopen")).toBe(true);
+    expect(roleHasPermission("gerente", "property.delete")).toBe(false);
+    expect(roleHasPermission("proprietario", "property.delete")).toBe(true);
   });
 
   it("consultor não gerencia membros", () => {
@@ -44,3 +55,4 @@ describe("org-roles matrix", () => {
     expect(permissionsForRole("consultor").length).toBeGreaterThan(0);
   });
 });
+

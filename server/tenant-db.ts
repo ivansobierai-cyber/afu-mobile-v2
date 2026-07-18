@@ -170,12 +170,14 @@ export function createTenantDb(organizationId: number) {
     organizationId: orgId,
 
     // ── Propriedades ──────────────────────────────────────────────────────
-    async listPropriedades() {
+    async listPropriedades(opts?: { includeArchived?: boolean }) {
       const db = await requireDb();
-      return db
+      const rows = await db
         .select()
         .from(propriedades)
         .where(eq(propriedades.organizationId, orgId));
+      if (opts?.includeArchived) return rows;
+      return rows.filter((p) => (p as { archivedAt?: Date | null }).archivedAt == null);
     },
     async getPropriedade(id: number) {
       return tenantGetById<typeof propriedades.$inferSelect>(orgId, propriedades, id);

@@ -32,6 +32,8 @@ export type OrgPermission =
   | "org.archive"
   | "property.read"
   | "property.write"
+  | "property.archive"
+  | "property.delete"
   | "operations.read"
   | "operations.write"
   | "operations.approve"
@@ -39,7 +41,9 @@ export type OrgPermission =
   | "finance.write"
   | "diagnostics.write"
   | "reports.read"
-  | "reports.export";
+  | "reports.export"
+  | "safra.close"
+  | "safra.reopen";
 
 const ALL_PERMS: OrgPermission[] = [
   "org.manage_members",
@@ -47,6 +51,8 @@ const ALL_PERMS: OrgPermission[] = [
   "org.archive",
   "property.read",
   "property.write",
+  "property.archive",
+  "property.delete",
   "operations.read",
   "operations.write",
   "operations.approve",
@@ -55,6 +61,8 @@ const ALL_PERMS: OrgPermission[] = [
   "diagnostics.write",
   "reports.read",
   "reports.export",
+  "safra.close",
+  "safra.reopen",
 ];
 
 const ROLE_PERMISSIONS: Record<OrgRole, readonly OrgPermission[]> = {
@@ -63,6 +71,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly OrgPermission[]> = {
   gerente: [
     "property.read",
     "property.write",
+    "property.archive",
     "operations.read",
     "operations.write",
     "operations.approve",
@@ -70,6 +79,8 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly OrgPermission[]> = {
     "diagnostics.write",
     "reports.read",
     "reports.export",
+    "safra.close",
+    "safra.reopen",
   ],
   agronomo: [
     "property.read",
@@ -77,6 +88,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly OrgPermission[]> = {
     "operations.write",
     "diagnostics.write",
     "reports.read",
+    "safra.close",
   ],
   operador: ["property.read", "operations.read", "operations.write", "diagnostics.write"],
   consultor: ["property.read", "operations.read", "diagnostics.write", "reports.read"],

@@ -31,15 +31,20 @@ type Props = {
   safraOptions?: string[];
   onSelectSafra?: (label: string) => void;
   onRegistrar: (action: "tarefa" | "ocorrencia" | "cultivo" | "talhao") => void;
-  onAdmin: (action: "editar" | "exportar" | "excluir") => void;
+  onAdmin: (action: "editar" | "exportar" | "arquivar" | "excluir") => void;
+  onSafraAction?: (action: "reopen" | "close" | "goCurrent") => void;
   propriedadeNome: string;
   canWriteProperty?: boolean;
   canExport?: boolean;
+  canArchiveProperty?: boolean;
   canDeleteProperty?: boolean;
+  canCloseSafra?: boolean;
+  canReopenSafra?: boolean;
   /** true só quando overview/painéis filtram por safraId de ponta a ponta */
   historicalModeReady?: boolean;
   /** bloqueia + Registrar no modo histórico */
   canRegister?: boolean;
+  isHistoricalSafra?: boolean;
 };
 
 export function PropriedadePanelMenus({
@@ -53,27 +58,39 @@ export function PropriedadePanelMenus({
   onSelectSafra,
   onRegistrar,
   onAdmin,
+  onSafraAction,
   propriedadeNome,
   canWriteProperty = false,
   canExport = false,
+  canArchiveProperty = false,
   canDeleteProperty = false,
+  canCloseSafra = false,
+  canReopenSafra = false,
   historicalModeReady = false,
   canRegister = true,
+  isHistoricalSafra = false,
 }: Props) {
   const colors = useColors();
   const adminItems = useMemo(() => {
     const vis = adminMenuVisibility({
       canWriteProperty,
       canExport,
+      canArchiveProperty,
       canDeleteProperty,
     });
-    const items: Array<{ id: "editar" | "exportar" | "excluir"; label: string; danger: boolean }> =
-      [];
+    const items: Array<{
+      id: "editar" | "exportar" | "arquivar" | "excluir";
+      label: string;
+      danger: boolean;
+    }> = [];
     if (vis.showEditar) items.push({ id: "editar", label: "Editar cadastro", danger: false });
     if (vis.showExportar) items.push({ id: "exportar", label: "Exportar resumo", danger: false });
-    if (vis.showExcluir) items.push({ id: "excluir", label: "Excluir propriedade", danger: true });
+    if (vis.showArquivar) items.push({ id: "arquivar", label: "Arquivar propriedade", danger: false });
+    if (vis.showExcluir) {
+      items.push({ id: "excluir", label: "Excluir definitivamente", danger: true });
+    }
     return items;
-  }, [canWriteProperty, canExport, canDeleteProperty]);
+  }, [canWriteProperty, canExport, canArchiveProperty, canDeleteProperty]);
 
   const useEntities = safras.length > 0 && typeof onSelectSafraId === "function";
 
@@ -115,6 +132,68 @@ export function PropriedadePanelMenus({
                   Filtragem de ciclo ainda parcial — não use esta tela como histórico completo até
                   o overview marcar completeness complete.
                 </Text>
+              ) : null}
+              {isHistoricalSafra && historicalModeReady ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Voltar para safra atual"
+                  onPress={() => {
+                    onClose();
+                    onSafraAction?.("goCurrent");
+                  }}
+                  style={[
+                    styles.row,
+                    { borderColor: colors.primary, backgroundColor: colors.primary + "14" },
+                  ]}
+                >
+                  <Text style={{ fontWeight: "700", color: colors.primary }}>
+                    Voltar para safra atual
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
+              {isHistoricalSafra && canReopenSafra ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => {
+                    onClose();
+                    onSafraAction?.("reopen");
+                  }}
+                  style={[
+                    styles.row,
+                    { borderColor: colors.border, backgroundColor: colors.background },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "700", color: colors.foreground }}>
+                      Reabrir esta safra
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                      Exige confirmação e gera auditoria
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ) : null}
+              {!isHistoricalSafra && canCloseSafra && selectedSafraId != null ? (
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  onPress={() => {
+                    onClose();
+                    onSafraAction?.("close");
+                  }}
+                  style={[
+                    styles.row,
+                    { borderColor: colors.border, backgroundColor: colors.background },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontWeight: "700", color: colors.foreground }}>
+                      Encerrar safra atual
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                      Passa a modo histórico (somente leitura)
+                    </Text>
+                  </View>
+                </TouchableOpacity>
               ) : null}
               {useEntities
                 ? safras.map((s) => {
@@ -263,14 +342,28 @@ export function PropriedadePanelMenus({
                     accessibilityLabel={item.label}
                     onPress={() => {
                       onClose();
-                      if (item.id === "excluir") {
+                      if (item.id === "arquivar") {
                         Alert.alert(
-                          "Excluir propriedade?",
-                          `“${propriedadeNome}” será removida. Esta ação não pode ser desfeita. Prefira arquivamento quando disponível.`,
+                          "Arquivar propriedade?",
+                          `“${propriedadeNome}” sairá das listas ativas e poderá ser restaurada depois.`,
                           [
                             { text: "Cancelar", style: "cancel" },
                             {
-                              text: "Excluir",
+                              text: "Arquivar",
+                              onPress: () => onAdmin("arquivar"),
+                            },
+                          ],
+                        );
+                        return;
+                      }
+                      if (item.id === "excluir") {
+                        Alert.alert(
+                          "Excluir definitivamente?",
+                          `Digite o nome exato da propriedade na próxima etapa. Prefira arquivar. “${propriedadeNome}” será removida sem recuperação.`,
+                          [
+                            { text: "Cancelar", style: "cancel" },
+                            {
+                              text: "Continuar",
                               style: "destructive",
                               onPress: () => onAdmin("excluir"),
                             },

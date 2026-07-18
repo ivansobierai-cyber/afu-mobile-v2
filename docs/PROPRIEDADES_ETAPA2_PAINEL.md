@@ -19,56 +19,44 @@ Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 
 | # | Etapa | Status |
 |---|--------|--------|
-| 1 | Inconsistências imediatas (contagens, mensagens, editar, RBAC UI, arquivar) | **Feito** |
+| 1 | Inconsistências imediatas | **Feito** |
 | 2 | Entidade `safras` + migration/backfill | **Feito** |
 | 3 | PropertyWorkspaceContext + URL `?tab=&safraId=` | **Feito** |
-| 4 | Overview/painéis filtrados por `safraId` | **Feito** (completeness dinâmica) |
-| 5 | Modo histórico seguro (somente leitura) | **Parcial** (UI + create bloqueados; reopen/audit pendente) |
-| 6 | `+ Registrar` contextual | **Parcial** (contexto safra; formulários dedicados pendentes) |
-| 7 | RBAC completo + arquivamento soft | Parcial (UI); backend archive pendente |
-| 8 | Navegação/estado de retorno | **Parcial** (`tab` + `safraId` na URL) |
-| 9 | Loading/erro/vazio/offline/parcial | Parcial (`completeness` + safra inválida) |
+| 4 | Overview/painéis filtrados por `safraId` | **Feito** |
+| 5 | Modo histórico seguro (close/reopen + audit) | **Feito** |
+| 6 | `+ Registrar` contextual | **Parcial** (contexto safra/URL; formulários dedicados pendentes) |
+| 7 | RBAC + arquivamento soft | **Feito** (`property.archive` / `property.delete` + confirmNome) |
+| 8 | Navegação/estado de retorno | **Parcial** (`tab` + `safraId`) |
+| 9 | Loading/erro/vazio/offline/parcial | Parcial |
 | 10 | Testes/evidências/CI/entrega | Em progresso |
 
 ---
 
-## URL canônica
+## Capabilities novas
 
 ```text
-/propriedades/:id?tab=operacoes&safraId=8
+property.archive   — arquivar/restaurar propriedade
+property.delete    — exclusão definitiva (confirmNome)
+safra.close        — encerrar ciclo
+safra.reopen       — reabrir com auditoria
 ```
 
-- `safraId` da URL tem prioridade quando válido no tenant/propriedade.
-- Ausência → safra padrão/ativa (persistida na URL).
-- ID inválido → erro específico com ação “Ir para safra atual”.
+Auditoria (`audit_logs`): `safra.close`, `safra.reopen`, `property.archive`, `property.restore`, `property.delete`.
 
 ---
 
-## Como aplicar migração de safras
+## Migrações
 
 ```bash
 npm run db:safras:apply
-npm run db:safras:backfill   # relatório em docs/evidencias/safras-backfill-latest.json
+npm run db:safras:backfill
+npm run db:archive:apply
 ```
-
-Backfill:
-1. Garante safra padrão por propriedade;
-2. Relaciona orçamentos por `nomeSafra`;
-3. Atribui registros operacionais sem `safraId` à safra padrão (único candidato);
-4. Reporta órfãos remanescentes.
 
 ---
 
 ## Testes
 
 ```bash
-npx vitest run tests/overview-counts.test.ts tests/property-workspace.test.ts tests/safras-entity.test.ts
-npm run test:security:etapa10
+npx vitest run tests/overview-counts.test.ts tests/property-workspace.test.ts tests/safras-entity.test.ts tests/org-roles.test.ts
 ```
-
----
-
-## Decisão
-
-Modo histórico completo depende de `completeness.complete`.  
-Etapas 5–10 restantes: reopen/audit, arquivamento soft, fluxos de registro dedicados, CI/evidências.

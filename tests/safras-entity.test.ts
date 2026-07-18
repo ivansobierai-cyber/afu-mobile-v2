@@ -113,4 +113,87 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
       }),
     ).rejects.toBeInstanceOf(TRPCError);
   });
+
+  it("close e reopen com auditoria — reopen exige safra.reopen", async () => {
+    const safra = await a.caller.coreData.expansao.safras.ensureDefault({
+      propriedadeId: a.propriedadeId,
+    });
+    const closed = await a.caller.coreData.expansao.safras.close({
+      propriedadeId: a.propriedadeId,
+      safraId: safra.id,
+    });
+    expect(closed.status).toBe("encerrada");
+    expect(closed.isDefault).toBe(false);
+
+    await expect(
+      a.caller.coreData.cultivos.create({
+        propriedadeId: a.propriedadeId,
+        safraId: closed.id,
+        nomeCultura: "Bloqueado pós-close",
+      }),
+    ).rejects.toBeInstanceOf(TRPCError);
+
+    const reopened = await a.caller.coreData.expansao.safras.reopen({
+      propriedadeId: a.propriedadeId,
+      safraId: closed.id,
+      makeDefault: true,
+    });
+    expect(reopened.status).toBe("ativa");
+    expect(reopened.isDefault).toBe(true);
+  });
+});
+
+describe.skipIf(!hasDb)("property archive (correção Etapa 7)", () => {
+  let a: TenantFixture;
+
+  beforeAll(async () => {
+    if (!process.env.JWT_SECRET) process.env.JWT_SECRET = "test_jwt_archive";
+    const pair = await createIsolatedTenantPair();
+    a = pair.a;
+  }, 120_000);
+
+  it("archive remove da listagem e restore recupera", async () => {
+    const before = await a.caller.coreData.propriedades.list({
+      cacheScope: a.organizationId,
+    });
+    expect(before.some((p) => p.id === a.propriedadeId)).toBe(true);
+
+    await a.caller.coreData.propriedades.archive({
+      id: a.propriedadeId,
+      motivo: "Teste de arquivamento soft",
+    });
+    const after = await a.caller.coreData.propriedades.list({
+      cacheScope: a.organizationId,
+    });
+    expect(after.some((p) => p.id === a.propriedadeId)).toBe(false);
+
+    await a.caller.coreData.propriedades.restore({ id: a.propriedadeId });
+    const restored = await a.caller.coreData.propriedades.list({
+      cacheScope: a.organizationId,
+    });
+    expect(restored.some((p) => p.id === a.propriedadeId)).toBe(true);
+  });
+
+  it("delete definitivo exige confirmNome e property.delete", async () => {
+    const created = await a.caller.coreData.propriedades.create({
+      nome: "Prop Delete Test",
+      cidade: "Teste",
+      estado: "PR",
+    });
+    await expect(
+      a.caller.coreData.propriedades.delete({
+        id: created,
+        confirmNome: "Nome errado",
+      }),
+    ).rejects.toBeInstanceOf(TRPCError);
+
+    await a.caller.coreData.propriedades.delete({
+      id: created,
+      confirmNome: "Prop Delete Test",
+    });
+    const list = await a.caller.coreData.propriedades.list({
+      cacheScope: a.organizationId,
+    });
+    expect(list.some((p) => p.id === created)).toBe(false);
+  });
 });

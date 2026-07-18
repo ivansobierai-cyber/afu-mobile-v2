@@ -181,10 +181,28 @@ export default function PropriedadeDetailScreen() {
     },
     { enabled: propId > 0 && !!orgScope && activeSafraId != null },
   );
+  const archiveProp = trpc.coreData.propriedades.archive.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.propriedades.list.invalidate();
+      router.replace("/(tabs)/propriedades" as any);
+    },
+  });
   const deleteProp = trpc.coreData.propriedades.delete.useMutation({
     onSuccess: async () => {
       await utils.coreData.propriedades.list.invalidate();
       router.replace("/(tabs)/propriedades" as any);
+    },
+  });
+  const closeSafraMut = trpc.coreData.expansao.safras.close.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.safras.list.invalidate({ propriedadeId: propId });
+      await utils.coreData.expansao.overview.invalidate();
+    },
+  });
+  const reopenSafraMut = trpc.coreData.expansao.safras.reopen.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.safras.list.invalidate({ propriedadeId: propId });
+      await utils.coreData.expansao.overview.invalidate();
     },
   });
 
@@ -408,7 +426,14 @@ export default function PropriedadeDetailScreen() {
   const activeRole = (sessionProp?.activeRole ?? null) as OrgRole | null;
   const canWriteProperty = activeRole ? roleHasPermission(activeRole, "property.write") : false;
   const canExport = activeRole ? roleHasPermission(activeRole, "reports.export") : false;
-  const canDeleteProperty = canWriteProperty;
+  const canArchiveProperty = activeRole
+    ? roleHasPermission(activeRole, "property.archive")
+    : false;
+  const canDeleteProperty = activeRole
+    ? roleHasPermission(activeRole, "property.delete")
+    : false;
+  const canCloseSafra = activeRole ? roleHasPermission(activeRole, "safra.close") : false;
+  const canReopenSafra = activeRole ? roleHasPermission(activeRole, "safra.reopen") : false;
   const filterComplete = overview?.completeness?.status === "complete";
   /** Só liberar “Modo histórico” quando filtragem for completa (regra central do plano) */
   const historicalModeReady = filterComplete;
@@ -417,7 +442,10 @@ export default function PropriedadeDetailScreen() {
     filterComplete,
   });
   const isHistorical = workspaceMode === "historical";
-  const canRegister = !isHistorical && canWriteProperty;
+  const canRegister =
+    !isHistorical &&
+    (canWriteProperty ||
+      (activeRole ? roleHasPermission(activeRole, "operations.write") : false));
   const periodFilterActive =
     !filterComplete &&
     Boolean(
@@ -467,9 +495,64 @@ export default function PropriedadeDetailScreen() {
         propriedadeNome={propriedade.nome}
         canWriteProperty={canWriteProperty}
         canExport={canExport}
+        canArchiveProperty={canArchiveProperty}
         canDeleteProperty={canDeleteProperty}
+        canCloseSafra={canCloseSafra}
+        canReopenSafra={canReopenSafra}
         historicalModeReady={historicalModeReady}
         canRegister={canRegister}
+        isHistoricalSafra={isHistorical}
+        onSafraAction={(action) => {
+          if (action === "goCurrent") {
+            const def =
+              workspaceSafras.find((s) => s.isDefault && s.status === "ativa") ??
+              workspaceSafras.find((s) => s.status === "ativa");
+            if (def) selectSafraId(def.id);
+            else Alert.alert("Sem safra atual", "Nenhuma safra ativa encontrada.");
+            return;
+          }
+          if (action === "close" && activeSafraId != null) {
+            Alert.alert(
+              "Encerrar safra?",
+              `${safraLabel} passará a modo histórico (somente leitura).`,
+              [
+                { text: "Cancelar", style: "cancel" },
+                {
+                  text: "Encerrar",
+                  style: "destructive",
+                  onPress: () =>
+                    void closeSafraMut
+                      .mutateAsync({
+                        propriedadeId: propriedade.id,
+                        safraId: activeSafraId,
+                      })
+                      .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao encerrar")),
+                },
+              ],
+            );
+            return;
+          }
+          if (action === "reopen" && activeSafraId != null) {
+            Alert.alert(
+              "Reabrir safra?",
+              `Confirma reabertura de ${safraLabel}? A ação será auditada.`,
+              [
+                { text: "Cancelar", style: "cancel" },
+                {
+                  text: "Reabrir",
+                  onPress: () =>
+                    void reopenSafraMut
+                      .mutateAsync({
+                        propriedadeId: propriedade.id,
+                        safraId: activeSafraId,
+                        makeDefault: true,
+                      })
+                      .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao reabrir")),
+                },
+              ],
+            );
+          }
+        }}
         onRegistrar={(action) => {
           if (!canRegister) {
             Alert.alert(
@@ -478,12 +561,19 @@ export default function PropriedadeDetailScreen() {
             );
             return;
           }
+          const ctxQ =
+            activeSafraId != null
+              ? `propriedadeId=${propriedade.id}&safraId=${activeSafraId}&returnTab=`
+              : `propriedadeId=${propriedade.id}&returnTab=`;
           if (action === "tarefa") selectTab("operacoes");
           else if (action === "ocorrencia") {
             selectTab("mais");
             setMaisSection("monitoramento");
           } else if (action === "talhao") goTalhoesManage();
-          else selectTab("cultivos");
+          else {
+            selectTab("cultivos");
+            router.push(`/(tabs)/cultivos?${ctxQ}cultivos` as any);
+          }
         }}
         onAdmin={(action) => {
           if (action === "editar") {
@@ -504,13 +594,24 @@ export default function PropriedadeDetailScreen() {
             void Share.share({ message: summary, title: `Resumo — ${propriedade.nome}` }).catch(() => {
               Alert.alert("Resumo", summary);
             });
+          } else if (action === "arquivar") {
+            if (!canArchiveProperty) {
+              Alert.alert("Sem permissão", "Seu papel não pode arquivar propriedades.");
+              return;
+            }
+            void archiveProp
+              .mutateAsync({
+                id: propriedade.id,
+                motivo: "Arquivada pelo painel da propriedade",
+              })
+              .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível arquivar"));
           } else if (action === "excluir") {
             if (!canDeleteProperty) {
-              Alert.alert("Sem permissão", "Seu papel não pode excluir propriedades.");
+              Alert.alert("Sem permissão", "Exclusão definitiva exige property.delete.");
               return;
             }
             void deleteProp
-              .mutateAsync({ id: propriedade.id })
+              .mutateAsync({ id: propriedade.id, confirmNome: propriedade.nome })
               .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
           }
         }}

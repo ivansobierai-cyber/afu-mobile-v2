@@ -784,6 +784,95 @@ export const propriedadeExpansaoRouter = router({
           input.safraId,
         );
       }),
+
+    close: orgPermissionProcedure("safra.close")
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          safraId: z.number().int().positive(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        const { closeSafra } = await import("../db-safras");
+        const { writeAuditLog } = await import("../private-files");
+        const { registrarAtividade } = await import("../db-propriedade-expansao");
+        const safra = await closeSafra({
+          organizationId: tenant.organizationId,
+          propriedadeId: input.propriedadeId,
+          safraId: input.safraId,
+        });
+        await writeAuditLog({
+          organizationId: tenant.organizationId,
+          actorUserId: tenant.userId,
+          action: "safra.close",
+          resourceType: "safra",
+          resourceId: String(safra.id),
+          meta: JSON.stringify({
+            propriedadeId: input.propriedadeId,
+            nome: safra.nome,
+            status: safra.status,
+          }),
+        });
+        await registrarAtividade({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          safraId: safra.id,
+          usuarioId: tenant.perfilId,
+          tipo: "safra",
+          titulo: `Safra encerrada: ${safra.nome}`,
+          detalhe: "Modo histórico — somente leitura",
+          gravidade: "atencao",
+        } as any);
+        return safra;
+      }),
+
+    reopen: orgPermissionProcedure("safra.reopen")
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          safraId: z.number().int().positive(),
+          makeDefault: z.boolean().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        const { reopenSafra } = await import("../db-safras");
+        const { writeAuditLog } = await import("../private-files");
+        const { registrarAtividade } = await import("../db-propriedade-expansao");
+        const safra = await reopenSafra({
+          organizationId: tenant.organizationId,
+          propriedadeId: input.propriedadeId,
+          safraId: input.safraId,
+          makeDefault: input.makeDefault ?? true,
+        });
+        await writeAuditLog({
+          organizationId: tenant.organizationId,
+          actorUserId: tenant.userId,
+          action: "safra.reopen",
+          resourceType: "safra",
+          resourceId: String(safra.id),
+          meta: JSON.stringify({
+            propriedadeId: input.propriedadeId,
+            nome: safra.nome,
+            status: safra.status,
+            makeDefault: input.makeDefault ?? true,
+          }),
+        });
+        await registrarAtividade({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          safraId: safra.id,
+          usuarioId: tenant.perfilId,
+          tipo: "safra",
+          titulo: `Safra reaberta: ${safra.nome}`,
+          detalhe: "Escrita liberada conforme capabilities",
+          gravidade: "info",
+        } as any);
+        return safra;
+      }),
   }),
 
   /** Agregador visão geral — dados só via tenant-db */

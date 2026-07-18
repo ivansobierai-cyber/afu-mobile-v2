@@ -59,7 +59,10 @@ describe.skipIf(!hasDb)("Etapa 10 — cross-tenant attack suite", () => {
 
   it("A tenta DELETAR propriedade de B → NOT_FOUND", async () => {
     const msg = await expectTenantDenied(
-      a.caller.coreData.propriedades.delete({ id: b.propriedadeId }),
+      a.caller.coreData.propriedades.delete({
+        id: b.propriedadeId,
+        confirmNome: "irrelevant-cross-tenant",
+      }),
     );
     const still = await b.caller.coreData.propriedades.get({ id: b.propriedadeId });
     expect(still.id).toBe(b.propriedadeId);

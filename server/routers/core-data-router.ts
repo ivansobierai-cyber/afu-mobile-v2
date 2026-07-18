@@ -149,11 +149,91 @@ const propriedadesRouter = router({
       );
     }),
 
-  delete: orgPermissionProcedure("property.write")
-    .input(z.object({ id: z.number().int().positive() }))
+  /** Soft-archive recuperável (preferível à exclusão). */
+  archive: orgPermissionProcedure("property.archive")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        motivo: z.string().min(3).max(255),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await requirePropertyInTenant(tenant, input.id);
+      const { createTenantDb } = await import("../tenant-db");
+      const { writeAuditLog } = await import("../private-files");
+      const tdb = createTenantDb(tenant.organizationId);
+      await tdb.updatePropriedade(input.id, {
+        archivedAt: new Date(),
+        archivedByUserId: tenant.userId,
+        archiveMotivo: input.motivo.trim(),
+      } as any);
+      await writeAuditLog({
+        organizationId: tenant.organizationId,
+        actorUserId: tenant.userId,
+        action: "property.archive",
+        resourceType: "propriedade",
+        resourceId: String(input.id),
+        meta: JSON.stringify({ motivo: input.motivo.trim() }),
+      });
+      return { success: true };
+    }),
+
+  restore: orgPermissionProcedure("property.archive")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const { createTenantDb } = await import("../tenant-db");
+      const { writeAuditLog } = await import("../private-files");
+      const tdb = createTenantDb(tenant.organizationId);
+      const prop = await tdb.getPropriedade(input.id);
+      if (!prop) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+      }
+      await tdb.updatePropriedade(input.id, {
+        archivedAt: null,
+        archivedByUserId: null,
+        archiveMotivo: null,
+      } as any);
+      await writeAuditLog({
+        organizationId: tenant.organizationId,
+        actorUserId: tenant.userId,
+        action: "property.restore",
+        resourceType: "propriedade",
+        resourceId: String(input.id),
+      });
+      return { success: true };
+    }),
+
+  /**
+   * Exclusão definitiva — excepcional.
+   * Requer property.delete (não property.write). Prefira archive.
+   */
+  delete: orgPermissionProcedure("property.delete")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        confirmNome: z.string().min(1).max(150),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const prop = await requirePropertyInTenant(tenant, input.id);
+      if (prop.nome.trim() !== input.confirmNome.trim()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Digite o nome exato da propriedade para confirmar a exclusão.",
+        });
+      }
+      const { writeAuditLog } = await import("../private-files");
+      await writeAuditLog({
+        organizationId: tenant.organizationId,
+        actorUserId: tenant.userId,
+        action: "property.delete",
+        resourceType: "propriedade",
+        resourceId: String(input.id),
+        meta: JSON.stringify({ nome: prop.nome }),
+      });
       await deletePropriedade(input.id, tenant.organizationId);
       return { success: true };
     }),
