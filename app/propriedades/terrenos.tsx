@@ -39,8 +39,20 @@ export default function TerrenosScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
-  const { propriedadeId } = useLocalSearchParams<{ propriedadeId: string }>();
+  const { propriedadeId, returnTab } = useLocalSearchParams<{
+    propriedadeId: string;
+    returnTab?: string;
+  }>();
   const propId = parseInt(propriedadeId ?? "0", 10);
+
+  const goBackToProperty = () => {
+    if (propId > 0) {
+      const tab = returnTab && returnTab.length ? returnTab : "talhoes";
+      router.replace(`/propriedades/${propId}?tab=${tab}` as any);
+      return;
+    }
+    router.back();
+  };
 
   const { data: propriedade, isLoading: loadingProp } = trpc.coreData.propriedades.get.useQuery(
     { id: propId },
@@ -214,7 +226,11 @@ export default function TerrenosScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            onPress={goBackToProperty}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar para a propriedade"
+          >
             <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View>

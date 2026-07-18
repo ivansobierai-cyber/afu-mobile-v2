@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   useWindowDimensions,
   Alert,
+  Share,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -16,8 +17,13 @@ import { WeatherCard } from "@/components/weather-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { formatCoordinates, hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
-import { currentSafraLabel } from "@/lib/propriedades/safra-label";
+import {
+  buildSafraOptions,
+  currentSafraLabel,
+  isHistoricoSafra,
+} from "@/lib/propriedades/safra-label";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
+import { PropriedadePanelMenus } from "@/components/propriedade-panel-menus";
 import {
   PropriedadeAlertasFeed,
   PropriedadeMonitoramentoPanel,
@@ -77,8 +83,16 @@ export default function PropriedadeDetailScreen() {
   const initialTab = (MOBILE_TABS.some((t) => t.id === tabParam) ? tabParam : "visao") as PanelTab;
   const [tab, setTab] = useState<PanelTab>(initialTab);
   const [maisSection, setMaisSection] = useState<MaisSection>("menu");
-  const [safraLabel] = useState(currentSafraLabel);
+  const [safraLabel, setSafraLabel] = useState(currentSafraLabel);
+  const [menu, setMenu] = useState<"safra" | "registrar" | "admin" | null>(null);
   const utils = trpc.useUtils();
+
+  // Deep link / retorno de detalhe preserva aba (?tab=)
+  useEffect(() => {
+    if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam) && tabParam !== tab) {
+      setTab(tabParam as PanelTab);
+    }
+  }, [tabParam]);
 
   const {
     data: propriedade,
@@ -114,6 +128,17 @@ export default function PropriedadeDetailScreen() {
     { propriedadeId: propId, nomeSafra: safraLabel, cacheScope: orgScope },
     { enabled: propId > 0 && !!orgScope },
   );
+  const { data: custosBundle } = trpc.coreData.expansao.custos.list.useQuery(
+    { propriedadeId: propId, cacheScope: orgScope },
+    { enabled: propId > 0 && !!orgScope },
+  );
+
+  const deleteProp = trpc.coreData.propriedades.delete.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.propriedades.list.invalidate();
+      router.replace("/(tabs)/propriedades" as any);
+    },
+  });
 
   const setGeometria = trpc.coreData.expansao.setGeometriaPropriedade.useMutation({
     onSuccess: async () => {
@@ -208,7 +233,8 @@ export default function PropriedadeDetailScreen() {
     [colors, isWide],
   );
 
-  if (loadingProp || loadingCult || loadingTer) {
+  // Visão usa overview agregado; listas detalhadas carregam em paralelo sem bloquear o shell
+  if (loadingProp) {
     return (
       <ScreenContainer>
         <ScreenState status="loading" message="Carregando propriedade…" />
@@ -216,7 +242,7 @@ export default function PropriedadeDetailScreen() {
     );
   }
 
-  if (errorProp || errorCult || errorTer) {
+  if (errorProp) {
     return (
       <ScreenContainer>
         <ScreenState
@@ -252,6 +278,16 @@ export default function PropriedadeDetailScreen() {
   const longitude = parseCoordinate(propriedade.longitude);
   const hasGps = hasValidCoordinates(latitude, longitude);
   const cultivosAtivos = cultivos.filter((c) => c.status === "em_andamento").length;
+  const talhoesCount = overview?.contagens.talhoes ?? terrenos.length;
+  const cultivosCount = overview?.contagens.cultivos ?? cultivos.length;
+  const tarefasAbertas = overview?.contagens.tarefasAbertas ?? resumoHoje?.abertas ?? 0;
+  const safraHistorico = isHistoricoSafra(safraLabel);
+  const safraOptions = buildSafraOptions([
+    ...(custosBundle?.orcamentos ?? []).map((o: { nomeSafra?: string | null }) => o.nomeSafra),
+    safraLabel,
+  ]);
+  const goTalhoesManage = () =>
+    router.push(`/propriedades/terrenos?propriedadeId=${propriedade.id}&returnTab=talhoes` as any);
 
   const mapPolygons: MapPolygon[] = [];
   const propGeo = propriedade.geometriaGeoJson ?? overview?.geometrias?.propriedade ?? null;
@@ -289,19 +325,19 @@ export default function PropriedadeDetailScreen() {
   const overviewShortcuts = [
     {
       label: "Operações",
-      value: String(resumoHoje?.abertas ?? 0),
+      value: String(tarefasAbertas),
       color: "#EF6C00",
       onPress: () => selectTab("operacoes"),
     },
     {
       label: "Talhões",
-      value: String(terrenos.length),
+      value: String(talhoesCount),
       color: "#8B5CF6",
       onPress: () => selectTab("talhoes"),
     },
     {
       label: "Cultivos",
-      value: String(cultivosAtivos),
+      value: String(cultivosAtivos || cultivosCount),
       color: colors.success,
       onPress: () => selectTab("cultivos"),
     },
@@ -309,9 +345,61 @@ export default function PropriedadeDetailScreen() {
 
   return (
     <ScreenContainer>
+      <PropriedadePanelMenus
+        visible={menu}
+        onClose={() => setMenu(null)}
+        safraLabel={safraLabel}
+        safraOptions={safraOptions}
+        propriedadeNome={propriedade.nome}
+        onSelectSafra={(label) => {
+          if (isHistoricoSafra(label)) {
+            Alert.alert(
+              "Consultando histórico",
+              "Você está vendo uma safra anterior. Edições de custos/indicadores usam este contexto; a safra atual não é alterada.",
+            );
+          }
+          setSafraLabel(label);
+        }}
+        onRegistrar={(action) => {
+          if (action === "tarefa") selectTab("operacoes");
+          else if (action === "ocorrencia") {
+            selectTab("mais");
+            setMaisSection("monitoramento");
+          } else if (action === "talhao") goTalhoesManage();
+          else router.push("/(tabs)/cultivos" as any);
+        }}
+        onAdmin={(action) => {
+          if (action === "editar") {
+            router.push("/(tabs)/propriedades" as any);
+          } else if (action === "exportar") {
+            const summary = [
+              `Propriedade: ${propriedade.nome}`,
+              `Local: ${localizacao || "—"}`,
+              `Safra: ${safraLabel}`,
+              `Área: ${areaTotal || "—"} ha`,
+              `Talhões: ${talhoesCount}`,
+              `Cultivos: ${cultivosCount}`,
+              `Tarefas abertas: ${tarefasAbertas}`,
+            ].join("\n");
+            void Share.share({ message: summary, title: `Resumo — ${propriedade.nome}` }).catch(() => {
+              Alert.alert("Resumo", summary);
+            });
+          } else if (action === "arquivar") {
+            Alert.alert(
+              "Arquivar",
+              "Arquivamento soft estará disponível na próxima evolução. Por enquanto use Excluir com cuidado ou edite o cadastro.",
+            );
+          } else if (action === "excluir") {
+            void deleteProp
+              .mutateAsync({ id: propriedade.id })
+              .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
+          }
+        }}
+      />
+
       {/* Cabeçalho persistente */}
       <View style={styles.header}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
           <TouchableOpacity
             onPress={() => router.back()}
             accessibilityRole="button"
@@ -329,19 +417,44 @@ export default function PropriedadeDetailScreen() {
             </Text>
           </View>
           <TouchableOpacity
-            onPress={() => router.push("/(tabs)/propriedades" as any)}
+            onPress={() => setMenu("registrar")}
             accessibilityRole="button"
-            accessibilityLabel="Trocar propriedade"
-            style={[styles.chip, { minHeight: 36, justifyContent: "center" }]}
+            accessibilityLabel="Registrar"
+            style={[styles.chip, { minHeight: 36, justifyContent: "center", paddingHorizontal: 12 }]}
           >
-            <Text style={{ color: "#FFF", fontSize: 12, fontWeight: "700" }}>Trocar</Text>
+            <Text style={{ color: "#FFF", fontSize: 13, fontWeight: "800" }}>+ Registrar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setMenu("admin")}
+            accessibilityRole="button"
+            accessibilityLabel="Menu administrativo"
+            style={{ minWidth: 40, minHeight: 40, alignItems: "center", justifyContent: "center" }}
+          >
+            <IconSymbol name="ellipsis" size={20} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
 
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10, marginLeft: 56 }}>
-          <View style={styles.chip} accessibilityLabel={`Safra ${safraLabel}`}>
-            <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>{safraLabel}</Text>
-          </View>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10, marginLeft: 52 }}>
+          <TouchableOpacity
+            style={styles.chip}
+            accessibilityRole="button"
+            accessibilityLabel={`Safra ${safraLabel}. Toque para alterar`}
+            onPress={() => setMenu("safra")}
+          >
+            <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>
+              {safraLabel}
+              {safraHistorico ? " · Histórico" : ""}
+              {" ▾"}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => router.push("/(tabs)/propriedades" as any)}
+            accessibilityRole="button"
+            accessibilityLabel="Trocar propriedade"
+            style={styles.chip}
+          >
+            <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>Trocar</Text>
+          </TouchableOpacity>
           <View style={styles.chip}>
             <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "600" }}>
               {cultivosAtivos > 0 ? "Operando" : "Sem cultivo ativo"}
@@ -351,6 +464,19 @@ export default function PropriedadeDetailScreen() {
             <Text style={{ color: "rgba(255,255,255,0.9)", fontSize: 11 }}>Atualizado {updatedAt}</Text>
           </View>
         </View>
+        {safraHistorico ? (
+          <Text
+            style={{
+              marginTop: 8,
+              marginLeft: 52,
+              color: "rgba(255,255,255,0.9)",
+              fontSize: 11,
+              fontWeight: "600",
+            }}
+          >
+            Modo histórico — dados desta safra não substituem a safra atual
+          </Text>
+        ) : null}
       </View>
 
       {/* Abas */}
@@ -397,7 +523,7 @@ export default function PropriedadeDetailScreen() {
             <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
               {[
                 { icon: "scalemass.fill", value: `${areaTotal || "—"} ha`, label: "Área Total", color: colors.primary },
-                { icon: "map.fill", value: String(terrenos.length), label: "Talhões", color: "#8B5CF6" },
+                { icon: "map.fill", value: String(talhoesCount), label: "Talhões", color: "#8B5CF6" },
                 { icon: "leaf.fill", value: String(cultivosAtivos), label: "Cultivos Ativos", color: colors.success },
               ].map((stat) => (
                 <View
@@ -613,7 +739,7 @@ export default function PropriedadeDetailScreen() {
                   alignItems: "center",
                   gap: 4,
                 }}
-                onPress={() => router.push(`/propriedades/terrenos?propriedadeId=${propriedade.id}`)}
+                onPress={goTalhoesManage}
                 accessibilityRole="button"
                 accessibilityLabel="Gerenciar talhões"
               >
@@ -629,7 +755,7 @@ export default function PropriedadeDetailScreen() {
                 title="Nenhum talhão"
                 message="Cadastre talhões para organizar área e cultivos."
                 actionLabel="Cadastrar talhão"
-                onAction={() => router.push(`/propriedades/terrenos?propriedadeId=${propriedade.id}`)}
+                onAction={goTalhoesManage}
               />
             ) : (
               <>
