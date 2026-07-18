@@ -108,7 +108,14 @@ export default function PerfilScreen() {
   const performLogout = async () => {
     setLogoutModalVisible(false);
     await logout();
-    utils.auth.session.setData(undefined, { user: null, perfil: null, isAdmin: false });
+    utils.auth.session.setData(undefined, {
+      user: null,
+      perfil: null,
+      isAdmin: false,
+      organizations: [],
+      activeOrganizationId: null,
+      activeRole: null,
+    });
     router.replace("/auth/login" as never);
   };
 

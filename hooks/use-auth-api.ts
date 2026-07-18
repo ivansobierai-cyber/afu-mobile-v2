@@ -32,7 +32,7 @@ export interface SignupInput {
   password: string;
   confirmPassword: string;
   name: string;
-  profile: 'produtor' | 'tecnico' | 'administrador';
+  profile: 'produtor' | 'tecnico';
 }
 
 export function useAuthAPI() {

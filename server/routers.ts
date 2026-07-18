@@ -13,6 +13,7 @@ import { weatherRouter } from "./routers/weather-router";
 import { pushRouter } from "./routers/push-router";
 import { bancoAgronomicoRouter } from "./routers/banco-agronomico-router";
 import { pilotoRouter } from "./routers/piloto-router";
+import { organizationsRouter } from "./routers/organizations-router";
 
 const diagnosticoRouter = router({
   historico: protectedProcedure.query(async ({ ctx }) => {
@@ -404,6 +405,7 @@ Responda APENAS com um JSON válido (sem markdown, sem código):
 export const appRouter = router({
   system: systemRouter,
   auth: authRouter,
+  organizations: organizationsRouter,
   diagnostico: diagnosticoRouter,
   analise: analiseRouter,
   culturasPragas: culturasPragasRouter,

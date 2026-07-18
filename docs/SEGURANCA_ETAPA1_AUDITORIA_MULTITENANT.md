@@ -14,8 +14,8 @@
 |------|-----------|
 | Banco modificado? | **Não** |
 | Código de autorização alterado? | **Não** |
-| Próxima etapa liberada? | **Sim — Etapa 2 (organizations + membership)**, após revisão deste relatório |
-| Bloqueio hard? | Não bloqueia Etapa 2; **bloqueia Etapa 3 (migração)** até fechar IDORs P0 listados abaixo ou tratá-los em paralelo na Etapa 4 |
+| Próxima etapa liberada? | **Etapa 2 concluída** — ver `docs/SEGURANCA_ETAPA2_ORGANIZACOES.md` |
+| Bloqueio hard? | **Etapa 3 (migração)** ainda deve fechar IDORs P0 em paralelo (exceto P0-4 já fechado no signup) |
 
 ---
 

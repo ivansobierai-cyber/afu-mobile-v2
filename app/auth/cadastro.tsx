@@ -10,7 +10,6 @@ import { useAuthAPI } from '@/hooks/use-auth-api';
 const PROFILE_TYPES = [
   { id: 'produtor', label: 'Produtor Rural', icon: '🚜', description: 'Gerencio propriedades e cultivos' },
   { id: 'tecnico', label: 'Técnico Agrícola', icon: '👨‍🔬', description: 'Faço diagnósticos e recomendações' },
-  { id: 'administrador', label: 'Administrador', icon: '👨‍💼', description: 'Gerencio o sistema' },
 ];
 
 export default function CadastroScreen() {
@@ -89,7 +88,7 @@ export default function CadastroScreen() {
       email,
       password,
       confirmPassword,
-      profile: selectedProfile as 'produtor' | 'tecnico' | 'administrador',
+      profile: selectedProfile as 'produtor' | 'tecnico',
     });
 
     if (result.success) {

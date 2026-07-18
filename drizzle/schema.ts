@@ -7,6 +7,7 @@ import {
   mysqlTable,
   text,
   timestamp,
+  uniqueIndex,
   varchar,
   date,
 } from "drizzle-orm/mysql-core";
@@ -83,6 +84,8 @@ export const usuariosAfu = mysqlTable("usuarios_afu", {
     .notNull(),
   registroProfissional: varchar("registroProfissional", { length: 50 }),
   cargo: varchar("cargo", { length: 100 }),
+  /** Etapa 2 segurança — organização ativa na sessão */
+  activeOrganizationId: int("activeOrganizationId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -99,6 +102,8 @@ export type UsuarioAfuPublic = Omit<UsuarioAfu, 'createdAt' | 'updatedAt'>;
 export const produtores = mysqlTable("produtores", {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId").notNull().unique(), // FK → usuarios_afu.id (um-para-um)
+  /** Etapa 2 — ponte para tenant (Etapa 3 espalha organizationId nas tabelas filhas) */
+  organizationId: int("organizationId"),
   documento: varchar("documento", { length: 50 }),
   cidade: varchar("cidade", { length: 100 }),
   estado: varchar("estado", { length: 100 }),
@@ -1099,3 +1104,65 @@ export const atividadePropriedade = mysqlTable("atividade_propriedade", {
 
 export type AtividadePropriedade = typeof atividadePropriedade.$inferSelect;
 export type InsertAtividadePropriedade = typeof atividadePropriedade.$inferInsert;
+
+// ─────────────────────────────────────────────
+// SEGURANÇA ETAPA 2 — organizações e memberships
+// ─────────────────────────────────────────────
+
+export const organizations = mysqlTable("organizations", {
+  id: int("id").autoincrement().primaryKey(),
+  nome: varchar("nome", { length: 150 }).notNull(),
+  tipo: mysqlEnum("tipoOrganizacao", [
+    "produtor_individual",
+    "empresa",
+    "grupo",
+    "cooperativa",
+    "outro",
+  ])
+    .default("produtor_individual")
+    .notNull(),
+  status: mysqlEnum("statusOrganizacao", ["ativa", "suspensa", "arquivada"])
+    .default("ativa")
+    .notNull(),
+  ownerUserId: int("ownerUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+
+export const organizationMemberships = mysqlTable(
+  "organization_memberships",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    userId: int("userId").notNull(),
+    role: mysqlEnum("orgRole", [
+      "proprietario",
+      "administrador",
+      "gerente",
+      "agronomo",
+      "operador",
+      "consultor",
+      "auditor",
+    ])
+      .default("operador")
+      .notNull(),
+    status: mysqlEnum("membershipStatus", ["convidado", "ativo", "suspenso", "removido"])
+      .default("ativo")
+      .notNull(),
+    invitedByUserId: int("invitedByUserId"),
+    joinedAt: timestamp("joinedAt").defaultNow().notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    uniqueIndex("org_membership_org_user_uidx").on(t.organizationId, t.userId),
+    index("org_membership_user_idx").on(t.userId),
+    index("org_membership_org_idx").on(t.organizationId),
+  ],
+);
+
+export type OrganizationMembership = typeof organizationMemberships.$inferSelect;
+export type InsertOrganizationMembership = typeof organizationMemberships.$inferInsert;
