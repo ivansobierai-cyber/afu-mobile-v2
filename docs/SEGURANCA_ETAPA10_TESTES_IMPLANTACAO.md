@@ -142,3 +142,5 @@ Ao concluir cada etapa do programa (1–10), o agente deve entregar:
 7. Decisão **avançar** ou **bloquear**
 
 Esta Etapa 10 cumpre o checklist acima e fecha o ciclo do prompt mestre de segurança multitenant.
+
+**Fechamento §16:** `docs/SEGURANCA_CONCLUSAO_GLOBAL.md` · guia `docs/SEGURANCA_GUIA_NOVA_FUNCAO.md` · ops `docs/SEGURANCA_OPERACAO_SUPORTE.md`.
