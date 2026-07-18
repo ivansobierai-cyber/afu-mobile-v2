@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View, Text, FlatList, TouchableOpacity, Modal, TextInput,
   ScrollView, StyleSheet, Alert, ActivityIndicator, RefreshControl,
@@ -66,6 +66,15 @@ export default function CultivosScreen() {
     { enabled: !!form.propriedadeId }
   );
 
+  // Ao editar, sincroniza o talhão quando a lista da propriedade carregar
+  useEffect(() => {
+    if (!editingId || !modalVisible || terrenos.length === 0) return;
+    const cultivo = cultivos.find((c) => c.id === editingId);
+    if (!cultivo?.terrenoId) return;
+    const match = terrenos.find((t) => t.id === cultivo.terrenoId);
+    if (match) setSelectedTerreno(match);
+  }, [editingId, modalVisible, terrenos, cultivos]);
+
   const { data: cultivosTerreno = [] } = trpc.coreData.cultivos.list.useQuery();
 
   const areaPlantadaExistente = cultivosTerreno
@@ -82,6 +91,7 @@ export default function CultivosScreen() {
 
   const openNew = () => {
     setEditingId(null);
+    setSelectedTerreno(null);
     setForm({ ...EMPTY_FORM, propriedadeId: propriedades[0]?.id ? String(propriedades[0].id) : "" });
     setModalVisible(true);
   };
@@ -99,6 +109,8 @@ export default function CultivosScreen() {
       status: (item.status as any) ?? "em_andamento",
       observacoes: item.observacoes ?? "",
     });
+    const terreno = terrenos.find((t) => t.id === item.terrenoId) ?? null;
+    setSelectedTerreno(terreno);
     setModalVisible(true);
   };
 
@@ -107,8 +119,13 @@ export default function CultivosScreen() {
     if (!form.propriedadeId) { Alert.alert("Atenção", "Selecione uma propriedade."); return; }
     setSaving(true);
     try {
+      if (!selectedTerreno?.id) {
+        Alert.alert("Atenção", "Selecione um talhão.");
+        return;
+      }
       const payload = {
         propriedadeId: parseInt(form.propriedadeId),
+        terrenoId: selectedTerreno.id as number,
         nomeCultura: form.nomeCultura.trim(),
         variedade: form.variedade.trim() || undefined,
         dataPlantio: form.dataPlantio || undefined,

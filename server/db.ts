@@ -131,10 +131,15 @@ export async function updateUsuarioAfu(id: number, data: Partial<InsertUsuarioAf
 
 // ─── PROPRIEDADES ────────────────────────────────────────────────────────────
 
-export async function getPropriedades(userId: number) {
+/** Lista propriedades do produtor (produtorId = produtores.id). */
+export async function getPropriedades(produtorId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(propriedades).orderBy(desc(propriedades.createdAt));
+  return db
+    .select()
+    .from(propriedades)
+    .where(eq(propriedades.produtorId, produtorId))
+    .orderBy(desc(propriedades.createdAt));
 }
 
 export async function getPropriedadesComCoordenadas() {
@@ -202,6 +207,13 @@ export async function getTerrenosByPropriedade(propriedadeId: number) {
   return db.select().from(terrenos).where(eq(terrenos.propriedadeId, propriedadeId));
 }
 
+export async function getTerrenoById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(terrenos).where(eq(terrenos.id, id)).limit(1);
+  return rows[0];
+}
+
 export async function createTerreno(data: InsertTerreno) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
@@ -223,10 +235,52 @@ export async function deleteTerreno(id: number) {
 
 // ─── CULTURAS ────────────────────────────────────────────────────────────────
 
-export async function getCulturas(userId: number) {
+/**
+ * Lista cultivos do produtor vinculado ao perfil AFU.
+ * @param usuarioAfuId — usuarios_afu.id (não users.id)
+ */
+export async function getCulturas(usuarioAfuId: number) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(culturas).orderBy(desc(culturas.createdAt));
+  return db
+    .select({
+      id: culturas.id,
+      propriedadeId: culturas.propriedadeId,
+      terrenoId: culturas.terrenoId,
+      nomeCultura: culturas.nomeCultura,
+      variedade: culturas.variedade,
+      dataPlantio: culturas.dataPlantio,
+      faseAtual: culturas.faseAtual,
+      areaPlantada: culturas.areaPlantada,
+      previsaoColheita: culturas.previsaoColheita,
+      producaoEstimada: culturas.producaoEstimada,
+      unidadeProducao: culturas.unidadeProducao,
+      status: culturas.status,
+      observacoes: culturas.observacoes,
+      culturaCatalogoId: culturas.culturaCatalogoId,
+      createdAt: culturas.createdAt,
+      updatedAt: culturas.updatedAt,
+    })
+    .from(culturas)
+    .innerJoin(propriedades, eq(culturas.propriedadeId, propriedades.id))
+    .innerJoin(produtores, eq(propriedades.produtorId, produtores.id))
+    .where(eq(produtores.usuarioId, usuarioAfuId))
+    .orderBy(desc(culturas.createdAt));
+}
+
+/** Verifica se a propriedade pertence ao produtor. */
+export async function propriedadeBelongsToProdutor(
+  propriedadeId: number,
+  produtorId: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db
+    .select({ id: propriedades.id })
+    .from(propriedades)
+    .where(and(eq(propriedades.id, propriedadeId), eq(propriedades.produtorId, produtorId)))
+    .limit(1);
+  return rows.length > 0;
 }
 
 export async function getCulturasByPropriedade(propriedadeId: number) {
