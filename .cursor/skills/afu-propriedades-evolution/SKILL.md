@@ -50,11 +50,15 @@ Organização → Propriedade → Talhão(terreno) → Safra → Cultivo
 | Painel | `app/propriedades/[id].tsx` |
 | Talhões | `app/propriedades/terrenos.tsx` |
 | Cultivos | `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx` |
-| API | `server/routers/core-data-router.ts`, `server/routers/tarefas-router.ts`, `server/db.ts` |
-| Schema | `drizzle/schema.ts` (`tarefas_operacionais`, `apontamentos_operacao`) |
+| API | `server/routers/core-data-router.ts`, `tarefas-router.ts`, `propriedade-expansao-router.ts` → `coreData.expansao.*` |
+| Schema | `drizzle/schema.ts` (tarefas, ocorrências, estoque, custos, geometria) |
 | Operações UI | `components/propriedade-operacoes-panel.tsx` |
+| Expansão UI | `components/propriedade-expansao-panels.tsx` |
+| Alertas | `lib/propriedades/alertas-engine.ts` |
+| GeoJSON | `lib/propriedades/geojson-helpers.ts`, `components/property-map*.tsx` |
 | Estados UI | `components/screen-state.tsx` |
 | Status máquina | `lib/propriedades/tarefa-status.ts` |
+| Offline | `lib/offline/core-mutation-queue.ts` (entity `tarefa`), `hooks/use-core-offline-sync.ts` |
 | Sessão | `app/_layout.tsx` SessionGate, `hooks/use-session.ts` |
 
 ## Checklist ao retomar

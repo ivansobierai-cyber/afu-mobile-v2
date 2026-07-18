@@ -32,6 +32,7 @@ import {
   propriedadeBelongsToProdutor,
 } from "../db";
 import { tarefasRouter } from "./tarefas-router";
+import { propriedadeExpansaoRouter } from "./propriedade-expansao-router";
 import { getDb } from "../db";
 import { sendPushToUsuario } from "../services/push-delivery";
 import { produtores } from "../../drizzle/schema";
@@ -404,4 +405,6 @@ export const coreDataRouter = router({
   cultivos: cultivosRouter,
   calendario: calendarioRouter,
   tarefas: tarefasRouter,
+  /** Etapas 4–10: alertas, geometria, ocorrências, estoque, custos, métricas */
+  expansao: propriedadeExpansaoRouter,
 });

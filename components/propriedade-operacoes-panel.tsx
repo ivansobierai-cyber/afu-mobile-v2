@@ -14,6 +14,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ScreenState } from "@/components/screen-state";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
+import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import {
   TAREFA_STATUS_LABELS,
   type TarefaStatus,
@@ -52,6 +53,7 @@ type Props = {
 export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
   const colors = useColors();
   const utils = trpc.useUtils();
+  const { queueMutation, isOnline, pending, isSyncing } = useCoreOfflineSync();
   const [filtro, setFiltro] = useState<"abertas" | "todas">("abertas");
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -69,13 +71,6 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
     });
 
   const transition = trpc.coreData.tarefas.transition.useMutation({
-    onSuccess: async () => {
-      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
-      await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
-    },
-  });
-
-  const create = trpc.coreData.tarefas.create.useMutation({
     onSuccess: async () => {
       await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
       await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
@@ -139,7 +134,8 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
     }
     setSaving(true);
     try {
-      await create.mutateAsync({
+      const clientMutationId = `tarefa_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      const result = await queueMutation("tarefa", "create", {
         propriedadeId,
         terrenoId: terrenoId ?? undefined,
         tipoOperacao: tipo,
@@ -147,11 +143,17 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
         instrucoes: instrucoes.trim() || undefined,
         prioridade,
         dataPrevista: new Date(dataPrevista + "T12:00:00").toISOString(),
+        clientMutationId,
       });
       setModalOpen(false);
       setTitulo("");
       setInstrucoes("");
       setTerrenoId(null);
+      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
+      await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
+      if (result.queued) {
+        Alert.alert("Fila offline", "Tarefa salva localmente e será sincronizada ao reconectar.");
+      }
     } catch (e: any) {
       Alert.alert("Erro", e.message ?? "Não foi possível criar a tarefa.");
     } finally {
@@ -167,7 +169,13 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
   return (
     <View>
       <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>Operações</Text>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>Operações</Text>
+          <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>
+            {isOnline ? (isSyncing ? "Sincronizando…" : "Online") : "Offline"}
+            {pending > 0 ? ` · ${pending} pendente(s)` : ""}
+          </Text>
+        </View>
         <TouchableOpacity
           onPress={() => setModalOpen(true)}
           accessibilityRole="button"

@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   StyleSheet,
   useWindowDimensions,
+  Alert,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -17,6 +18,15 @@ import { useColors } from "@/hooks/use-colors";
 import { formatCoordinates, hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { currentSafraLabel } from "@/lib/propriedades/safra-label";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
+import {
+  PropriedadeAlertasFeed,
+  PropriedadeMonitoramentoPanel,
+  PropriedadeEstoquePanel,
+  PropriedadeCustosPanel,
+  PropriedadeMetricasPanel,
+} from "@/components/propriedade-expansao-panels";
+import { extractPolygonRings, squarePolygonAround, approxAreaHaFromGeoJson } from "@/lib/propriedades/geojson-helpers";
+import type { MapPolygon } from "@/components/property-map-types";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -45,6 +55,7 @@ const TIPO_LABELS: Record<string, string> = {
 };
 
 type PanelTab = "visao" | "mapa" | "operacoes" | "talhoes" | "cultivos" | "mais";
+type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores";
 
 const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
   { id: "visao", label: "Visão", icon: "house.fill" },
@@ -65,7 +76,9 @@ export default function PropriedadeDetailScreen() {
 
   const initialTab = (MOBILE_TABS.some((t) => t.id === tabParam) ? tabParam : "visao") as PanelTab;
   const [tab, setTab] = useState<PanelTab>(initialTab);
+  const [maisSection, setMaisSection] = useState<MaisSection>("menu");
   const [safraLabel] = useState(currentSafraLabel);
+  const utils = trpc.useUtils();
 
   const {
     data: propriedade,
@@ -95,10 +108,23 @@ export default function PropriedadeDetailScreen() {
     { propriedadeId: propId },
     { enabled: propId > 0 },
   );
+  const { data: overview } = trpc.coreData.expansao.overview.useQuery(
+    { propriedadeId: propId },
+    { enabled: propId > 0 },
+  );
+
+  const setGeometria = trpc.coreData.expansao.setGeometriaPropriedade.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.propriedades.get.invalidate({ id: propId });
+      await utils.coreData.expansao.overview.invalidate({ propriedadeId: propId });
+      await utils.coreData.expansao.alertas.invalidate({ propriedadeId: propId });
+    },
+  });
 
   const selectTab = useCallback(
     (next: PanelTab) => {
       setTab(next);
+      if (next !== "mais") setMaisSection("menu");
       router.setParams({ tab: next } as any);
     },
     [router],
@@ -217,6 +243,31 @@ export default function PropriedadeDetailScreen() {
   const longitude = parseCoordinate(propriedade.longitude);
   const hasGps = hasValidCoordinates(latitude, longitude);
   const cultivosAtivos = cultivos.filter((c) => c.status === "em_andamento").length;
+
+  const mapPolygons: MapPolygon[] = [];
+  const propGeo = propriedade.geometriaGeoJson ?? overview?.geometrias?.propriedade ?? null;
+  const propRings = extractPolygonRings(propGeo);
+  propRings.forEach((ring, idx) => {
+    mapPolygons.push({
+      id: `prop-${idx}`,
+      coordinates: ring,
+      title: `Perímetro · ${propriedade.nome}`,
+      color: "rgba(21,101,192,0.22)",
+      strokeColor: "#1565C0",
+    });
+  });
+  for (const t of terrenos) {
+    const rings = extractPolygonRings(t.geometriaGeoJson);
+    rings.forEach((ring, idx) => {
+      mapPolygons.push({
+        id: `talhao-${t.id}-${idx}`,
+        coordinates: ring,
+        title: t.nome,
+        color: "rgba(46,125,50,0.25)",
+        strokeColor: "#2E7D32",
+      });
+    });
+  }
   const updatedAt = propriedade.updatedAt
     ? new Date(propriedade.updatedAt).toLocaleString("pt-BR", {
         day: "2-digit",
@@ -445,45 +496,10 @@ export default function PropriedadeDetailScreen() {
               </TouchableOpacity>
             </View>
 
-            {(resumoHoje?.atrasadas ?? 0) > 0 || (resumoHoje?.criticas ?? 0) > 0 ? (
-              <View
-                style={[
-                  styles.infoCard,
-                  { borderColor: "#EF6C00" + "80", backgroundColor: "#EF6C00" + "10" },
-                ]}
-              >
-                <Text style={{ fontSize: 14, fontWeight: "700", color: "#EF6C00", marginBottom: 6 }}>
-                  Atenção necessária
-                </Text>
-                <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>
-                  {resumoHoje!.atrasadas > 0
-                    ? `${resumoHoje!.atrasadas} tarefa(s) atrasada(s). `
-                    : ""}
-                  {resumoHoje!.criticas > 0
-                    ? `${resumoHoje!.criticas} com prioridade alta/crítica.`
-                    : ""}
-                </Text>
-                {(resumoHoje?.itensAtrasados?.length ?? 0) > 0 ? (
-                  <View style={{ marginTop: 8, gap: 6 }}>
-                    {resumoHoje!.itensAtrasados.slice(0, 3).map((t) => (
-                      <Text key={t.id} style={{ fontSize: 13, color: colors.foreground }}>
-                        · {t.titulo} — {new Date(t.dataPrevista).toLocaleDateString("pt-BR")}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-                <TouchableOpacity
-                  onPress={() => selectTab("operacoes")}
-                  accessibilityRole="button"
-                  accessibilityLabel="Resolver tarefas atrasadas"
-                  style={{ marginTop: 10 }}
-                >
-                  <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 13 }}>
-                    Resolver agora →
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            ) : null}
+            <PropriedadeAlertasFeed
+              propriedadeId={propriedade.id}
+              onOpenOperacoes={() => selectTab("operacoes")}
+            />
           </>
         )}
 
@@ -497,26 +513,69 @@ export default function PropriedadeDetailScreen() {
         {tab === "mapa" && (
           <View style={styles.infoCard}>
             <Text style={styles.sectionTitle}>Mapa da propriedade</Text>
-            {hasGps ? (
+            {hasGps || mapPolygons.length > 0 ? (
               <>
                 <PropertyMap
-                  markers={[
-                    {
-                      id: propriedade.id,
-                      latitude: latitude!,
-                      longitude: longitude!,
-                      title: propriedade.nome,
-                      description: localizacao || undefined,
-                    },
-                  ]}
+                  markers={
+                    hasGps
+                      ? [
+                          {
+                            id: propriedade.id,
+                            latitude: latitude!,
+                            longitude: longitude!,
+                            title: propriedade.nome,
+                            description: localizacao || undefined,
+                          },
+                        ]
+                      : []
+                  }
+                  polygons={mapPolygons}
                   height={isWide ? 360 : 260}
                 />
-                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 8 }}>
-                  GPS: {formatCoordinates(latitude!, longitude!)}
-                </Text>
+                {hasGps ? (
+                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 8 }}>
+                    GPS: {formatCoordinates(latitude!, longitude!)}
+                  </Text>
+                ) : null}
                 <Text style={{ fontSize: 12, color: colors.muted, marginTop: 6, lineHeight: 18 }}>
-                  Polígonos de perímetro e talhões entram na Etapa 5. Hoje o mapa mostra a localização cadastral.
+                  {propGeo
+                    ? `Perímetro cadastrado${propriedade.areaGeometricaHa ? ` · ${propriedade.areaGeometricaHa} ha geom.` : ""}.`
+                    : "Sem perímetro GeoJSON. Gere um retângulo aproximado a partir do GPS ou importe depois."}
+                  {" "}
+                  {mapPolygons.filter((p) => String(p.id).startsWith("talhao-")).length} talhão(ões) com geometria.
                 </Text>
+                {hasGps && !propGeo ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Gerar perímetro aproximado"
+                    style={{
+                      marginTop: 12,
+                      minHeight: 44,
+                      borderRadius: 12,
+                      backgroundColor: colors.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 12,
+                    }}
+                    onPress={() => {
+                      const geo = squarePolygonAround(latitude!, longitude!);
+                      const area = approxAreaHaFromGeoJson(geo);
+                      void setGeometria
+                        .mutateAsync({
+                          propriedadeId: propriedade.id,
+                          geometriaGeoJson: geo,
+                          areaGeometricaHa: area ?? undefined,
+                          origem: "desenhada",
+                        })
+                        .then(() => Alert.alert("Perímetro salvo", "Geometria aproximada registrada."))
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao salvar geometria"));
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>
+                      Gerar perímetro aproximado (GPS)
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </>
             ) : (
               <ScreenState
@@ -688,62 +747,144 @@ export default function PropriedadeDetailScreen() {
 
         {tab === "mais" && (
           <>
-            <View style={styles.infoCard}>
-              <Text style={styles.sectionTitle}>Configurações e cadastro</Text>
-              {[
-                { label: "Tipo de Produção", value: TIPO_LABELS[propriedade.tipoProducao ?? "outro"] ?? "—" },
-                { label: "Tipo de Solo", value: propriedade.tipoSolo || "—" },
-                { label: "Irrigação", value: propriedade.sistemaIrrigacao || "—" },
-                { label: "Fonte de água", value: propriedade.fonteAgua || "—" },
-                { label: "Localização", value: localizacao || "—" },
-                {
-                  label: "Cadastrado em",
-                  value: propriedade.createdAt
-                    ? new Date(propriedade.createdAt).toLocaleDateString("pt-BR")
-                    : "—",
-                },
-              ].map((item, idx, arr) => (
-                <View
-                  key={item.label}
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    paddingVertical: 10,
-                    borderBottomWidth: idx < arr.length - 1 ? 1 : 0,
-                    borderBottomColor: colors.border,
-                    gap: 12,
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: colors.muted }}>{item.label}</Text>
-                  <Text
-                    style={{
-                      fontSize: 14,
-                      color: colors.foreground,
-                      fontWeight: "600",
-                      textTransform: "capitalize",
-                      flexShrink: 1,
-                      textAlign: "right",
-                    }}
-                  >
-                    {item.value}
-                  </Text>
-                </View>
-              ))}
-            </View>
+            {maisSection !== "menu" ? (
+              <TouchableOpacity
+                onPress={() => setMaisSection("menu")}
+                accessibilityRole="button"
+                accessibilityLabel="Voltar ao menu Mais"
+                style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12, minHeight: 44 }}
+              >
+                <IconSymbol name="chevron.left" size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>Mais</Text>
+              </TouchableOpacity>
+            ) : null}
 
-            <TouchableOpacity
-              style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
-              onPress={() => router.push("/(tabs)/propriedades" as any)}
-              accessibilityRole="button"
-              accessibilityLabel="Editar propriedade na lista"
-            >
-              <IconSymbol name="pencil" size={20} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>Editar cadastro</Text>
-                <Text style={{ fontSize: 12, color: colors.muted }}>Nome, GPS, área e dados técnicos</Text>
-              </View>
-              <IconSymbol name="chevron.right" size={16} color={colors.muted} />
-            </TouchableOpacity>
+            {maisSection === "menu" && (
+              <>
+                {(
+                  [
+                    {
+                      id: "monitoramento" as const,
+                      title: "Monitoramento",
+                      subtitle: "Ocorrências → diagnóstico → tarefa",
+                      icon: "eye.fill" as const,
+                    },
+                    {
+                      id: "estoque" as const,
+                      title: "Recursos e estoque",
+                      subtitle: "Insumos agrícolas da fazenda",
+                      icon: "tray" as const,
+                    },
+                    {
+                      id: "custos" as const,
+                      title: "Custos e resultados",
+                      subtitle: "Orçamento da safra e lançamentos",
+                      icon: "chart.bar.fill" as const,
+                    },
+                    {
+                      id: "indicadores" as const,
+                      title: "Indicadores",
+                      subtitle: "Métricas com fórmula e fonte",
+                      icon: "chart.line.uptrend.xyaxis" as const,
+                    },
+                  ] as const
+                ).map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
+                    onPress={() => setMaisSection(item.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={item.title}
+                  >
+                    <IconSymbol name={item.icon as "eye.fill"} size={20} color={colors.primary} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+                        {item.title}
+                      </Text>
+                      <Text style={{ fontSize: 12, color: colors.muted }}>{item.subtitle}</Text>
+                    </View>
+                    <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+                  </TouchableOpacity>
+                ))}
+
+                <View style={styles.infoCard}>
+                  <Text style={styles.sectionTitle}>Configurações e cadastro</Text>
+                  {[
+                    { label: "Tipo de Produção", value: TIPO_LABELS[propriedade.tipoProducao ?? "outro"] ?? "—" },
+                    { label: "Tipo de Solo", value: propriedade.tipoSolo || "—" },
+                    { label: "Irrigação", value: propriedade.sistemaIrrigacao || "—" },
+                    { label: "Fonte de água", value: propriedade.fonteAgua || "—" },
+                    { label: "Localização", value: localizacao || "—" },
+                    {
+                      label: "Cadastrado em",
+                      value: propriedade.createdAt
+                        ? new Date(propriedade.createdAt).toLocaleDateString("pt-BR")
+                        : "—",
+                    },
+                  ].map((item, idx, arr) => (
+                    <View
+                      key={item.label}
+                      style={{
+                        flexDirection: "row",
+                        justifyContent: "space-between",
+                        paddingVertical: 10,
+                        borderBottomWidth: idx < arr.length - 1 ? 1 : 0,
+                        borderBottomColor: colors.border,
+                        gap: 12,
+                      }}
+                    >
+                      <Text style={{ fontSize: 14, color: colors.muted }}>{item.label}</Text>
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: colors.foreground,
+                          fontWeight: "600",
+                          textTransform: "capitalize",
+                          flexShrink: 1,
+                          textAlign: "right",
+                        }}
+                      >
+                        {item.value}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
+                  onPress={() => router.push("/(tabs)/propriedades" as any)}
+                  accessibilityRole="button"
+                  accessibilityLabel="Editar propriedade na lista"
+                >
+                  <IconSymbol name="pencil" size={20} color={colors.primary} />
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+                      Editar cadastro
+                    </Text>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>
+                      Nome, GPS, área e dados técnicos
+                    </Text>
+                  </View>
+                  <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+                </TouchableOpacity>
+              </>
+            )}
+
+            {maisSection === "monitoramento" && (
+              <PropriedadeMonitoramentoPanel
+                propriedadeId={propriedade.id}
+                terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+              />
+            )}
+            {maisSection === "estoque" && (
+              <PropriedadeEstoquePanel propriedadeId={propriedade.id} />
+            )}
+            {maisSection === "custos" && (
+              <PropriedadeCustosPanel propriedadeId={propriedade.id} safraLabel={safraLabel} />
+            )}
+            {maisSection === "indicadores" && (
+              <PropriedadeMetricasPanel propriedadeId={propriedade.id} />
+            )}
           </>
         )}
       </ScrollView>

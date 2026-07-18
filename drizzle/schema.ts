@@ -145,6 +145,11 @@ export const propriedades = mysqlTable("propriedades", {
     "misto",
     "outro",
   ]).default("graos"),
+  /** GeoJSON Polygon/MultiPolygon (WGS84) — Etapa 5 */
+  geometriaGeoJson: text("geometriaGeoJson"),
+  areaGeometricaHa: decimal("areaGeometricaHa", { precision: 12, scale: 4 }),
+  geometriaOrigem: mysqlEnum("geometriaOrigem", ["desenhada", "gps", "importada", "integracao"]).default("desenhada"),
+  geometriaVersao: int("geometriaVersao").default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -163,6 +168,9 @@ export const terrenos = mysqlTable("terrenos", {
   tipoSolo: varchar("tipoSolo", { length: 100 }),
   sistemaIrrigacao: varchar("sistemaIrrigacao", { length: 100 }),
   observacoes: text("observacoes"),
+  geometriaGeoJson: text("geometriaGeoJson"),
+  areaGeometricaHa: decimal("areaGeometricaHa", { precision: 12, scale: 4 }),
+  geometriaOrigem: mysqlEnum("geometriaOrigemTalhao", ["desenhada", "gps", "importada", "integracao"]).default("desenhada"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -462,6 +470,8 @@ export const tarefasOperacionais = mysqlTable("tarefas_operacionais", {
   ]).default("manual").notNull(),
   legadoEventoId: int("legadoEventoId"),
   motivoCancelamento: text("motivoCancelamento"),
+  /** Etapa 9 — idempotência offline */
+  clientMutationId: varchar("clientMutationId", { length: 64 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -947,3 +957,145 @@ export type LabModulo = typeof labModulos.$inferSelect;
 export type InsertLabModulo = typeof labModulos.$inferInsert;
 export type EconomiaCultura = typeof economiaCultura.$inferSelect;
 export type InsertEconomiaCultura = typeof economiaCultura.$inferInsert;
+
+// ─────────────────────────────────────────────
+// ETAPAS 4–10 — expansão operacional da propriedade
+// ─────────────────────────────────────────────
+
+/** Etapa 6 — ocorrência de campo */
+export const ocorrenciasCampo = mysqlTable("ocorrencias_campo", {
+  id: int("id").autoincrement().primaryKey(),
+  propriedadeId: int("propriedadeId").notNull(),
+  terrenoId: int("terrenoId"),
+  culturaId: int("culturaId"),
+  usuarioId: int("usuarioId").notNull(),
+  diagnosticoId: int("diagnosticoId"),
+  tarefaId: int("tarefaId"),
+  categoria: mysqlEnum("categoriaOcorrencia", [
+    "praga",
+    "doenca",
+    "nutricao",
+    "clima",
+    "solo",
+    "outro",
+  ]).default("outro").notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  descricao: text("descricao"),
+  latitude: decimal("latitude", { precision: 10, scale: 8 }),
+  longitude: decimal("longitude", { precision: 11, scale: 8 }),
+  severidade: mysqlEnum("severidadeOcorrencia", ["baixa", "media", "alta", "critica"]).default("media"),
+  status: mysqlEnum("statusOcorrencia", [
+    "aberta",
+    "em_acompanhamento",
+    "resolvida",
+    "descartada",
+  ]).default("aberta").notNull(),
+  resultadoAcompanhamento: mysqlEnum("resultadoAcompanhamento", [
+    "melhorou",
+    "estavel",
+    "piorou",
+    "resolvido",
+  ]),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type OcorrenciaCampo = typeof ocorrenciasCampo.$inferSelect;
+export type InsertOcorrenciaCampo = typeof ocorrenciasCampo.$inferInsert;
+
+/** Etapa 7 — estoque agrícola (≠ marketplace) */
+export const estoqueItens = mysqlTable("estoque_itens", {
+  id: int("id").autoincrement().primaryKey(),
+  propriedadeId: int("propriedadeId").notNull(),
+  nome: varchar("nome", { length: 150 }).notNull(),
+  categoria: mysqlEnum("categoriaEstoque", [
+    "fertilizante",
+    "defensivo",
+    "semente",
+    "combustivel",
+    "peca",
+    "outro",
+  ]).default("outro").notNull(),
+  unidadeBase: varchar("unidadeBase", { length: 30 }).default("kg").notNull(),
+  saldo: decimal("saldo", { precision: 14, scale: 3 }).default("0").notNull(),
+  estoqueMinimo: decimal("estoqueMinimo", { precision: 14, scale: 3 }).default("0"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type EstoqueItem = typeof estoqueItens.$inferSelect;
+export type InsertEstoqueItem = typeof estoqueItens.$inferInsert;
+
+export const estoqueMovimentos = mysqlTable("estoque_movimentos", {
+  id: int("id").autoincrement().primaryKey(),
+  itemId: int("itemId").notNull(),
+  usuarioId: int("usuarioId").notNull(),
+  tipo: mysqlEnum("tipoMovimentoEstoque", [
+    "entrada",
+    "saida",
+    "reserva",
+    "consumo",
+    "ajuste",
+    "perda",
+  ]).notNull(),
+  quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+  motivo: varchar("motivo", { length: 255 }),
+  tarefaId: int("tarefaId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type EstoqueMovimento = typeof estoqueMovimentos.$inferSelect;
+export type InsertEstoqueMovimento = typeof estoqueMovimentos.$inferInsert;
+
+/** Etapa 8 — orçamento e custos */
+export const orcamentosSafra = mysqlTable("orcamentos_safra", {
+  id: int("id").autoincrement().primaryKey(),
+  propriedadeId: int("propriedadeId").notNull(),
+  nomeSafra: varchar("nomeSafra", { length: 80 }).notNull(),
+  orcamentoPrevisto: decimal("orcamentoPrevisto", { precision: 14, scale: 2 }).default("0").notNull(),
+  custoRealizado: decimal("custoRealizado", { precision: 14, scale: 2 }).default("0").notNull(),
+  moeda: varchar("moeda", { length: 8 }).default("BRL").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type OrcamentoSafra = typeof orcamentosSafra.$inferSelect;
+export type InsertOrcamentoSafra = typeof orcamentosSafra.$inferInsert;
+
+export const custosOperacao = mysqlTable("custos_operacao", {
+  id: int("id").autoincrement().primaryKey(),
+  propriedadeId: int("propriedadeId").notNull(),
+  orcamentoId: int("orcamentoId"),
+  tarefaId: int("tarefaId"),
+  categoria: mysqlEnum("categoriaCusto", [
+    "insumo",
+    "mao_obra",
+    "maquina",
+    "combustivel",
+    "servico",
+    "outro",
+  ]).default("outro").notNull(),
+  descricao: varchar("descricao", { length: 200 }).notNull(),
+  valor: decimal("valor", { precision: 14, scale: 2 }).notNull(),
+  dataCusto: timestamp("dataCusto").defaultNow().notNull(),
+  usuarioId: int("usuarioId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CustoOperacao = typeof custosOperacao.$inferSelect;
+export type InsertCustoOperacao = typeof custosOperacao.$inferInsert;
+
+/** Etapa 4 — feed de atividade */
+export const atividadePropriedade = mysqlTable("atividade_propriedade", {
+  id: int("id").autoincrement().primaryKey(),
+  propriedadeId: int("propriedadeId").notNull(),
+  usuarioId: int("usuarioId"),
+  tipo: varchar("tipo", { length: 60 }).notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  detalhe: text("detalhe"),
+  gravidade: mysqlEnum("gravidadeAtividade", ["info", "atencao", "alto", "critico"]).default("info"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type AtividadePropriedade = typeof atividadePropriedade.$inferSelect;
+export type InsertAtividadePropriedade = typeof atividadePropriedade.$inferInsert;

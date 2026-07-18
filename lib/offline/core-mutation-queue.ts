@@ -7,7 +7,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const QUEUE_KEY = "afu_core_mutation_queue";
 const MAX_RETRIES = 5;
 
-export type CoreEntity = "propriedade" | "cultivo" | "terreno" | "evento";
+export type CoreEntity = "propriedade" | "cultivo" | "terreno" | "evento" | "tarefa";
 export type CoreAction = "create" | "update" | "delete";
 
 export interface CoreMutationItem {

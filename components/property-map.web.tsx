@@ -9,10 +9,11 @@ import {
 } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { formatCoordinates, openStreetMapEmbedUrl, openStreetMapUrl } from "@/lib/geo/coordinates";
-import type { MapMarker } from "./property-map-types";
+import type { MapMarker, MapPolygon } from "./property-map-types";
 
 interface PropertyMapProps {
   markers: MapMarker[];
+  polygons?: MapPolygon[];
   height?: number;
   style?: ViewStyle;
   onMarkerPress?: (marker: MapMarker) => void;
@@ -33,10 +34,16 @@ function OsmMapEmbed({ src, height }: { src: string; height: number }) {
   });
 }
 
-export function PropertyMap({ markers, height = 220, style, onMarkerPress }: PropertyMapProps) {
+export function PropertyMap({
+  markers,
+  polygons = [],
+  height = 220,
+  style,
+  onMarkerPress,
+}: PropertyMapProps) {
   const colors = useColors();
 
-  if (markers.length === 0) {
+  if (markers.length === 0 && polygons.length === 0) {
     return (
       <View
         style={[
@@ -52,40 +59,72 @@ export function PropertyMap({ markers, height = 220, style, onMarkerPress }: Pro
     );
   }
 
-  const embedUrl = openStreetMapEmbedUrl(markers);
-  const primary = markers[0];
-  const mapsUrl = openStreetMapUrl(primary.latitude, primary.longitude);
+  const embedUrl = markers.length > 0 ? openStreetMapEmbedUrl(markers) : null;
+  const primary =
+    markers[0] ??
+    (polygons[0]?.coordinates[0]
+      ? {
+          id: "poly",
+          latitude: polygons[0].coordinates[0].latitude,
+          longitude: polygons[0].coordinates[0].longitude,
+        }
+      : null);
+  const mapsUrl = primary
+    ? openStreetMapUrl(primary.latitude, primary.longitude)
+    : "https://www.openstreetmap.org";
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={() => {
-        if (markers.length === 1 && onMarkerPress) {
-          onMarkerPress(markers[0]);
-          return;
-        }
-        Linking.openURL(mapsUrl);
-      }}
-      style={[{ height, borderRadius: 12, overflow: "hidden" }, style]}
-    >
-      {embedUrl ? (
-        <OsmMapEmbed src={embedUrl} height={height} />
-      ) : (
-        <View style={[styles.empty, { height: "100%", backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <Text style={{ color: colors.muted }}>Mapa indisponível</Text>
+    <View style={[{ borderRadius: 12, overflow: "hidden" }, style]}>
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={() => {
+          if (markers.length === 1 && onMarkerPress) {
+            onMarkerPress(markers[0]);
+            return;
+          }
+          Linking.openURL(mapsUrl);
+        }}
+        style={{ height, borderRadius: 12, overflow: "hidden" }}
+      >
+        {embedUrl ? (
+          <OsmMapEmbed src={embedUrl} height={height} />
+        ) : (
+          <View
+            style={[
+              styles.empty,
+              { height: "100%", backgroundColor: colors.surface, borderColor: colors.border },
+            ]}
+          >
+            <Text style={{ color: colors.muted }}>Mapa base — polígonos listados abaixo</Text>
+          </View>
+        )}
+        <View style={[styles.webOverlay, { backgroundColor: colors.primary + "E6" }]}>
+          <Text style={styles.webOverlayText}>
+            {markers.length === 1 && primary
+              ? formatCoordinates(primary.latitude, primary.longitude)
+              : markers.length > 1
+                ? `${markers.length} pontos no mapa`
+                : `${polygons.length} polígono(s)`}
+          </Text>
+          <Text style={styles.webOverlayHint}>
+            {polygons.length > 0
+              ? `${polygons.length} perímetro(s)/talhão(ões) mapeado(s)`
+              : markers.length === 1
+                ? "Toque para ver detalhes"
+                : "Toque para abrir no OpenStreetMap"}
+          </Text>
         </View>
-      )}
-      <View style={[styles.webOverlay, { backgroundColor: colors.primary + "E6" }]}>
-        <Text style={styles.webOverlayText}>
-          {markers.length === 1
-            ? formatCoordinates(primary.latitude, primary.longitude)
-            : `${markers.length} propriedades no mapa`}
-        </Text>
-        <Text style={styles.webOverlayHint}>
-          {markers.length === 1 ? "Toque para ver detalhes" : "Toque para abrir no OpenStreetMap"}
-        </Text>
-      </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+      {polygons.length > 0 ? (
+        <View style={{ paddingTop: 8, gap: 4 }}>
+          {polygons.map((p) => (
+            <Text key={String(p.id)} style={{ fontSize: 12, color: colors.muted }}>
+              ▢ {p.title ?? `Polígono ${p.id}`} · {p.coordinates.length} vértices
+            </Text>
+          ))}
+        </View>
+      ) : null}
+    </View>
   );
 }
 

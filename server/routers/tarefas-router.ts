@@ -15,6 +15,7 @@ import {
   propriedadeBelongsToProdutor,
   getDb,
 } from "../db";
+import { findTarefaByClientMutationId } from "../db-propriedade-expansao";
 import { produtores } from "../../drizzle/schema";
 import { eq } from "drizzle-orm";
 import {
@@ -90,6 +91,8 @@ const tarefaInput = z.object({
   prioridade: prioridadeSchema.optional(),
   dataPrevista: z.string(), // ISO
   areaPlanejada: z.number().positive().optional(),
+  /** Etapa 9 — idempotência offline */
+  clientMutationId: z.string().min(8).max(64).optional(),
 });
 
 export const tarefasRouter = router({
@@ -154,6 +157,10 @@ export const tarefasRouter = router({
     .input(tarefaInput)
     .mutation(async ({ ctx, input }) => {
       const perfil = await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      if (input.clientMutationId) {
+        const existing = await findTarefaByClientMutationId(input.clientMutationId);
+        if (existing) return existing.id;
+      }
       return createTarefa({
         usuarioId: perfil.id,
         propriedadeId: input.propriedadeId,
@@ -167,6 +174,7 @@ export const tarefasRouter = router({
         dataPrevista: new Date(input.dataPrevista),
         areaPlanejada: input.areaPlanejada?.toString(),
         origem: "manual",
+        clientMutationId: input.clientMutationId,
       } as any);
     }),
 
