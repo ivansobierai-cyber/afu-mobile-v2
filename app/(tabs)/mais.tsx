@@ -537,7 +537,7 @@ export default function MaisScreen() {
     return null;
   }
 
-  // Produtor: operações + banco 31–46. Admin: + docs de etapas + CRUD.
+  // Mais é exclusivo do admin (planejamento). Itens requireAdmin reforçam o filtro interno.
   const visibleSections = MENU_SECTIONS
     .filter((section) => !section.requireAdmin || isAdmin)
     .map((section) => ({

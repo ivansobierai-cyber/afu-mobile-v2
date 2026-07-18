@@ -32,7 +32,7 @@ export type UseSessionResult = {
   user: SessionUser | null;
   perfil: SessionPerfil | null;
   isAdmin: boolean;
-  /** Acesso à aba "Mais" e hub de módulos do painel principal */
+  /** Aba Mais só para admin — planejamento; produção usa o Dashboard */
   canAccessMaisTab: boolean;
   isAuthenticated: boolean;
   onboardingPendente: boolean;
@@ -53,8 +53,11 @@ export function useSession(): UseSessionResult {
   const perfil = (data?.perfil as SessionPerfil | null | undefined) ?? null;
   const isAdmin = data?.isAdmin ?? false;
   const isAuthenticated = !!user;
-  /** Aba Mais: todos autenticados (módulos operacionais); docs/admin filtrados no menu */
-  const canAccessMaisTab = isAuthenticated;
+  /**
+   * Aba Mais = área de planejamento do admin (etapas/docs/expansão).
+   * Produtor NÃO vê Mais; módulos prontos só entram no Dashboard quando autorizados.
+   */
+  const canAccessMaisTab = isAdmin || perfil?.tipoUsuario === "administrador";
   const onboardingPendente = isAuthenticated && !perfil;
   const contaSuspensa = perfil?.status === "suspenso";
 
