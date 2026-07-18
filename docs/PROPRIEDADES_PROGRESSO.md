@@ -8,36 +8,29 @@
 
 | Etapa | Nome | Status | Notas |
 |-------|------|--------|-------|
-| 1 | Fundação (sessão, estados, a11y, glossário, isolamento) | **feita (P0/P1)** | SessionGate, ScreenState, ownership DB/API, a11y painel, glossário/inventário, testes |
-| 2 | Painel propriedade com abas + safra | **feita (P1 shell)** | Abas Visão/Mapa/Talhões/Cultivos/Mais; rótulo de safra; `?tab=` |
-| 3 | Agenda → tarefas/operações | pendente | Próxima onda operacional |
-| 4 | Hoje / Atenção necessária | pendente | Placeholder “Hoje na fazenda” na Visão |
-| 5 | Mapa polígonos | pendente | Mapa ainda é marcador GPS |
+| 1 | Fundação | **feita** | SessionGate, ScreenState, ownership, a11y base |
+| 2 | Painel com abas + safra | **feita** | Shell com `?tab=` |
+| 3 | Agenda → tarefas/operações | **feita (P0/P1)** | `tarefas_operacionais`, apontamentos, migração legado, aba Operações, máquina de estados |
+| 4 | Hoje / Atenção necessária | **parcial** | Cards na Visão via `resumoHoje`; motor de regras completo ainda pendente |
+| 5 | Mapa polígonos | pendente | |
 | 6 | Ocorrência → diagnóstico → tarefa | pendente | |
 | 7 | Estoque agrícola | pendente | |
 | 8 | Custos / máquinas / equipe | pendente | |
-| 9 | Offline / sync | parcial | Core offline já existe; evoluir na etapa |
+| 9 | Offline / sync | parcial | Core offline; tarefas ainda não na fila offline |
 | 10 | Métricas / escala / IA | pendente | |
 
-## Entregue nesta onda
+## Entregue na Etapa 3
 
-- `components/screen-state.tsx`
-- `app/_layout.tsx` SessionGate
-- Isolamento `getPropriedades` / `getCulturas` + ownership em mutate
-- Cultivo persiste `terrenoId`
-- Painel `app/propriedades/[id].tsx` com abas
-- Docs + skill de continuidade
-- Testes: `screen-state`, `propriedades-ownership`, `session-gate`
-
-## Pendências / riscos
-
-- Tabela `safras` ainda não criada (rótulo derivado por calendário)
-- Sem API agregadora única da visão geral (queries paralelas)
-- A11y completa em lista/modais ainda parcial
-- Polígonos e tarefas operacionais não iniciados
+- Migration `0013_tarefas_operacionais.sql` (+ backfill de `calendario_cuidados` com propriedade)
+- `lib/propriedades/tarefa-status.ts` — transições
+- `server/routers/tarefas-router.ts` → `coreData.tarefas.*`
+- `components/propriedade-operacoes-panel.tsx`
+- Aba **Operações** no painel; Visão com Hoje + Atenção
+- Ownership no update/delete do calendário
+- Testes `tarefa-status`
 
 ## Como continuar
 
-1. Ler skill `afu-propriedades-evolution`
-2. Iniciar **Etapa 3** (modelo tarefa/operação/apontamento a partir de `calendario_cuidados`)
-3. Não pular para IA/custos antes da onda operacional
+1. Completar Etapa 4: motor de alertas determinísticos + preferências
+2. Offline para mutações de tarefas
+3. Etapa 5: GeoJSON / polígonos

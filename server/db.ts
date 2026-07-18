@@ -21,6 +21,10 @@ import {
   InsertRelatorio,
   calendarioCuidados,
   InsertCalendarioCuidado,
+  tarefasOperacionais,
+  InsertTarefaOperacional,
+  apontamentosOperacao,
+  InsertApontamentoOperacao,
   sensores,
   InsertSensor,
   leiturasSensores,
@@ -390,6 +394,62 @@ export async function deleteEvento(id: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   await db.delete(calendarioCuidados).where(eq(calendarioCuidados.id, id));
+}
+
+export async function getEventoById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(calendarioCuidados).where(eq(calendarioCuidados.id, id)).limit(1);
+  return rows[0];
+}
+
+// ─── TAREFAS OPERACIONAIS (Etapa 3) ───────────────────────────────────────────
+
+export async function getTarefasByPropriedade(propriedadeId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(tarefasOperacionais)
+    .where(eq(tarefasOperacionais.propriedadeId, propriedadeId))
+    .orderBy(tarefasOperacionais.dataPrevista);
+}
+
+export async function getTarefaById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(tarefasOperacionais).where(eq(tarefasOperacionais.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function createTarefa(data: InsertTarefaOperacional) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(tarefasOperacionais).values(data);
+  return result[0].insertId;
+}
+
+export async function updateTarefa(id: number, data: Partial<InsertTarefaOperacional>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(tarefasOperacionais).set(data).where(eq(tarefasOperacionais.id, id));
+}
+
+export async function createApontamento(data: InsertApontamentoOperacao) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(apontamentosOperacao).values(data);
+  return result[0].insertId;
+}
+
+export async function getApontamentosByTarefa(tarefaId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(apontamentosOperacao)
+    .where(eq(apontamentosOperacao.tarefaId, tarefaId))
+    .orderBy(desc(apontamentosOperacao.createdAt));
 }
 
 // ─── SENSORES ────────────────────────────────────────────────────────────────

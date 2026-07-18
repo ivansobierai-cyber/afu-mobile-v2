@@ -413,6 +413,85 @@ export type CalendarioCuidado = typeof calendarioCuidados.$inferSelect;
 export type InsertCalendarioCuidado = typeof calendarioCuidados.$inferInsert;
 
 // ─────────────────────────────────────────────
+// TABELA: tarefas_operacionais (Etapa 3)
+// Trabalho operacional ligado à propriedade/talhão/cultivo.
+// Eventos de calendario_cuidados podem ser migrados com origem=calendario_legado.
+// ─────────────────────────────────────────────
+export const tarefasOperacionais = mysqlTable("tarefas_operacionais", {
+  id: int("id").autoincrement().primaryKey(),
+  usuarioId: int("usuarioId").notNull(), // criador — usuarios_afu.id
+  propriedadeId: int("propriedadeId").notNull(),
+  terrenoId: int("terrenoId"),
+  culturaId: int("culturaId"),
+  tipoOperacao: mysqlEnum("tipoOperacao", [
+    "plantio",
+    "irrigacao",
+    "adubacao",
+    "pulverizacao",
+    "monitoramento",
+    "colheita",
+    "analise",
+    "manutencao",
+    "vistoria",
+    "outro",
+  ]).notNull(),
+  titulo: varchar("titulo", { length: 200 }).notNull(),
+  instrucoes: text("instrucoes"),
+  prioridade: mysqlEnum("prioridade", [
+    "baixa",
+    "normal",
+    "alta",
+    "critica",
+  ]).default("normal").notNull(),
+  status: mysqlEnum("status", [
+    "planejada",
+    "liberada",
+    "em_execucao",
+    "pausada",
+    "concluida",
+    "aprovada",
+    "cancelada",
+    "bloqueada",
+  ]).default("planejada").notNull(),
+  dataPrevista: timestamp("dataPrevista").notNull(),
+  areaPlanejada: decimal("areaPlanejada", { precision: 12, scale: 2 }),
+  origem: mysqlEnum("origem", [
+    "manual",
+    "calendario_legado",
+    "template",
+  ]).default("manual").notNull(),
+  legadoEventoId: int("legadoEventoId"),
+  motivoCancelamento: text("motivoCancelamento"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type TarefaOperacional = typeof tarefasOperacionais.$inferSelect;
+export type InsertTarefaOperacional = typeof tarefasOperacionais.$inferInsert;
+
+// ─────────────────────────────────────────────
+// TABELA: apontamentos_operacao (execução real)
+// ─────────────────────────────────────────────
+export const apontamentosOperacao = mysqlTable("apontamentos_operacao", {
+  id: int("id").autoincrement().primaryKey(),
+  tarefaId: int("tarefaId").notNull(),
+  usuarioId: int("usuarioId").notNull(),
+  inicioReal: timestamp("inicioReal").notNull(),
+  fimReal: timestamp("fimReal"),
+  areaExecutada: decimal("areaExecutada", { precision: 12, scale: 2 }),
+  notas: text("notas"),
+  resultado: mysqlEnum("resultado", [
+    "ok",
+    "parcial",
+    "problema",
+  ]).default("ok"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ApontamentoOperacao = typeof apontamentosOperacao.$inferSelect;
+export type InsertApontamentoOperacao = typeof apontamentosOperacao.$inferInsert;
+
+// ─────────────────────────────────────────────
 // TABELA: sensores (IoT)
 // ─────────────────────────────────────────────
 export const sensores = mysqlTable("sensores", {

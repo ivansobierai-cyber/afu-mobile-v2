@@ -16,6 +16,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { formatCoordinates, hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { currentSafraLabel } from "@/lib/propriedades/safra-label";
+import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -43,11 +44,12 @@ const TIPO_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
-type PanelTab = "visao" | "mapa" | "talhoes" | "cultivos" | "mais";
+type PanelTab = "visao" | "mapa" | "operacoes" | "talhoes" | "cultivos" | "mais";
 
 const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
   { id: "visao", label: "Visão", icon: "house.fill" },
   { id: "mapa", label: "Mapa", icon: "map.fill" },
+  { id: "operacoes", label: "Operações", icon: "checkmark.circle.fill" },
   { id: "talhoes", label: "Talhões", icon: "square.grid.2x2.fill" },
   { id: "cultivos", label: "Cultivos", icon: "leaf.fill" },
   { id: "mais", label: "Mais", icon: "ellipsis" },
@@ -86,6 +88,10 @@ export default function PropriedadeDetailScreen() {
     isError: errorTer,
     refetch: refetchTer,
   } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: propId },
+    { enabled: propId > 0 },
+  );
+  const { data: resumoHoje } = trpc.coreData.tarefas.resumoHoje.useQuery(
     { propriedadeId: propId },
     { enabled: propId > 0 },
   );
@@ -222,6 +228,12 @@ export default function PropriedadeDetailScreen() {
 
   const overviewShortcuts = [
     {
+      label: "Operações",
+      value: String(resumoHoje?.abertas ?? 0),
+      color: "#EF6C00",
+      onPress: () => selectTab("operacoes"),
+    },
+    {
       label: "Talhões",
       value: String(terrenos.length),
       color: "#8B5CF6",
@@ -232,12 +244,6 @@ export default function PropriedadeDetailScreen() {
       value: String(cultivosAtivos),
       color: colors.success,
       onPress: () => selectTab("cultivos"),
-    },
-    {
-      label: "Mapa",
-      value: hasGps ? "GPS" : "—",
-      color: colors.primary,
-      onPress: () => selectTab("mapa"),
     },
   ];
 
@@ -412,15 +418,80 @@ export default function PropriedadeDetailScreen() {
                 Hoje na fazenda
               </Text>
               <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 20 }}>
-                {cultivosAtivos > 0
-                  ? `${cultivosAtivos} cultivo(s) em andamento · ${terrenos.length} talhão(ões).`
-                  : "Nenhum cultivo ativo nesta safra. Cadastre um cultivo para começar."}
+                {resumoHoje
+                  ? `${resumoHoje.hoje} tarefa(s) para hoje · ${resumoHoje.emExecucao} em execução · ${cultivosAtivos} cultivo(s) ativo(s).`
+                  : cultivosAtivos > 0
+                    ? `${cultivosAtivos} cultivo(s) em andamento · ${terrenos.length} talhão(ões).`
+                    : "Nenhum cultivo ativo nesta safra. Cadastre um cultivo para começar."}
               </Text>
-              <Text style={{ fontSize: 12, color: colors.muted, marginTop: 8 }}>
-                Tarefas operacionais e alertas chegam na Etapa 3–4 do plano.
-              </Text>
+              {(resumoHoje?.itensHoje?.length ?? 0) > 0 ? (
+                <View style={{ marginTop: 8, gap: 6 }}>
+                  {resumoHoje!.itensHoje.slice(0, 3).map((t) => (
+                    <Text key={t.id} style={{ fontSize: 13, color: colors.foreground }}>
+                      · {t.titulo}
+                    </Text>
+                  ))}
+                </View>
+              ) : null}
+              <TouchableOpacity
+                onPress={() => selectTab("operacoes")}
+                accessibilityRole="button"
+                accessibilityLabel="Abrir operações"
+                style={{ marginTop: 10 }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
+                  Ver operações →
+                </Text>
+              </TouchableOpacity>
             </View>
+
+            {(resumoHoje?.atrasadas ?? 0) > 0 || (resumoHoje?.criticas ?? 0) > 0 ? (
+              <View
+                style={[
+                  styles.infoCard,
+                  { borderColor: "#EF6C00" + "80", backgroundColor: "#EF6C00" + "10" },
+                ]}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#EF6C00", marginBottom: 6 }}>
+                  Atenção necessária
+                </Text>
+                <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>
+                  {resumoHoje!.atrasadas > 0
+                    ? `${resumoHoje!.atrasadas} tarefa(s) atrasada(s). `
+                    : ""}
+                  {resumoHoje!.criticas > 0
+                    ? `${resumoHoje!.criticas} com prioridade alta/crítica.`
+                    : ""}
+                </Text>
+                {(resumoHoje?.itensAtrasados?.length ?? 0) > 0 ? (
+                  <View style={{ marginTop: 8, gap: 6 }}>
+                    {resumoHoje!.itensAtrasados.slice(0, 3).map((t) => (
+                      <Text key={t.id} style={{ fontSize: 13, color: colors.foreground }}>
+                        · {t.titulo} — {new Date(t.dataPrevista).toLocaleDateString("pt-BR")}
+                      </Text>
+                    ))}
+                  </View>
+                ) : null}
+                <TouchableOpacity
+                  onPress={() => selectTab("operacoes")}
+                  accessibilityRole="button"
+                  accessibilityLabel="Resolver tarefas atrasadas"
+                  style={{ marginTop: 10 }}
+                >
+                  <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 13 }}>
+                    Resolver agora →
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
           </>
+        )}
+
+        {tab === "operacoes" && (
+          <PropriedadeOperacoesPanel
+            propriedadeId={propriedade.id}
+            terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+          />
         )}
 
         {tab === "mapa" && (

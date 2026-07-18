@@ -15,8 +15,10 @@ Atualizado na onda de fundação do Plano Mestre de Propriedades.
 | Isolamento por produtor | corrigido Etapa 1 | `server/db.ts` `getPropriedades` / `getCulturas` |
 | ScreenState reutilizável | existe | `components/screen-state.tsx` |
 | Gate de sessão | existe | `app/_layout.tsx` SessionGate |
-| Safra (entidade) | parcial | seletor UI + tabela `safras` Etapa 2 |
-| Tarefas/operações | ausente | Etapa 3 |
+| Safra (entidade) | parcial | seletor UI + tabela `safras` futura |
+| Tarefas/operações | existe | `tarefas_operacionais` + aba Operações + `coreData.tarefas` |
+| Apontamentos | existe | `apontamentos_operacao` via transition |
+| Hoje / Atenção | parcial | cards na Visão via `resumoHoje` |
 | Polígonos GeoJSON | ausente | Etapa 5 |
 | Estoque agrícola | ausente | Etapa 7 (≠ marketplace) |
 

@@ -9,9 +9,9 @@
 | **Cultura (catálogo)** | `culturas_catalogo` | Ficha técnica botânica do banco agronômico (não é o cultivo do produtor). |
 | **Safra / ciclo** | `safras` (Etapa 2+) | Período produtivo que agrupa planejamento e resultados. Dados temporais pertencem à safra. |
 | **Evento** | `calendario_cuidados` | Lembrete/agenda. Não é tarefa operacional completa. |
-| **Tarefa** | (Etapa 3) | Trabalho atribuído com prazo e responsável. |
-| **Operação** | (Etapa 3) | Atividade agrícola planejada ou executada. |
-| **Apontamento** | (Etapa 3) | Registro real de execução, consumo e evidência. |
+| **Tarefa** | `tarefas_operacionais` | Trabalho atribuído com prazo, status e vínculo a propriedade/talhão. |
+| **Operação** | tipo em `tarefas_operacionais.tipoOperacao` | Tipo de atividade agrícola (plantio, irrigação, etc.). |
+| **Apontamento** | `apontamentos_operacao` | Registro real de execução (início/fim, área, notas). |
 | **Ocorrência** | (Etapa 6) | Observação de campo georreferenciada. |
 | **Diagnóstico** | `diagnosticos_ia` | Avaliação IA/humana/laboratorial ligada à ocorrência/cultivo. |
 

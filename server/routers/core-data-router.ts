@@ -25,11 +25,13 @@ import {
   updateCultura,
   deleteCultura,
   getCalendario,
+  getEventoById,
   createEvento,
   updateEvento,
   deleteEvento,
   propriedadeBelongsToProdutor,
 } from "../db";
+import { tarefasRouter } from "./tarefas-router";
 import { getDb } from "../db";
 import { sendPushToUsuario } from "../services/push-delivery";
 import { produtores } from "../../drizzle/schema";
@@ -312,6 +314,7 @@ const calendarioRouter = router({
         status: z.enum(["pendente", "em_andamento", "concluido", "cancelado"]).optional(),
         prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
         culturaId: z.number().int().positive().optional(),
+        propriedadeId: z.number().int().positive().optional(),
       }).optional()
     )
     .query(async ({ ctx, input }) => {
@@ -322,6 +325,9 @@ const calendarioRouter = router({
       if (input?.status) filtrados = filtrados.filter((e) => e.status === input.status);
       if (input?.prioridade) filtrados = filtrados.filter((e) => e.prioridade === input.prioridade);
       if (input?.culturaId) filtrados = filtrados.filter((e) => e.culturaId === input.culturaId);
+      if (input?.propriedadeId) {
+        filtrados = filtrados.filter((e) => e.propriedadeId === input.propriedadeId);
+      }
       return filtrados;
     }),
 
@@ -351,16 +357,28 @@ const calendarioRouter = router({
 
   update: protectedProcedure
     .input(z.object({ id: z.number().int().positive(), data: eventoInput.partial() }))
-    .mutation(async ({ input }) =>
-      updateEvento(input.id, {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const evento = await getEventoById(input.id);
+      if (!evento || evento.usuarioId !== perfil.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Evento não encontrado" });
+      }
+      return updateEvento(input.id, {
         ...input.data,
         dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
-      } as any)
-    ),
+      } as any);
+    }),
 
   delete: protectedProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const evento = await getEventoById(input.id);
+      if (!evento || evento.usuarioId !== perfil.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Evento não encontrado" });
+      }
       await deleteEvento(input.id);
       return { success: true };
     }),
@@ -385,4 +403,5 @@ export const coreDataRouter = router({
   terrenos: terrenosRouter,
   cultivos: cultivosRouter,
   calendario: calendarioRouter,
+  tarefas: tarefasRouter,
 });

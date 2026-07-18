@@ -50,10 +50,12 @@ Organização → Propriedade → Talhão(terreno) → Safra → Cultivo
 | Painel | `app/propriedades/[id].tsx` |
 | Talhões | `app/propriedades/terrenos.tsx` |
 | Cultivos | `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx` |
-| API | `server/routers/core-data-router.ts`, `server/db.ts` |
-| Schema | `drizzle/schema.ts` |
+| API | `server/routers/core-data-router.ts`, `server/routers/tarefas-router.ts`, `server/db.ts` |
+| Schema | `drizzle/schema.ts` (`tarefas_operacionais`, `apontamentos_operacao`) |
+| Operações UI | `components/propriedade-operacoes-panel.tsx` |
 | Estados UI | `components/screen-state.tsx` |
-| Sessão | `app/_layout.tsx` AuthGate, `hooks/use-session.ts` |
+| Status máquina | `lib/propriedades/tarefa-status.ts` |
+| Sessão | `app/_layout.tsx` SessionGate, `hooks/use-session.ts` |
 
 ## Checklist ao retomar
 
