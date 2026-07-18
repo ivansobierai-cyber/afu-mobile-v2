@@ -1,6 +1,16 @@
-import React, { useState } from 'react';
-import { View, TextInput, TouchableOpacity, Text } from 'react-native';
-import { useColors } from '@/hooks/use-colors';
+import React, { useId, useState } from "react";
+import { View, TextInput, TouchableOpacity, Text, Platform } from "react-native";
+import { useColors } from "@/hooks/use-colors";
+
+type AuthAutoComplete =
+  | "off"
+  | "email"
+  | "password"
+  | "current-password"
+  | "new-password"
+  | "name"
+  | "tel"
+  | "username";
 
 interface AuthTextInputProps {
   label: string;
@@ -8,22 +18,29 @@ interface AuthTextInputProps {
   value: string;
   onChangeText: (text: string) => void;
   secureTextEntry?: boolean;
-  keyboardType?: 'default' | 'email-address' | 'numeric' | 'phone-pad';
+  keyboardType?: "default" | "email-address" | "numeric" | "phone-pad";
   icon?: string;
   error?: string;
   editable?: boolean;
-  autoComplete?: 'off' | 'email' | 'password';
+  autoComplete?: AuthAutoComplete;
+}
+
+function textContentTypeFor(
+  autoComplete: AuthAutoComplete,
+  secureTextEntry: boolean,
+): "none" | "emailAddress" | "password" | "newPassword" | "name" | "telephoneNumber" | "username" {
+  if (autoComplete === "email") return "emailAddress";
+  if (autoComplete === "current-password" || autoComplete === "password") return "password";
+  if (autoComplete === "new-password") return "newPassword";
+  if (autoComplete === "name") return "name";
+  if (autoComplete === "tel") return "telephoneNumber";
+  if (autoComplete === "username") return "username";
+  if (secureTextEntry) return "password";
+  return "none";
 }
 
 /**
- * AuthTextInput — Componente de input reutilizável para formulários de autenticação
- *
- * Características:
- * - Label acima do input
- * - Ícone opcional à esquerda
- * - Toggle para mostrar/ocultar senha
- * - Mensagem de erro abaixo
- * - Estilos responsivos
+ * AuthTextInput — input de autenticação com label associado e autofill correto.
  */
 export function AuthTextInput({
   label,
@@ -31,31 +48,46 @@ export function AuthTextInput({
   value,
   onChangeText,
   secureTextEntry = false,
-  keyboardType = 'default',
+  keyboardType = "default",
   icon,
   error,
   editable = true,
-  autoComplete = 'off',
+  autoComplete = "off",
 }: AuthTextInputProps) {
   const colors = useColors();
+  const reactId = useId();
+  const inputId = `auth-input-${reactId.replace(/:/g, "")}`;
   const [showPassword, setShowPassword] = useState(!secureTextEntry);
+  const contentType = textContentTypeFor(autoComplete, secureTextEntry);
 
   return (
     <View className="mb-4">
-      {/* Label */}
-      <Text className="text-sm font-semibold text-foreground mb-2">{label}</Text>
+      <Text
+        nativeID={`${inputId}-label`}
+        accessibilityRole="text"
+        className="text-sm font-semibold text-foreground mb-2"
+        {...(Platform.OS === "web"
+          ? ({
+              // @ts-expect-error web htmlFor association
+              htmlFor: inputId,
+              as: "label",
+            } as object)
+          : {})}
+      >
+        {label}
+      </Text>
 
-      {/* Input Container */}
       <View
         className={`flex-row items-center border rounded-lg px-3 py-3 ${
-          error ? 'border-error bg-error/5' : 'border-border bg-background'
+          error ? "border-error bg-error/5" : "border-border bg-background"
         }`}
       >
-        {/* Ícone */}
         {icon && <Text className="text-lg mr-2">{icon}</Text>}
 
-        {/* TextInput */}
         <TextInput
+          nativeID={inputId}
+          accessibilityLabel={label}
+          accessibilityLabelledBy={Platform.OS === "web" ? undefined : `${inputId}-label`}
           placeholder={placeholder}
           placeholderTextColor="#999"
           value={value}
@@ -65,26 +97,31 @@ export function AuthTextInput({
           editable={editable}
           autoCorrect={false}
           autoCapitalize="none"
-          autoComplete={autoComplete}
-          textContentType="none"
-          importantForAutofill="no"
+          autoComplete={autoComplete as any}
+          textContentType={contentType}
+          importantForAutofill="yes"
           className="flex-1 text-foreground text-base"
           style={{ color: colors.foreground }}
+          {...(Platform.OS === "web" ? ({ id: inputId } as object) : {})}
         />
 
-        {/* Toggle Senha */}
         {secureTextEntry && (
           <TouchableOpacity
             onPress={() => setShowPassword(!showPassword)}
             className="ml-2"
+            accessibilityRole="button"
+            accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
           >
-            <Text className="text-lg">{showPassword ? '👁️' : '👁️‍🗨️'}</Text>
+            <Text className="text-lg">{showPassword ? "👁️" : "👁️‍🗨️"}</Text>
           </TouchableOpacity>
         )}
       </View>
 
-      {/* Mensagem de Erro */}
-      {error && <Text className="text-xs text-error mt-1">{error}</Text>}
+      {error && (
+        <Text className="text-xs text-error mt-1" accessibilityRole="alert">
+          {error}
+        </Text>
+      )}
     </View>
   );
 }

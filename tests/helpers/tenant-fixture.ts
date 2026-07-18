@@ -16,6 +16,8 @@ export type TenantFixture = {
   membershipId: number;
   propriedadeId: number;
   terrenoId: number;
+  cultivoId: number;
+  tarefaId: number;
   relatorioId: number;
   storageKey: string;
   user: User;
@@ -108,6 +110,24 @@ async function createOneTenant(label: "A" | "B"): Promise<TenantFixture> {
     area: 5,
   });
 
+  const cultivoId = await caller.coreData.cultivos.create({
+    propriedadeId,
+    terrenoId,
+    nomeCultura: `Cultivo ${label}`,
+    status: "em_andamento",
+    areaPlantada: 3,
+  });
+
+  const tarefaId = await caller.coreData.tarefas.create({
+    propriedadeId,
+    terrenoId,
+    culturaId: cultivoId,
+    tipoOperacao: "monitoramento",
+    titulo: `Tarefa ${label} ${suffix}`,
+    dataPrevista: new Date().toISOString(),
+    prioridade: "normal",
+  });
+
   const storageKey = buildTenantStorageKey(
     organizationId,
     "relatorio",
@@ -143,6 +163,8 @@ async function createOneTenant(label: "A" | "B"): Promise<TenantFixture> {
     membershipId,
     propriedadeId,
     terrenoId,
+    cultivoId,
+    tarefaId,
     relatorioId,
     storageKey,
     user,

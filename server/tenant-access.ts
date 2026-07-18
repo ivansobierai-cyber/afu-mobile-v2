@@ -69,12 +69,40 @@ export function requireOrgPermission(tenant: TenantContext, permission: OrgPermi
   }
 }
 
+async function auditTenantDenied(
+  tenant: TenantContext,
+  resourceType: string,
+  resourceId: string | number,
+  reason: string,
+) {
+  try {
+    const { auditAccessDenied } = await import("./private-files");
+    await auditAccessDenied({
+      actorUserId: tenant.userId,
+      organizationId: tenant.organizationId,
+      resourceType,
+      resourceId: String(resourceId),
+      reason,
+      code: "NOT_FOUND",
+    });
+  } catch {
+    // auditoria não deve mascarar a negação
+  }
+}
+
 /** Propriedade no escopo da organização ativa (via tenant-db) */
 export async function requirePropertyInTenant(
   tenant: TenantContext,
   propriedadeId: number,
 ) {
-  return createTenantDb(tenant.organizationId).requirePropriedade(propriedadeId);
+  try {
+    return await createTenantDb(tenant.organizationId).requirePropriedade(propriedadeId);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "NOT_FOUND") {
+      await auditTenantDenied(tenant, "propriedade", propriedadeId, "cross_tenant_or_missing");
+    }
+    throw e;
+  }
 }
 
 /** Talhão pertence à propriedade e à mesma org */
@@ -96,15 +124,31 @@ export async function requireCulturaInTenant(
   culturaId: number,
   propriedadeId?: number,
 ) {
-  const c = await createTenantDb(tenant.organizationId).requireCultura(culturaId);
+  let c;
+  try {
+    c = await createTenantDb(tenant.organizationId).requireCultura(culturaId);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "NOT_FOUND") {
+      await auditTenantDenied(tenant, "cultivo", culturaId, "cross_tenant_or_missing");
+    }
+    throw e;
+  }
   if (propriedadeId != null && c.propriedadeId !== propriedadeId) {
+    await auditTenantDenied(tenant, "cultivo", culturaId, "property_mismatch");
     throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
   }
   return c;
 }
 
 export async function requireRelatorioInTenant(tenant: TenantContext, id: number) {
-  return createTenantDb(tenant.organizationId).requireRelatorio(id);
+  try {
+    return await createTenantDb(tenant.organizationId).requireRelatorio(id);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "NOT_FOUND") {
+      await auditTenantDenied(tenant, "relatorio", id, "cross_tenant_or_missing");
+    }
+    throw e;
+  }
 }
 
 export async function requireAnaliseInTenant(tenant: TenantContext, id: number) {
@@ -112,7 +156,14 @@ export async function requireAnaliseInTenant(tenant: TenantContext, id: number) 
 }
 
 export async function requireTarefaInTenant(tenant: TenantContext, id: number) {
-  return createTenantDb(tenant.organizationId).requireTarefa(id);
+  try {
+    return await createTenantDb(tenant.organizationId).requireTarefa(id);
+  } catch (e) {
+    if (e instanceof TRPCError && e.code === "NOT_FOUND") {
+      await auditTenantDenied(tenant, "tarefa", id, "cross_tenant_or_missing");
+    }
+    throw e;
+  }
 }
 
 export async function requireEventoInTenant(tenant: TenantContext, id: number) {

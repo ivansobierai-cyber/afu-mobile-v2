@@ -78,6 +78,61 @@ describe.skipIf(!hasDb)("Etapa 10 — cross-tenant attack suite", () => {
     evidence.push({ case: "A_create_cultivo_on_B", result: msg });
   });
 
+  it("A tenta LER/ALTERAR cultivo e tarefa de B → NOT_FOUND", async () => {
+    const listCultivos = await a.caller.coreData.cultivos.list({
+      cacheScope: a.organizationId,
+    });
+    expect(listCultivos.some((c: { id: number }) => c.id === b.cultivoId)).toBe(false);
+    expect(listCultivos.some((c: { id: number }) => c.id === a.cultivoId)).toBe(true);
+
+    const updCultivo = await expectTenantDenied(
+      a.caller.coreData.cultivos.update({
+        id: b.cultivoId,
+        data: { nomeCultura: "HACKED" },
+      }),
+    );
+    const readTarefa = await expectTenantDenied(
+      a.caller.coreData.tarefas.get({ id: b.tarefaId }),
+    );
+    const updTarefa = await expectTenantDenied(
+      a.caller.coreData.tarefas.transition({
+        id: b.tarefaId,
+        status: "cancelada",
+        motivoCancelamento: "hack",
+      }),
+    );
+    evidence.push({
+      case: "A_read_update_B_cultivo_tarefa",
+      result: `${updCultivo}|${readTarefa}|${updTarefa}`,
+    });
+  });
+
+  it("auditoria registra tentativa bloqueada (access.denied)", async () => {
+    await expectTenantDenied(
+      a.caller.coreData.propriedades.get({ id: b.propriedadeId }),
+    );
+    const { getDb } = await import("../server/db");
+    const { auditLogs } = await import("../drizzle/schema");
+    const { and, eq, desc } = await import("drizzle-orm");
+    const db = await getDb();
+    expect(db).toBeTruthy();
+    const rows = await db!
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.actorUserId, a.userId),
+          eq(auditLogs.action, "access.denied"),
+          eq(auditLogs.resourceType, "propriedade"),
+          eq(auditLogs.resourceId, String(b.propriedadeId)),
+        ),
+      )
+      .orderBy(desc(auditLogs.id))
+      .limit(1);
+    expect(rows.length).toBe(1);
+    evidence.push({ case: "audit_access_denied", result: `id=${rows[0].id}` });
+  });
+
   it("A tenta baixar relatório de B por id → NOT_FOUND", async () => {
     const msg = await expectTenantDenied(
       a.caller.secondaryData.relatorios.getDownloadUrl({ id: b.relatorioId }),

@@ -2,15 +2,9 @@
  * route-guard.tsx — Proteção de Rotas do AFU
  *
  * Envolve telas que requerem autenticação ou role específico.
- * Redireciona automaticamente para login ou exibe mensagem de acesso negado.
- *
- * Uso básico (requer login):
- *   <RouteGuard><MinhaTelaProtegida /></RouteGuard>
- *
- * Uso com role admin:
- *   <RouteGuard requireAdmin><PainelAdmin /></RouteGuard>
+ * Desmonta children quando desautenticado (não monta UI protegida).
  */
-import React from "react";
+import React, { useEffect } from "react";
 import { View, Text, ActivityIndicator, TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
 import { useSession } from "@/hooks/use-session";
@@ -31,7 +25,14 @@ export function RouteGuard({
 }: RouteGuardProps) {
   const router = useRouter();
   const colors = useColors();
-  const { isAuthenticated, isAdmin, perfil, onboardingPendente, contaSuspensa, loading } = useSession();
+  const { isAuthenticated, isAdmin, onboardingPendente, contaSuspensa, loading } = useSession();
+
+  useEffect(() => {
+    if (loading) return;
+    if (requireAuth && !isAuthenticated) {
+      router.replace("/auth/welcome" as any);
+    }
+  }, [loading, requireAuth, isAuthenticated, router]);
 
   if (loading) {
     return (
@@ -42,27 +43,9 @@ export function RouteGuard({
     );
   }
 
+  // Desmonta completamente componentes protegidos enquanto desautenticado
   if (requireAuth && !isAuthenticated) {
-    return (
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32, backgroundColor: colors.background }}>
-        <Text style={{ fontSize: 40, marginBottom: 16 }}>🔒</Text>
-        <Text style={{ fontSize: 20, fontWeight: "700", color: colors.foreground, textAlign: "center", marginBottom: 8 }}>
-          Acesso Restrito
-        </Text>
-        <Text style={{ fontSize: 14, color: colors.muted, textAlign: "center", marginBottom: 24, lineHeight: 20 }}>
-          Você precisa estar autenticado para acessar esta área.
-        </Text>
-        <TouchableOpacity
-          onPress={() => router.push("/auth/login" as any)}
-          style={{ backgroundColor: colors.primary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12 }}
-        >
-          <Text style={{ color: "#FFFFFF", fontWeight: "700", fontSize: 15 }}>Fazer Login</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 12, paddingVertical: 10 }}>
-          <Text style={{ color: colors.muted, fontSize: 14 }}>Voltar</Text>
-        </TouchableOpacity>
-      </View>
-    );
+    return null;
   }
 
   if (isAuthenticated && contaSuspensa) {
@@ -90,6 +73,7 @@ export function RouteGuard({
           Para acessar esta área, complete seu cadastro no AFU.
         </Text>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => router.push("/auth/onboarding" as any)}
           style={{ backgroundColor: colors.primary, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12 }}
         >
@@ -110,6 +94,7 @@ export function RouteGuard({
           Esta área é restrita a administradores do sistema AFU.
         </Text>
         <TouchableOpacity
+          accessibilityRole="button"
           onPress={() => router.back()}
           style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 }}
         >

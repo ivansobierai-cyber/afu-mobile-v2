@@ -38,7 +38,30 @@ export type AuditAction =
   | "sync.conflict"
   | "admin.access"
   | "admin.mutation"
-  | "admin.break_glass";
+  | "admin.break_glass"
+  | "access.denied"
+  | "access.granted";
+
+/** Auditoria de tentativa bloqueada (cross-tenant / sem membership / sem permissão). */
+export async function auditAccessDenied(opts: {
+  actorUserId: number;
+  organizationId?: number | null;
+  resourceType: string;
+  resourceId?: string;
+  storageKey?: string;
+  reason: string;
+  code: "NOT_FOUND" | "FORBIDDEN" | "UNAUTHORIZED";
+}): Promise<void> {
+  await writeAuditLog({
+    organizationId: opts.organizationId ?? null,
+    actorUserId: opts.actorUserId,
+    action: "access.denied",
+    resourceType: opts.resourceType,
+    resourceId: opts.resourceId,
+    storageKey: opts.storageKey,
+    meta: JSON.stringify({ reason: opts.reason, code: opts.code }),
+  });
+}
 
 function getDownloadSecret(): Uint8Array {
   const secret = ENV.cookieSecret;
@@ -133,6 +156,14 @@ export async function assertCanAccessStorageKey(opts: {
       });
       return { organizationId: 0 };
     }
+    await auditAccessDenied({
+      actorUserId: opts.userId,
+      organizationId: null,
+      resourceType: "private_file",
+      storageKey: key,
+      reason: "legacy_key_no_org",
+      code: "NOT_FOUND",
+    });
     throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo não encontrado" });
   }
 
@@ -149,11 +180,27 @@ export async function assertCanAccessStorageKey(opts: {
       });
       return { organizationId };
     }
+    await auditAccessDenied({
+      actorUserId: opts.userId,
+      organizationId,
+      resourceType: "private_file",
+      storageKey: key,
+      reason: "no_membership",
+      code: "NOT_FOUND",
+    });
     throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo não encontrado" });
   }
 
   const perm = opts.permission ?? "reports.read";
   if (!roleHasPermission(membership.membership.role as any, perm) && opts.userRole !== "admin") {
+    await auditAccessDenied({
+      actorUserId: opts.userId,
+      organizationId,
+      resourceType: "private_file",
+      storageKey: key,
+      reason: `missing_permission:${perm}`,
+      code: "FORBIDDEN",
+    });
     throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para baixar este arquivo" });
   }
   if (!roleHasPermission(membership.membership.role as any, perm) && opts.userRole === "admin") {

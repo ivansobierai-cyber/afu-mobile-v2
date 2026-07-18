@@ -1,4 +1,4 @@
-import { View, Text, ScrollView } from "react-native";
+import { View, Text, ScrollView, Platform } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { AuthButton } from "@/components/auth-button";
@@ -25,7 +25,17 @@ export default function WelcomeScreen() {
             <IconSymbol name={"sprout.fill" as any} size={48} color="#FFFFFF" />
           </View>
 
-          <Text className="text-4xl font-bold text-foreground text-center">
+          <Text
+            accessibilityRole="header"
+            className="text-4xl font-bold text-foreground text-center"
+            {...(Platform.OS === "web"
+              ? ({
+                  accessibilityLevel: 1,
+                  role: "heading",
+                  "aria-level": 1,
+                } as object)
+              : {})}
+          >
             AFU Agro
           </Text>
 

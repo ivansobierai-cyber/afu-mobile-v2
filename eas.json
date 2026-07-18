@@ -40,7 +40,8 @@
     "production": {
       "autoIncrement": true,
       "env": {
-        "EXPO_PUBLIC_API_BASE_URL": "https://api.afuagro.com.br"
+        "EXPO_PUBLIC_API_BASE_URL": "https://api.afuagro.com.br",
+        "EXPO_PUBLIC_SHOW_DEMO_LOGIN": "0"
       }
     }
   },

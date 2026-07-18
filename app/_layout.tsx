@@ -33,19 +33,17 @@ export const unstable_settings = {
 };
 
 /**
- * AuthGuard — Monitora a sessão e redireciona automaticamente:
- * - Usuário não autenticado → /auth/welcome
- * - Usuário autenticado sem perfil AFU → /auth/onboarding
- * - Conta suspensa → /auth/login (com mensagem)
- *
- * Deve ser renderizado DENTRO dos providers (trpc + queryClient).
+ * Spinner só em rotas protegidas enquanto a sessão resolve (máx. ~2s via useSession).
+ * Telas públicas (auth/*) renderizam imediatamente — sessão em background.
  */
-/** Bloqueia a árvore até a sessão resolver — evita dashboard falso. */
-function SessionGate({ children }: { children: React.ReactNode }) {
-  const { loading } = useSession();
+function ProtectedSessionGate({ children }: { children: React.ReactNode }) {
+  const { loading, sessionTimedOut, refetch } = useSession();
+  const segments = useSegments();
   const colors = useColors();
+  const root = segments[0];
+  const isProtectedRoute = PROTECTED_ROUTE_GROUPS.has(root ?? "");
 
-  if (loading) {
+  if (isProtectedRoute && loading) {
     return (
       <View
         style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}
@@ -60,16 +58,43 @@ function SessionGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (isProtectedRoute && sessionTimedOut) {
+    return (
+      <View
+        style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background, padding: 24 }}
+      >
+        <Text style={{ fontSize: 16, color: colors.foreground, fontWeight: "700", marginBottom: 8, textAlign: "center" }}>
+          Não foi possível verificar a sessão
+        </Text>
+        <Text style={{ fontSize: 14, color: colors.muted, marginBottom: 20, textAlign: "center" }}>
+          A verificação demorou demais. Tente novamente ou faça login.
+        </Text>
+        <Text
+          onPress={() => refetch()}
+          accessibilityRole="button"
+          style={{ color: colors.primary, fontWeight: "700", fontSize: 15, padding: 12 }}
+        >
+          Tentar novamente
+        </Text>
+      </View>
+    );
+  }
+
   return <>{children}</>;
 }
 
+/**
+ * AuthGuard — Monitora a sessão e redireciona automaticamente:
+ * - Usuário não autenticado → /auth/welcome
+ * - Usuário autenticado sem perfil AFU → /auth/onboarding
+ * - Conta suspensa → /auth/login (com mensagem)
+ */
 function AuthGuard() {
   const router = useRouter();
   const segments = useSegments();
   const { isAuthenticated, onboardingPendente, contaSuspensa, loading } = useSession();
 
   useEffect(() => {
-    // Aguarda o carregamento da sessão antes de agir
     if (loading) return;
 
     const root = segments[0];
@@ -78,7 +103,6 @@ function AuthGuard() {
     const isProtectedRoute = PROTECTED_ROUTE_GROUPS.has(root ?? "");
     const authScreen = segments.at(1);
 
-    // Rotas públicas de auth (login, cadastro, recuperação)
     const isPublicAuthScreen =
       !authScreen ||
       authScreen === "welcome" ||
@@ -89,7 +113,6 @@ function AuthGuard() {
       authScreen === "forgot-password" ||
       authScreen === "reset-password";
 
-    // Não autenticado: redireciona para welcome
     if (!isAuthenticated) {
       if (isProtectedRoute) {
         router.replace("/auth/welcome" as any);
@@ -97,7 +120,6 @@ function AuthGuard() {
       return;
     }
 
-    // Conta suspensa: redireciona para login com aviso
     if (contaSuspensa) {
       if (!inAuthGroup || authScreen !== "login") {
         router.replace("/auth/login" as any);
@@ -105,7 +127,6 @@ function AuthGuard() {
       return;
     }
 
-    // Usuário logado sem perfil AFU: redireciona para onboarding
     if (onboardingPendente) {
       if (!inAuthGroup || authScreen !== "onboarding") {
         router.replace("/auth/onboarding" as any);
@@ -113,17 +134,27 @@ function AuthGuard() {
       return;
     }
 
-    // Perfil completo: não permanece em telas de entrada/login
     if (inAuthGroup && isPublicAuthScreen) {
       router.replace("/(tabs)" as any);
       return;
     }
 
-    // Evita redirecionar durante callback OAuth
     if (inOAuthGroup) return;
   }, [loading, isAuthenticated, onboardingPendente, contaSuspensa, segments, router]);
 
   return null;
+}
+
+/** Monta sync/push e telas protegidas só com sessão autenticada. */
+function AuthenticatedRuntime() {
+  const { isAuthenticated, loading } = useSession();
+  if (loading || !isAuthenticated) return null;
+  return (
+    <>
+      <CoreOfflineSyncManager />
+      <PushNotificationManager />
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -133,7 +164,6 @@ export default function RootLayout() {
   const [insets, setInsets] = useState<EdgeInsets>(initialInsets);
   const [frame, setFrame] = useState<Rect>(initialFrame);
 
-  // Initialize Manus runtime for cookie injection from parent container
   useEffect(() => {
     initManusRuntime();
   }, []);
@@ -149,15 +179,12 @@ export default function RootLayout() {
     return () => unsubscribe();
   }, [handleSafeAreaUpdate]);
 
-  // Create clients once and reuse them
   const [queryClient] = useState(
     () =>
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Disable automatic refetching on window focus for mobile
             refetchOnWindowFocus: false,
-            // Retry failed requests once
             retry: 1,
           },
         },
@@ -165,7 +192,6 @@ export default function RootLayout() {
   );
   const [trpcClient] = useState(() => createTRPCClient());
 
-  // Ensure minimum 8px padding for top and bottom on mobile
   const providerInitialMetrics = useMemo(() => {
     const metrics = initialWindowMetrics ?? { insets: initialInsets, frame: initialFrame };
     return {
@@ -182,24 +208,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
-          <SessionGate>
-            {/* Default to hiding native headers so raw route segments don't appear (e.g. "(tabs)", "products/[id]"). */}
-            {/* If a screen needs the native header, explicitly enable it and set a human title via Stack.Screen options. */}
-            <AuthGuard />
-            <CoreOfflineSyncManager />
-            <PushNotificationManager />
-            <Stack screenOptions={{ headerShown: false }}>
-              <Stack.Screen name="(tabs)" />
-              <Stack.Screen name="oauth/callback" />
-              <Stack.Screen name="admin" />
-              <Stack.Screen name="mais" />
-              <Stack.Screen name="propriedades" />
-              <Stack.Screen name="cultivos" />
-              <Stack.Screen name="auth" />
-            </Stack>
-            <StatusBar style="auto" />
-            {Platform.OS === "web" ? <SpeedInsights /> : null}
-          </SessionGate>
+          {/* Auth pública imediata; gate só em rotas protegidas */}
+          <AuthGuard />
+          <AuthenticatedRuntime />
+          <ProtectedSessionGate>
+            <ProtectedStack />
+          </ProtectedSessionGate>
+          <StatusBar style="auto" />
+          {Platform.OS === "web" ? <SpeedInsights /> : null}
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
@@ -225,5 +241,30 @@ export default function RootLayout() {
     <ThemeProvider>
       <SafeAreaProvider initialMetrics={providerInitialMetrics}>{content}</SafeAreaProvider>
     </ThemeProvider>
+  );
+}
+
+/**
+ * Desmonta grupos protegidos enquanto desautenticado (não só redireciona).
+ * Auth e OAuth permanecem montados para a tela pública imediata.
+ */
+function ProtectedStack() {
+  const { isAuthenticated, loading } = useSession();
+  const showProtected = isAuthenticated && !loading;
+
+  return (
+    <Stack screenOptions={{ headerShown: false }}>
+      {showProtected ? (
+        <>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen name="admin" />
+          <Stack.Screen name="mais" />
+          <Stack.Screen name="propriedades" />
+          <Stack.Screen name="cultivos" />
+        </>
+      ) : null}
+      <Stack.Screen name="oauth/callback" />
+      <Stack.Screen name="auth" />
+    </Stack>
   );
 }
