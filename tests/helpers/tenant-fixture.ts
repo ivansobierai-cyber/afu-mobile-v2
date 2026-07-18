@@ -34,11 +34,11 @@ export function createCallerCtx(user: User): TrpcContext {
     req: {
       protocol: "http",
       headers: { "user-agent": "etapa10-vitest", "x-forwarded-for": "127.0.0.1" },
-    } as TrpcContext["req"],
+    } as unknown as TrpcContext["req"],
     res: {
       clearCookie: () => undefined,
       cookie: () => undefined,
-    } as TrpcContext["res"],
+    } as unknown as TrpcContext["res"],
   };
 }
 

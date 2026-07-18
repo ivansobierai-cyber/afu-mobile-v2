@@ -27,7 +27,6 @@ export function AuthCard({ title, subtitle, children, icon }: AuthCardProps) {
         {...(Platform.OS === "web"
           ? ({
               accessibilityLevel: 1,
-              // @ts-expect-error RN web heading
               role: "heading",
               "aria-level": 1,
             } as object)

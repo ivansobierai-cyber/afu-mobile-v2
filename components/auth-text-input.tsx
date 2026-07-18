@@ -68,7 +68,6 @@ export function AuthTextInput({
         className="text-sm font-semibold text-foreground mb-2"
         {...(Platform.OS === "web"
           ? ({
-              // @ts-expect-error web htmlFor association
               htmlFor: inputId,
               as: "label",
             } as object)

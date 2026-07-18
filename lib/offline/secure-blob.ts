@@ -16,14 +16,24 @@ function bytesToB64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64");
 }
 
-function b64ToBytes(b64: string): Uint8Array {
+function b64ToBytes(b64: string): Uint8Array<ArrayBuffer> {
   if (typeof atob === "function") {
     const s = atob(b64);
     const out = new Uint8Array(s.length);
     for (let i = 0; i < s.length; i++) out[i] = s.charCodeAt(i);
     return out;
   }
-  return new Uint8Array(Buffer.from(b64, "base64"));
+  const buf = Buffer.from(b64, "base64");
+  const out = new Uint8Array(buf.length);
+  out.set(buf);
+  return out;
+}
+
+/** Copia para Uint8Array com ArrayBuffer (Web Crypto BufferSource tipado). */
+function asCryptoBytes(bytes: Uint8Array): Uint8Array<ArrayBuffer> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy;
 }
 
 async function getOrCreateDeviceSecret(): Promise<Uint8Array> {
@@ -71,7 +81,7 @@ function hasSubtle(): boolean {
 async function importAesKey(secret: Uint8Array): Promise<CryptoKey> {
   return globalThis.crypto.subtle.importKey(
     "raw",
-    secret.buffer.slice(secret.byteOffset, secret.byteOffset + secret.byteLength) as ArrayBuffer,
+    asCryptoBytes(secret),
     "AES-GCM",
     false,
     ["encrypt", "decrypt"],
@@ -88,7 +98,11 @@ export async function sealJson(value: unknown): Promise<string> {
   const iv = new Uint8Array(12);
   globalThis.crypto.getRandomValues(iv);
   const encoded = new TextEncoder().encode(plain);
-  const cipher = await globalThis.crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, encoded);
+  const cipher = await globalThis.crypto.subtle.encrypt(
+    { name: "AES-GCM", iv: asCryptoBytes(iv) },
+    key,
+    encoded,
+  );
   return `${ENC_PREFIX}${bytesToB64(iv)}.${bytesToB64(new Uint8Array(cipher))}`;
 }
 
@@ -109,9 +123,9 @@ export async function openJson<T>(raw: string | null | undefined): Promise<T | n
     const secret = await getOrCreateDeviceSecret();
     const key = await importAesKey(secret);
     const plainBuf = await globalThis.crypto.subtle.decrypt(
-      { name: "AES-GCM", iv: b64ToBytes(ivB64) },
+      { name: "AES-GCM", iv: asCryptoBytes(b64ToBytes(ivB64)) },
       key,
-      b64ToBytes(dataB64),
+      asCryptoBytes(b64ToBytes(dataB64)),
     );
     return JSON.parse(new TextDecoder().decode(plainBuf)) as T;
   } catch {
