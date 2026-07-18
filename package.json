@@ -22,6 +22,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:ci": "vitest run",
+    "test:security:etapa10": "tsx scripts/run-etapa10-security.ts",
     "check:tenant-queries": "node scripts/check-tenant-queries.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",

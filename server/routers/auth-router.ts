@@ -190,6 +190,14 @@ export const authRouter = router({
         if (!user.openId) {
           throw new Error('User openId is missing');
         }
+
+        // Etapa 10 — org pessoal só no login/signup (não em cada resolveSession)
+        try {
+          const { ensurePersonalOrganization } = await import("../db-organizations");
+          await ensurePersonalOrganization(user.id);
+        } catch (e) {
+          console.warn("[auth.login] ensurePersonalOrganization failed:", e);
+        }
         
         // Criar access token (curta duração)
         const accessToken = await createAccessToken(user.openId, user.name || '');

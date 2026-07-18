@@ -289,7 +289,12 @@ export async function resolveSessionOrganization(userId: number): Promise<{
   activeOrganizationId: number | null;
   activeRole: OrgRole | null;
 }> {
-  await ensurePersonalOrganization(userId);
+  /**
+   * Etapa 10 — NÃO chamar ensurePersonalOrganization aqui.
+   * Recriar org/membership em toda resolução mascarava remoção de acesso
+   * e permitia "sync" após membership removido.
+   * ensurePersonalOrganization fica em signup / login / backfill explícito.
+   */
   const memberships = await listActiveMemberships(userId);
   const db = await getDb();
   let activeOrganizationId: number | null = null;
@@ -301,10 +306,13 @@ export async function resolveSessionOrganization(userId: number): Promise<{
     activeOrganizationId &&
     !memberships.some((m) => m.organization.id === activeOrganizationId)
   ) {
+    // Membership perdido na org ativa → limpa escopo (não recria org silenciosamente)
     activeOrganizationId = memberships[0]?.organization.id ?? null;
-    if (db && activeOrganizationId) {
+    if (db) {
       const perfilRows = await db.select().from(usuariosAfu).where(eq(usuariosAfu.userId, userId)).limit(1);
-      if (perfilRows[0]) await setActiveOrganizationId(perfilRows[0].id, activeOrganizationId);
+      if (perfilRows[0]) {
+        await setActiveOrganizationId(perfilRows[0].id, activeOrganizationId);
+      }
     }
   }
   if (!activeOrganizationId && memberships[0]) {

@@ -76,4 +76,4 @@ Manual:
 
 ## Próxima etapa
 
-- Etapa 10: testes de isolamento, rollout e monitoramento
+- Etapa 10: concluída — ver `docs/SEGURANCA_ETAPA10_TESTES_IMPLANTACAO.md` (**AVANÇAR**)
