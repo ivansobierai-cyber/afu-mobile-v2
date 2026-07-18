@@ -1,6 +1,11 @@
 import "dotenv/config";
 import { vi } from "vitest";
 
+/** CI / local sem .env: tokens e auth de teste precisam de JWT_SECRET */
+if (!process.env.JWT_SECRET) {
+  process.env.JWT_SECRET = "vitest_jwt_secret_afu_mobile";
+}
+
 (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = false;
 
 const localStorageMock = (() => {

@@ -9,6 +9,10 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    env:
+      # Testes unitários sem MySQL; suites DB usam describe.skipIf(!DATABASE_URL)
+      JWT_SECRET: ci_jwt_secret_afu_mobile_validate
+      NODE_ENV: test
     steps:
       - uses: actions/checkout@v4
 

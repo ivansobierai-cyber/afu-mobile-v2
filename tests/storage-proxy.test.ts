@@ -21,11 +21,13 @@ function listen(app: express.Express): Promise<{ server: Server; baseUrl: string
   });
 }
 
-describe("storage proxy HTTP (/manus-storage)", () => {
+const hasDb = Boolean(process.env.DATABASE_URL);
+
+describe.skipIf(!hasDb)("storage proxy HTTP (/manus-storage)", () => {
   let a: TenantFixture;
   let b: TenantFixture;
   let baseUrl: string;
-  let server: Server;
+  let server: Server | undefined;
   beforeAll(async () => {
     if (!process.env.JWT_SECRET) process.env.JWT_SECRET = "test_jwt_secret_storage_proxy";
 
@@ -41,7 +43,8 @@ describe("storage proxy HTTP (/manus-storage)", () => {
   }, 120_000);
 
   afterAll(async () => {
-    await new Promise<void>((resolve) => server.close(() => resolve()));
+    if (!server) return;
+    await new Promise<void>((resolve) => server!.close(() => resolve()));
   });
 
   /** Auth/ACL passou: proxy segue para Forge (503 sem config, 502 erro, 307 redirect). */
