@@ -38,6 +38,7 @@ export function PlantaSaudavelHubCard({
 
   const badgeFor = (id: string) => {
     if (id === "diagnostico") return diagnosticos;
+    if (id === "analises") return analises;
     if (id === "laudos") return laudos;
     return 0;
   };
@@ -56,7 +57,7 @@ export function PlantaSaudavelHubCard({
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Planta Saudável</Text>
-          <Text style={styles.subtitle}>Diagnóstico · propriedades · laudos</Text>
+          <Text style={styles.subtitle}>Diagnóstico · análises · laudos</Text>
         </View>
         <IconSymbol name="chevron.right" size={18} color="rgba(255,255,255,0.8)" />
       </TouchableOpacity>
