@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useOfflineTenantScope } from "@/hooks/use-offline-tenant-scope";
+import { localDbStorageKey } from "@/lib/offline/tenant-scope";
 
 export type DashboardCardId =
   | "propriedades"
@@ -17,8 +19,8 @@ export type DashboardCardConfig = {
   visible: boolean;
 };
 
-/** v2: viewport inicial só com 4 cards essenciais; demais no personalizar */
-const STORAGE_KEY = "afu:dashboard-cards:v2";
+/** Legado global; preferências passam a ser por user+org (Etapa 8) */
+const LEGACY_STORAGE_KEY = "afu:dashboard-cards:v2";
 
 export const DEFAULT_DASHBOARD_CARDS: DashboardCardConfig[] = [
   { id: "propriedades", visible: true },
@@ -51,6 +53,7 @@ function mergeWithDefaults(saved: DashboardCardConfig[]): DashboardCardConfig[] 
 }
 
 export function useDashboardCards() {
+  const { scope } = useOfflineTenantScope();
   const [cards, setCards] = useState<DashboardCardConfig[]>(DEFAULT_DASHBOARD_CARDS);
   const [loaded, setLoaded] = useState(false);
 
@@ -58,13 +61,18 @@ export function useDashboardCards() {
     let cancelled = false;
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const key = scope
+          ? localDbStorageKey(scope, "prefs", "dashboard-cards")
+          : LEGACY_STORAGE_KEY;
+        const raw = await AsyncStorage.getItem(key);
         if (cancelled) return;
         if (raw) {
           const parsed = JSON.parse(raw) as DashboardCardConfig[];
           if (Array.isArray(parsed)) {
             setCards(mergeWithDefaults(parsed.filter((c) => VALID_IDS.has(c.id))));
           }
+        } else {
+          setCards(DEFAULT_DASHBOARD_CARDS);
         }
       } catch {
         // mantém defaults
@@ -73,13 +81,16 @@ export function useDashboardCards() {
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [scope?.userId, scope?.organizationId, scope?.deviceId]);
 
   const saveCards = useCallback(async (next: DashboardCardConfig[]) => {
     const merged = mergeWithDefaults(next);
     setCards(merged);
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
-  }, []);
+    const key = scope
+      ? localDbStorageKey(scope, "prefs", "dashboard-cards")
+      : LEGACY_STORAGE_KEY;
+    await AsyncStorage.setItem(key, JSON.stringify(merged));
+  }, [scope]);
 
   const moveCard = useCallback(
     (id: DashboardCardId, direction: "up" | "down") => {

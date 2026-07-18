@@ -46,7 +46,9 @@ export default function PerfilScreen() {
   });
   const setActiveOrg = trpc.organizations.setActive.useMutation({
     onSuccess: async () => {
-      // Etapa 7 — limpa cache do cliente anterior ao trocar org
+      // Etapa 7/8 — limpa cache RQ; filas offline ficam namespaced por org
+      const { cleanupOfflineScope } = await import("@/lib/offline/session-cleanup");
+      await cleanupOfflineScope(null, "org_switch");
       await queryClient.clear();
       await utils.auth.session.invalidate();
     },

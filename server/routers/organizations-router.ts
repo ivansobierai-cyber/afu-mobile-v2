@@ -251,4 +251,36 @@ export const organizationsRouter = router({
   debugMemberships: protectedProcedure.query(async ({ ctx }) => {
     return listActiveMemberships(ctx.user.id);
   }),
+
+  /** Etapa 8 — conflitos de sync offline da org ativa */
+  syncConflicts: router({
+    list: organizationProcedure
+      .input(z.object({ limit: z.number().int().positive().max(100).optional() }).optional())
+      .query(async ({ ctx, input }) => {
+        const { getCtxTenant, requireOrgPermission } = await import("../tenant-access");
+        const { listOpenSyncConflicts } = await import("../sync-conflicts");
+        const tenant = getCtxTenant(ctx);
+        requireOrgPermission(tenant, "property.read");
+        return listOpenSyncConflicts(tenant.organizationId, input?.limit ?? 50);
+      }),
+    resolve: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          conflictId: z.number().int().positive(),
+          status: z.enum(["resolvido", "descartado"]).default("resolvido"),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const { getCtxTenant } = await import("../tenant-access");
+        const { resolveServerSyncConflict } = await import("../sync-conflicts");
+        const tenant = getCtxTenant(ctx);
+        await resolveServerSyncConflict(
+          tenant.organizationId,
+          input.conflictId,
+          tenant.userId,
+          input.status,
+        );
+        return { success: true };
+      }),
+  }),
 });

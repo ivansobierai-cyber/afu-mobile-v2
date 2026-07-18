@@ -1,22 +1,33 @@
 import { useCallback, useEffect, useState } from "react";
 import type { CartItem } from "@/shared/marketplace";
 import { clearCart, loadCart, saveCart } from "@/lib/marketplace-cart";
+import { useOfflineTenantScope } from "@/hooks/use-offline-tenant-scope";
 
 export function useMarketplaceCart() {
+  const { scope } = useOfflineTenantScope();
   const [items, setItems] = useState<CartItem[]>([]);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    loadCart().then((loaded) => {
+    let cancelled = false;
+    setReady(false);
+    void loadCart(scope).then((loaded) => {
+      if (cancelled) return;
       setItems(loaded);
       setReady(true);
     });
-  }, []);
+    return () => {
+      cancelled = true;
+    };
+  }, [scope?.userId, scope?.organizationId, scope?.deviceId]);
 
-  const persist = useCallback(async (next: CartItem[]) => {
-    setItems(next);
-    await saveCart(next);
-  }, []);
+  const persist = useCallback(
+    async (next: CartItem[]) => {
+      setItems(next);
+      await saveCart(next, scope);
+    },
+    [scope],
+  );
 
   const addItem = useCallback(
     async (item: Omit<CartItem, "quantidade"> & { quantidade?: number }) => {
@@ -55,8 +66,8 @@ export function useMarketplaceCart() {
 
   const emptyCart = useCallback(async () => {
     setItems([]);
-    await clearCart();
-  }, []);
+    await clearCart(scope);
+  }, [scope]);
 
   const total = items.reduce((sum, i) => sum + i.preco * i.quantidade, 0);
   const count = items.reduce((sum, i) => sum + i.quantidade, 0);

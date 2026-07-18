@@ -62,4 +62,5 @@ Manual (web):
 
 ## Próxima etapa
 
-- Etapa 8: offline e dispositivos — banco local / filas por usuário+org; revalidar tenant na sync
+- Etapa 8: concluída — ver `docs/SEGURANCA_ETAPA8_OFFLINE_DISPOSITIVOS.md`
+- Etapa 9: IA, logs e governança

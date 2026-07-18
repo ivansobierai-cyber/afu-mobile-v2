@@ -115,6 +115,10 @@ export const propriedadeExpansaoRouter = router({
         geometriaGeoJson: z.string().min(2),
         areaGeometricaHa: z.number().optional(),
         origem: z.enum(["desenhada", "gps", "importada", "integracao"]).optional(),
+        /** Etapa 8 — optimistic concurrency; omitir só em writes online frescos */
+        expectedGeometriaVersao: z.number().int().positive().optional(),
+        clientMutationId: z.string().min(8).max(64).optional(),
+        deviceId: z.string().max(80).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -130,25 +134,53 @@ export const propriedadeExpansaoRouter = router({
       if (!parsed || (parsed.type !== "Polygon" && parsed.type !== "Feature" && parsed.type !== "FeatureCollection")) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON deve ser Polygon ou Feature" });
       }
-      await updateGeometriaPropriedade(
-        input.propriedadeId,
-        {
-          geometriaGeoJson: input.geometriaGeoJson,
-          areaGeometricaHa: input.areaGeometricaHa?.toString(),
-          geometriaOrigem: input.origem,
-        },
-        tenant.organizationId,
-      );
-      await registrarAtividade({
-        propriedadeId: input.propriedadeId,
-        organizationId: tenant.organizationId,
-        usuarioId: tenant.perfilId,
-        tipo: "geometria",
-        titulo: "Perímetro da propriedade atualizado",
-        detalhe: `Origem: ${input.origem ?? "desenhada"}`,
-        gravidade: "info",
-      });
-      return { success: true };
+      try {
+        const updated = await updateGeometriaPropriedade(
+          input.propriedadeId,
+          {
+            geometriaGeoJson: input.geometriaGeoJson,
+            areaGeometricaHa: input.areaGeometricaHa?.toString(),
+            geometriaOrigem: input.origem,
+            expectedGeometriaVersao: input.expectedGeometriaVersao,
+          },
+          tenant.organizationId,
+        );
+        await registrarAtividade({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          usuarioId: tenant.perfilId,
+          tipo: "geometria",
+          titulo: "Perímetro da propriedade atualizado",
+          detalhe: `Origem: ${input.origem ?? "desenhada"}`,
+          gravidade: "info",
+        });
+        return { success: true, geometriaVersao: updated.geometriaVersao };
+      } catch (e: any) {
+        if (e?.code === "GEOMETRY_VERSION_CONFLICT") {
+          const { recordServerSyncConflict } = await import("../sync-conflicts");
+          await recordServerSyncConflict({
+            organizationId: tenant.organizationId,
+            actorUserId: tenant.userId,
+            deviceId: input.deviceId,
+            clientMutationId: input.clientMutationId,
+            entity: "geometria_propriedade",
+            action: "update",
+            resourceType: "propriedade",
+            resourceId: String(input.propriedadeId),
+            reason: "geometry_version",
+            message: e.message,
+            payload: JSON.stringify({
+              expectedGeometriaVersao: input.expectedGeometriaVersao,
+              serverVersion: e.serverVersion,
+            }),
+          });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: e.message,
+          });
+        }
+        throw e;
+      }
     }),
 
   setGeometriaTerreno: orgPermissionProcedure("property.write")
@@ -159,6 +191,9 @@ export const propriedadeExpansaoRouter = router({
         geometriaGeoJson: z.string().min(2),
         areaGeometricaHa: z.number().optional(),
         origem: z.enum(["desenhada", "gps", "importada", "integracao"]).optional(),
+        expectedGeometriaVersao: z.number().int().positive().optional(),
+        clientMutationId: z.string().min(8).max(64).optional(),
+        deviceId: z.string().max(80).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -170,16 +205,44 @@ export const propriedadeExpansaoRouter = router({
       } catch {
         throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON inválido" });
       }
-      await updateGeometriaTerreno(
-        input.terrenoId,
-        {
-          geometriaGeoJson: input.geometriaGeoJson,
-          areaGeometricaHa: input.areaGeometricaHa?.toString(),
-          geometriaOrigem: input.origem,
-        },
-        tenant.organizationId,
-      );
-      return { success: true };
+      try {
+        const updated = await updateGeometriaTerreno(
+          input.terrenoId,
+          {
+            geometriaGeoJson: input.geometriaGeoJson,
+            areaGeometricaHa: input.areaGeometricaHa?.toString(),
+            geometriaOrigem: input.origem,
+            expectedGeometriaVersao: input.expectedGeometriaVersao,
+          },
+          tenant.organizationId,
+        );
+        return { success: true, geometriaVersao: updated.geometriaVersao };
+      } catch (e: any) {
+        if (e?.code === "GEOMETRY_VERSION_CONFLICT") {
+          const { recordServerSyncConflict } = await import("../sync-conflicts");
+          await recordServerSyncConflict({
+            organizationId: tenant.organizationId,
+            actorUserId: tenant.userId,
+            deviceId: input.deviceId,
+            clientMutationId: input.clientMutationId,
+            entity: "geometria_terreno",
+            action: "update",
+            resourceType: "terreno",
+            resourceId: String(input.terrenoId),
+            reason: "geometry_version",
+            message: e.message,
+            payload: JSON.stringify({
+              expectedGeometriaVersao: input.expectedGeometriaVersao,
+              serverVersion: e.serverVersion,
+            }),
+          });
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: e.message,
+          });
+        }
+        throw e;
+      }
     }),
 
   // ── Etapa 6: ocorrências ──────────────────────────────────────────────────

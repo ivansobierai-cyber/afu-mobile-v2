@@ -172,6 +172,10 @@ export const tarefasRouter = router({
         motivoCancelamento: z.string().optional(),
         notasApontamento: z.string().optional(),
         areaExecutada: z.number().optional(),
+        /** Etapa 8 — status conhecido no cliente no momento do enqueue offline */
+        expectedStatus: statusSchema.optional(),
+        clientMutationId: z.string().min(8).max(64).optional(),
+        deviceId: z.string().max(80).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -179,6 +183,49 @@ export const tarefasRouter = router({
       const tarefa = await requireTarefaInTenant(tenant, input.id);
       const from = tarefa.status as TarefaStatus;
       const to = input.status as TarefaStatus;
+
+      if (from === "aprovada" && to !== "aprovada") {
+        const { recordServerSyncConflict } = await import("../sync-conflicts");
+        await recordServerSyncConflict({
+          organizationId: tenant.organizationId,
+          actorUserId: tenant.userId,
+          deviceId: input.deviceId,
+          clientMutationId: input.clientMutationId,
+          entity: "tarefa",
+          action: "transition",
+          resourceType: "tarefa",
+          resourceId: String(tarefa.id),
+          reason: "operation_approved",
+          message: "Operação aprovada não pode ser sobrescrita silenciosamente",
+          payload: JSON.stringify({ from, to }),
+        });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Operação aprovada não pode ser alterada (operation_approved)",
+        });
+      }
+
+      if (input.expectedStatus && input.expectedStatus !== from) {
+        const { recordServerSyncConflict } = await import("../sync-conflicts");
+        await recordServerSyncConflict({
+          organizationId: tenant.organizationId,
+          actorUserId: tenant.userId,
+          deviceId: input.deviceId,
+          clientMutationId: input.clientMutationId,
+          entity: "tarefa",
+          action: "transition",
+          resourceType: "tarefa",
+          resourceId: String(tarefa.id),
+          reason: "invalid_transition",
+          message: `Status no servidor (${from}) difere do esperado offline (${input.expectedStatus})`,
+          payload: JSON.stringify({ from, to, expectedStatus: input.expectedStatus }),
+        });
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: `Conflito de status da tarefa: esperado ${input.expectedStatus}, servidor ${from}`,
+        });
+      }
+
       try {
         assertTransition(from, to);
       } catch (e: any) {

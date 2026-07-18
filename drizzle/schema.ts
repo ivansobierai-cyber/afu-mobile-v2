@@ -188,6 +188,8 @@ export const terrenos = mysqlTable(
   geometriaGeoJson: text("geometriaGeoJson"),
   areaGeometricaHa: decimal("areaGeometricaHa", { precision: 12, scale: 4 }),
   geometriaOrigem: mysqlEnum("geometriaOrigemTalhao", ["desenhada", "gps", "importada", "integracao"]).default("desenhada"),
+  /** Etapa 8 — otimistic concurrency na sync offline */
+  geometriaVersao: int("geometriaVersao").default(1),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 },
   (t) => [
@@ -1319,3 +1321,40 @@ export const auditLogs = mysqlTable(
 
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
+
+/** Etapa 8 — conflitos de sincronização offline resolvidos no servidor */
+export const syncConflicts = mysqlTable(
+  "sync_conflicts",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    actorUserId: int("actorUserId"),
+    deviceId: varchar("deviceId", { length: 80 }),
+    clientMutationId: varchar("clientMutationId", { length: 64 }),
+    entity: varchar("entity", { length: 60 }).notNull(),
+    action: varchar("action", { length: 40 }).notNull(),
+    resourceType: varchar("resourceType", { length: 60 }),
+    resourceId: varchar("resourceId", { length: 64 }),
+    reason: varchar("reason", { length: 80 }).notNull(),
+    message: text("message"),
+    payload: text("payload"),
+    status: mysqlEnum("syncConflictStatus", [
+      "aberto",
+      "resolvido",
+      "descartado",
+    ])
+      .default("aberto")
+      .notNull(),
+    resolvedByUserId: int("resolvedByUserId"),
+    resolvedAt: timestamp("resolvedAt"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("sync_conflicts_organization_idx").on(t.organizationId),
+    index("sync_conflicts_status_idx").on(t.organizationId, t.status),
+    index("sync_conflicts_client_mutation_idx").on(t.clientMutationId),
+  ],
+);
+
+export type SyncConflict = typeof syncConflicts.$inferSelect;
+export type InsertSyncConflict = typeof syncConflicts.$inferInsert;

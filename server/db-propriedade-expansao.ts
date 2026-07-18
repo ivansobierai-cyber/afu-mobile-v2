@@ -227,11 +227,37 @@ export async function updateGeometriaPropriedade(
     geometriaGeoJson: string;
     areaGeometricaHa?: string;
     geometriaOrigem?: "desenhada" | "gps" | "importada" | "integracao";
+    expectedGeometriaVersao?: number;
   },
   organizationId: number,
-) {
+): Promise<{ geometriaVersao: number }> {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
+
+  const current = await db
+    .select({
+      id: propriedades.id,
+      geometriaVersao: propriedades.geometriaVersao,
+    })
+    .from(propriedades)
+    .where(and(eq(propriedades.id, id), eq(propriedades.organizationId, organizationId)))
+    .limit(1);
+  if (!current[0]) {
+    throw new Error("Propriedade não encontrada no tenant");
+  }
+  const serverVersion = current[0].geometriaVersao ?? 1;
+  if (
+    data.expectedGeometriaVersao != null &&
+    data.expectedGeometriaVersao !== serverVersion
+  ) {
+    const err = new Error(
+      `Conflito de geometria: versão esperada ${data.expectedGeometriaVersao}, servidor ${serverVersion}`,
+    );
+    (err as any).code = "GEOMETRY_VERSION_CONFLICT";
+    (err as any).serverVersion = serverVersion;
+    throw err;
+  }
+
   const result = await db
     .update(propriedades)
     .set({
@@ -244,6 +270,7 @@ export async function updateGeometriaPropriedade(
   if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
     throw new Error("Propriedade não encontrada no tenant");
   }
+  return { geometriaVersao: serverVersion + 1 };
 }
 
 export async function updateGeometriaTerreno(
@@ -252,22 +279,50 @@ export async function updateGeometriaTerreno(
     geometriaGeoJson: string;
     areaGeometricaHa?: string;
     geometriaOrigem?: "desenhada" | "gps" | "importada" | "integracao";
+    expectedGeometriaVersao?: number;
   },
   organizationId: number,
-) {
+): Promise<{ geometriaVersao: number }> {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
+
+  const current = await db
+    .select({
+      id: terrenos.id,
+      geometriaVersao: terrenos.geometriaVersao,
+    })
+    .from(terrenos)
+    .where(and(eq(terrenos.id, id), eq(terrenos.organizationId, organizationId)))
+    .limit(1);
+  if (!current[0]) {
+    throw new Error("Talhão não encontrado no tenant");
+  }
+  const serverVersion = current[0].geometriaVersao ?? 1;
+  if (
+    data.expectedGeometriaVersao != null &&
+    data.expectedGeometriaVersao !== serverVersion
+  ) {
+    const err = new Error(
+      `Conflito de geometria: versão esperada ${data.expectedGeometriaVersao}, servidor ${serverVersion}`,
+    );
+    (err as any).code = "GEOMETRY_VERSION_CONFLICT";
+    (err as any).serverVersion = serverVersion;
+    throw err;
+  }
+
   const result = await db
     .update(terrenos)
     .set({
       geometriaGeoJson: data.geometriaGeoJson,
       areaGeometricaHa: data.areaGeometricaHa,
       geometriaOrigem: data.geometriaOrigem ?? "desenhada",
+      geometriaVersao: sql`COALESCE(${terrenos.geometriaVersao}, 0) + 1`,
     })
     .where(and(eq(terrenos.id, id), eq(terrenos.organizationId, organizationId)));
   if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
     throw new Error("Talhão não encontrado no tenant");
   }
+  return { geometriaVersao: serverVersion + 1 };
 }
 
 export async function findTarefaByClientMutationId(clientMutationId: string) {
