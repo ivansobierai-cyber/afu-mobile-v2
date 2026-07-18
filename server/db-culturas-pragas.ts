@@ -21,6 +21,8 @@ export type CulturaFiltros = {
   busca?: string;
   status?: "planejado" | "em_andamento" | "colhido" | "perdido";
   propriedadeId?: number;
+  /** Etapa 4 — escopo obrigatório para não-admin */
+  organizationId?: number;
   limit?: number;
   offset?: number;
 };
@@ -29,9 +31,12 @@ export async function listarCulturasAdmin(filtros: CulturaFiltros = {}) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
-  const { busca, status, propriedadeId, limit = 50, offset = 0 } = filtros;
+  const { busca, status, propriedadeId, organizationId, limit = 50, offset = 0 } = filtros;
 
   const conditions = [];
+  if (organizationId != null) {
+    conditions.push(eq(culturas.organizationId, organizationId));
+  }
   if (busca) {
     conditions.push(
       or(

@@ -3,10 +3,11 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import type { TrpcContext } from "./context";
 import {
-  getActiveMembership,
-  resolveSessionOrganization,
-} from "../db-organizations";
-import { getUsuarioAfuByUserId } from "../db";
+  requireTenantContext,
+  requireOrgPermission,
+  requirePropertyInTenant,
+  type TenantContext,
+} from "../tenant-access";
 import {
   roleHasPermission,
   type OrgPermission,
@@ -55,45 +56,27 @@ export const adminProcedure = t.procedure.use(
 );
 
 /**
- * Etapa 2 — exige membership ativo na organização ativa (ou organizationId do input).
- * input pode carregar `organizationId`; senão usa activeOrganizationId do perfil.
+ * Etapa 4 — sessão + organização ativa + membership ativo.
  */
 export const organizationProcedure = protectedProcedure.use(
   t.middleware(async (opts) => {
-    const { ctx, next, getRawInput } = opts;
+    const { ctx, next } = opts;
     if (!ctx.user) {
       throw new TRPCError({ code: "UNAUTHORIZED", message: UNAUTHED_ERR_MSG });
     }
 
-    const raw = (await getRawInput()) as { organizationId?: number } | undefined;
-    const sessionOrg = await resolveSessionOrganization(ctx.user.id);
-    const organizationId = raw?.organizationId ?? sessionOrg.activeOrganizationId;
-
-    if (!organizationId) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Nenhuma organização ativa. Selecione uma organização.",
-      });
-    }
-
-    const membership = await getActiveMembership(ctx.user.id, organizationId);
-    if (!membership) {
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message: "Sem membership ativo nesta organização.",
-      });
-    }
-
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
+    const tenant = await requireTenantContext(ctx.user.id);
 
     return next({
       ctx: {
         ...ctx,
         user: ctx.user,
-        organization: membership.organization,
-        membership: membership.membership,
-        orgRole: membership.membership.role as OrgRole,
-        perfil,
+        tenant,
+        organization: tenant.organization,
+        membership: tenant.membership,
+        orgRole: tenant.orgRole,
+        organizationId: tenant.organizationId,
+        perfilId: tenant.perfilId,
       },
     });
   }),
@@ -104,14 +87,46 @@ export function orgPermissionProcedure(permission: OrgPermission) {
   return organizationProcedure.use(
     t.middleware(async (opts) => {
       const { ctx, next } = opts;
-      const role = (ctx as { orgRole?: OrgRole }).orgRole;
-      if (!role || !roleHasPermission(role, permission)) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: `Permissão necessária: ${permission}`,
-        });
+      const tenant = (ctx as { tenant?: TenantContext }).tenant;
+      if (!tenant) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Contexto de organização ausente" });
       }
+      requireOrgPermission(tenant, permission);
       return next({ ctx });
     }),
   );
 }
+
+/**
+ * Etapa 4 — organizationProcedure + valida propriedadeId do input no tenant.
+ * input deve incluir `propriedadeId` (ou `id` quando for get de propriedade).
+ */
+export const propertyProcedure = organizationProcedure.use(
+  t.middleware(async (opts) => {
+    const { ctx, next, getRawInput } = opts;
+    const tenant = (ctx as { tenant?: TenantContext }).tenant;
+    if (!tenant) {
+      throw new TRPCError({ code: "FORBIDDEN", message: "Contexto de organização ausente" });
+    }
+    const raw = (await getRawInput()) as
+      | { propriedadeId?: number; id?: number }
+      | undefined;
+    const propriedadeId = raw?.propriedadeId ?? raw?.id;
+    if (propriedadeId == null || !Number.isFinite(propriedadeId)) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "propriedadeId é obrigatório",
+      });
+    }
+    const propriedade = await requirePropertyInTenant(tenant, Number(propriedadeId));
+    return next({
+      ctx: {
+        ...ctx,
+        propriedade,
+      },
+    });
+  }),
+);
+
+export type { TenantContext, OrgRole, OrgPermission };
+export { roleHasPermission };

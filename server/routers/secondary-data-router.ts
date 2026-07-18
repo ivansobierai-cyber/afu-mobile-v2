@@ -4,10 +4,9 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure, organizationProcedure } from "../_core/trpc";
 import {
   getUsuarioAfuByUserId,
-  getRelatorios,
   createRelatorio,
   updateRelatorio,
   getProdutosMarketplace,
@@ -22,7 +21,6 @@ import {
   atualizarStatusPedidoVendedor,
   getPedidoById,
   confirmarPagamentoPix,
-  getAnalises,
   createAnalise,
   getTicketsSuporte,
   createTicketSuporte,
@@ -31,7 +29,14 @@ import {
 } from "../db";
 import { getDb } from "../db";
 import { analisesFitotecnicas, relatorios, produtosMarketplace, pedidos } from "../../drizzle/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and } from "drizzle-orm";
+import {
+  getCtxTenant,
+  requireRelatorioInTenant,
+  requireAnaliseInTenant,
+  assertRelatedIdsInTenant,
+  requireOrgPermission,
+} from "../tenant-access";
 import {
   encodeMarketplaceObservacoes,
   generateDemoPixCode,
@@ -88,80 +93,96 @@ const produtoInput = z.object({
   status: z.enum(["disponivel", "indisponivel", "pausado"]).optional(),
 });
 
-// ─── Router de Relatórios ─────────────────────────────────────────────────────
+// ─── Router de Relatórios (Etapa 4 — escopo por organização) ──────────────────
 const relatoriosRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return [];
-    return getRelatorios(perfil.id);
+  list: organizationProcedure.query(async ({ ctx }) => {
+    const tenant = getCtxTenant(ctx);
+    requireOrgPermission(tenant, "reports.read");
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(relatorios)
+      .where(eq(relatorios.organizationId, tenant.organizationId))
+      .orderBy(desc(relatorios.dataEmissao));
   }),
 
-  get: protectedProcedure
+  get: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const rows = await db
-        .select()
-        .from(relatorios)
-        .where(eq(relatorios.id, input.id))
-        .limit(1);
-      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Relatório não encontrado" });
-      return rows[0];
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      return requireRelatorioInTenant(tenant, input.id);
     }),
 
-  create: protectedProcedure
+  create: organizationProcedure
     .input(relatorioInput)
     .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-      return createRelatorio({ ...input, usuarioId: perfil.id } as any);
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.export");
+      return createRelatorio({
+        ...input,
+        usuarioId: tenant.perfilId,
+        organizationId: tenant.organizationId,
+      } as any);
     }),
 
-  update: protectedProcedure
+  update: organizationProcedure
     .input(z.object({ id: z.number().int().positive(), data: relatorioInput.partial() }))
-    .mutation(async ({ input }) => updateRelatorio(input.id, input.data as any)),
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.export");
+      await requireRelatorioInTenant(tenant, input.id);
+      return updateRelatorio(input.id, input.data as any);
+    }),
 
-  delete: protectedProcedure
+  delete: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.export");
+      await requireRelatorioInTenant(tenant, input.id);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      await db.delete(relatorios).where(eq(relatorios.id, input.id));
+      await db
+        .delete(relatorios)
+        .where(and(eq(relatorios.id, input.id), eq(relatorios.organizationId, tenant.organizationId)));
       return { success: true };
     }),
 });
 
-// ─── Router de Análise Fitotécnica ────────────────────────────────────────────
+// ─── Router de Análise Fitotécnica (Etapa 4) ──────────────────────────────────
 const analisesFitotecnicasRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return [];
-    return getAnalises(perfil.id);
+  list: organizationProcedure.query(async ({ ctx }) => {
+    const tenant = getCtxTenant(ctx);
+    const db = await getDb();
+    if (!db) return [];
+    return db
+      .select()
+      .from(analisesFitotecnicas)
+      .where(eq(analisesFitotecnicas.organizationId, tenant.organizationId))
+      .orderBy(desc(analisesFitotecnicas.dataAnalise));
   }),
 
-  get: protectedProcedure
+  get: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const rows = await db
-        .select()
-        .from(analisesFitotecnicas)
-        .where(eq(analisesFitotecnicas.id, input.id))
-        .limit(1);
-      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Análise não encontrada" });
-      return rows[0];
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      return requireAnaliseInTenant(tenant, input.id);
     }),
 
-  create: protectedProcedure
+  create: organizationProcedure
     .input(analiseInput)
     .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const tenant = getCtxTenant(ctx);
+      await assertRelatedIdsInTenant(tenant, {
+        propriedadeId: input.propriedadeId,
+        culturaId: input.culturaId,
+      });
       return createAnalise({
         ...input,
-        usuarioId: perfil.id,
+        usuarioId: tenant.perfilId,
+        organizationId: tenant.organizationId,
         phSolo: input.phSolo?.toString(),
         phAgua: input.phAgua?.toString(),
         nitrogenio: input.nitrogenio?.toString(),
@@ -175,26 +196,33 @@ const analisesFitotecnicasRouter = router({
       } as any);
     }),
 
-  delete: protectedProcedure
+  delete: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await requireAnaliseInTenant(tenant, input.id);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      await db.delete(analisesFitotecnicas).where(eq(analisesFitotecnicas.id, input.id));
+      await db
+        .delete(analisesFitotecnicas)
+        .where(
+          and(
+            eq(analisesFitotecnicas.id, input.id),
+            eq(analisesFitotecnicas.organizationId, tenant.organizationId),
+          ),
+        );
       return { success: true };
     }),
 
-  stats: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return { total: 0 };
-    const lista = await getAnalises(perfil.id);
-    return {
-      total: lista.length,
-      solo: lista.filter((a) => a.tipoAnalise === "solo").length,
-      agua: lista.filter((a) => a.tipoAnalise === "agua").length,
-      foliar: lista.filter((a) => a.tipoAnalise === "foliar").length,
-      completa: lista.filter((a) => a.tipoAnalise === "completa").length,
-    };
+  stats: organizationProcedure.query(async ({ ctx }) => {
+    const tenant = getCtxTenant(ctx);
+    const db = await getDb();
+    if (!db) return { total: 0 };
+    const rows = await db
+      .select()
+      .from(analisesFitotecnicas)
+      .where(eq(analisesFitotecnicas.organizationId, tenant.organizationId));
+    return { total: rows.length };
   }),
 });
 

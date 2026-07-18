@@ -1,25 +1,12 @@
 /**
- * culturas-pragas-router.ts — Router tRPC para Culturas e Pragas/Doenças
+ * culturas-pragas-router.ts — Culturas (tenant) e Pragas/Doenças (catálogo compartilhado)
  *
- * Rotas públicas (autenticadas):
- *   culturasPragas.culturas.list       — lista culturas com filtros
- *   culturasPragas.culturas.get        — detalhe de uma cultura
- *   culturasPragas.pragas.list         — lista pragas/doenças com filtros
- *   culturasPragas.pragas.get          — detalhe de uma praga/doença
- *
- * Rotas admin:
- *   culturasPragas.culturas.create     — criar cultura
- *   culturasPragas.culturas.update     — atualizar cultura
- *   culturasPragas.culturas.delete     — remover cultura
- *   culturasPragas.culturas.stats      — estatísticas de culturas
- *   culturasPragas.pragas.create       — criar praga/doença
- *   culturasPragas.pragas.update       — atualizar praga/doença
- *   culturasPragas.pragas.delete       — remover praga/doença
- *   culturasPragas.pragas.stats        — estatísticas de pragas
+ * Etapa 4: list/get de culturas filtrados por organizationId.
+ * Pragas/doenças são referência compartilhada (não dados de cliente).
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure, organizationProcedure } from "../_core/trpc";
 import {
   listarCulturasAdmin,
   getCulturaById,
@@ -34,8 +21,13 @@ import {
   adminDeletePraga,
   getEstatisticasPragas,
 } from "../db-culturas-pragas";
-
-// ─── Schemas ──────────────────────────────────────────────────────────────────
+import {
+  getCtxTenant,
+  requireOrgPermission,
+  requireCulturaInTenant,
+  assertRelatedIdsInTenant,
+  TENANT_NOT_FOUND,
+} from "../tenant-access";
 
 const statusCulturaSchema = z.enum(["planejado", "em_andamento", "colhido", "perdido"]);
 const tipoPragaSchema = z.enum(["praga", "doenca", "deficiencia"]);
@@ -94,25 +86,30 @@ const pragaUpdateSchema = pragaCreateSchema.partial().extend({
   id: z.number().int().min(1),
 });
 
-// ─── Sub-routers ──────────────────────────────────────────────────────────────
-
 const culturasRouter = router({
-  // ── Leitura (autenticado) ──────────────────────────────────────────────────
-  list: protectedProcedure
+  /** Escopo da organização ativa — não lista cultivos de outros tenants */
+  list: organizationProcedure
     .input(culturaFiltrosSchema)
-    .query(async ({ input }) => {
-      return listarCulturasAdmin(input);
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      if (input.propriedadeId) {
+        await assertRelatedIdsInTenant(tenant, { propriedadeId: input.propriedadeId });
+      }
+      return listarCulturasAdmin({
+        ...input,
+        organizationId: tenant.organizationId,
+      });
     }),
 
-  get: protectedProcedure
+  get: organizationProcedure
     .input(z.object({ id: z.number().int().min(1) }))
-    .query(async ({ input }) => {
-      const cultura = await getCulturaById(input.id);
-      if (!cultura) throw new TRPCError({ code: "NOT_FOUND", message: "Cultura não encontrada" });
-      return cultura;
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      return requireCulturaInTenant(tenant, input.id);
     }),
 
-  // ── Escrita (admin) ────────────────────────────────────────────────────────
   create: adminProcedure
     .input(culturaCreateSchema)
     .mutation(async ({ input }) => {
@@ -124,7 +121,7 @@ const culturasRouter = router({
     .mutation(async ({ input }) => {
       const { id, ...data } = input;
       const exists = await getCulturaById(id);
-      if (!exists) throw new TRPCError({ code: "NOT_FOUND", message: "Cultura não encontrada" });
+      if (!exists) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
       return adminUpdateCultura(id, data);
     }),
 
@@ -132,7 +129,7 @@ const culturasRouter = router({
     .input(z.object({ id: z.number().int().min(1) }))
     .mutation(async ({ input }) => {
       const exists = await getCulturaById(input.id);
-      if (!exists) throw new TRPCError({ code: "NOT_FOUND", message: "Cultura não encontrada" });
+      if (!exists) throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
       return adminDeleteCultura(input.id);
     }),
 
@@ -142,7 +139,7 @@ const culturasRouter = router({
 });
 
 const pragasRouter = router({
-  // ── Leitura (autenticado) ──────────────────────────────────────────────────
+  // Catálogo compartilhado de referência (não é dado de cliente)
   list: protectedProcedure
     .input(pragaFiltrosSchema)
     .query(async ({ input }) => {
@@ -157,7 +154,6 @@ const pragasRouter = router({
       return praga;
     }),
 
-  // ── Escrita (admin) ────────────────────────────────────────────────────────
   create: adminProcedure
     .input(pragaCreateSchema)
     .mutation(async ({ input }) => {
@@ -185,8 +181,6 @@ const pragasRouter = router({
     return getEstatisticasPragas();
   }),
 });
-
-// ─── Router principal ─────────────────────────────────────────────────────────
 
 export const culturasPragasRouter = router({
   culturas: culturasRouter,

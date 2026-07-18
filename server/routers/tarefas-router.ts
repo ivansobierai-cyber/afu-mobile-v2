@@ -1,23 +1,25 @@
 /**
  * tarefas-router.ts — Etapa 3: tarefas operacionais + apontamentos
+ * Etapa 4: escopo por organização ativa + propriedade no tenant.
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, organizationProcedure, orgPermissionProcedure } from "../_core/trpc";
 import {
-  getUsuarioAfuByUserId,
   getTarefasByPropriedade,
-  getTarefaById,
   createTarefa,
   updateTarefa,
   createApontamento,
   getApontamentosByTarefa,
-  propriedadeBelongsToProdutor,
-  getDb,
 } from "../db";
 import { findTarefaByClientMutationId } from "../db-propriedade-expansao";
-import { produtores } from "../../drizzle/schema";
-import { eq } from "drizzle-orm";
+import {
+  getCtxTenant,
+  requireOrgPermission,
+  requirePropertyInTenant,
+  requireTarefaInTenant,
+  assertRelatedIdsInTenant,
+} from "../tenant-access";
 import {
   assertTransition,
   STATUS_ABERTOS,
@@ -50,37 +52,6 @@ const statusSchema = z.enum([
 
 const prioridadeSchema = z.enum(["baixa", "normal", "alta", "critica"]);
 
-async function getProdutorId(usuarioAfuId: number): Promise<number> {
-  const db = await getDb();
-  if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-  const rows = await db
-    .select({ id: produtores.id })
-    .from(produtores)
-    .where(eq(produtores.usuarioId, usuarioAfuId))
-    .limit(1);
-  if (rows.length === 0) {
-    const result = await db.insert(produtores).values({ usuarioId: usuarioAfuId });
-    return (result as any)[0].insertId as number;
-  }
-  return rows[0].id;
-}
-
-async function assertOwnsPropriedade(userId: number, propriedadeId: number) {
-  const perfil = await getUsuarioAfuByUserId(userId);
-  if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-  const produtorId = await getProdutorId(perfil.id);
-  const owned = await propriedadeBelongsToProdutor(propriedadeId, produtorId);
-  if (!owned) throw new TRPCError({ code: "FORBIDDEN", message: "Propriedade não pertence ao usuário" });
-  return perfil;
-}
-
-async function assertOwnsTarefa(userId: number, tarefaId: number) {
-  const tarefa = await getTarefaById(tarefaId);
-  if (!tarefa) throw new TRPCError({ code: "NOT_FOUND", message: "Tarefa não encontrada" });
-  await assertOwnsPropriedade(userId, tarefa.propriedadeId);
-  return tarefa;
-}
-
 const tarefaInput = z.object({
   propriedadeId: z.number().int().positive(),
   terrenoId: z.number().int().positive().optional(),
@@ -89,14 +60,13 @@ const tarefaInput = z.object({
   titulo: z.string().min(1).max(200),
   instrucoes: z.string().optional(),
   prioridade: prioridadeSchema.optional(),
-  dataPrevista: z.string(), // ISO
+  dataPrevista: z.string(),
   areaPlanejada: z.number().positive().optional(),
-  /** Etapa 9 — idempotência offline */
   clientMutationId: z.string().min(8).max(64).optional(),
 });
 
 export const tarefasRouter = router({
-  listByPropriedade: protectedProcedure
+  listByPropriedade: organizationProcedure
     .input(
       z.object({
         propriedadeId: z.number().int().positive(),
@@ -105,7 +75,9 @@ export const tarefasRouter = router({
       }),
     )
     .query(async ({ ctx, input }) => {
-      await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requirePropertyInTenant(tenant, input.propriedadeId);
       let lista = await getTarefasByPropriedade(input.propriedadeId);
       if (input.status) lista = lista.filter((t) => t.status === input.status);
       if (input.abertasOnly) {
@@ -114,11 +86,12 @@ export const tarefasRouter = router({
       return lista;
     }),
 
-  /** Resumo para “Hoje na fazenda” / Atenção necessária */
-  resumoHoje: protectedProcedure
+  resumoHoje: organizationProcedure
     .input(z.object({ propriedadeId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requirePropertyInTenant(tenant, input.propriedadeId);
       const lista = await getTarefasByPropriedade(input.propriedadeId);
       const start = new Date();
       start.setHours(0, 0, 0, 0);
@@ -145,24 +118,37 @@ export const tarefasRouter = router({
       };
     }),
 
-  get: protectedProcedure
+  get: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      const tarefa = await assertOwnsTarefa(ctx.user.id, input.id);
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const tarefa = await requireTarefaInTenant(tenant, input.id);
       const apontamentos = await getApontamentosByTarefa(tarefa.id);
       return { tarefa, apontamentos };
     }),
 
-  create: protectedProcedure
+  create: orgPermissionProcedure("operations.write")
     .input(tarefaInput)
     .mutation(async ({ ctx, input }) => {
-      const perfil = await assertOwnsPropriedade(ctx.user.id, input.propriedadeId);
+      const tenant = getCtxTenant(ctx);
+      await assertRelatedIdsInTenant(tenant, {
+        propriedadeId: input.propriedadeId,
+        terrenoId: input.terrenoId,
+        culturaId: input.culturaId,
+      });
       if (input.clientMutationId) {
         const existing = await findTarefaByClientMutationId(input.clientMutationId);
-        if (existing) return existing.id;
+        if (existing) {
+          if (existing.organizationId !== tenant.organizationId) {
+            throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+          }
+          return existing.id;
+        }
       }
       return createTarefa({
-        usuarioId: perfil.id,
+        usuarioId: tenant.perfilId,
+        organizationId: tenant.organizationId,
         propriedadeId: input.propriedadeId,
         terrenoId: input.terrenoId,
         culturaId: input.culturaId,
@@ -178,7 +164,7 @@ export const tarefasRouter = router({
       } as any);
     }),
 
-  transition: protectedProcedure
+  transition: orgPermissionProcedure("operations.write")
     .input(
       z.object({
         id: z.number().int().positive(),
@@ -189,9 +175,8 @@ export const tarefasRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-      const tarefa = await assertOwnsTarefa(ctx.user.id, input.id);
+      const tenant = getCtxTenant(ctx);
+      const tarefa = await requireTarefaInTenant(tenant, input.id);
       const from = tarefa.status as TarefaStatus;
       const to = input.status as TarefaStatus;
       try {
@@ -203,11 +188,10 @@ export const tarefasRouter = router({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Informe o motivo do cancelamento" });
       }
 
-      // Apontamento automático ao iniciar / concluir
       if (to === "em_execucao" && from !== "pausada") {
         await createApontamento({
           tarefaId: tarefa.id,
-          usuarioId: perfil.id,
+          usuarioId: tenant.perfilId,
           inicioReal: new Date(),
           notas: input.notasApontamento,
           areaExecutada: input.areaExecutada?.toString(),
@@ -217,7 +201,7 @@ export const tarefasRouter = router({
       if (to === "concluida") {
         await createApontamento({
           tarefaId: tarefa.id,
-          usuarioId: perfil.id,
+          usuarioId: tenant.perfilId,
           inicioReal: new Date(),
           fimReal: new Date(),
           notas: input.notasApontamento ?? "Conclusão registrada",
@@ -233,10 +217,12 @@ export const tarefasRouter = router({
       return { success: true, id: tarefa.id, status: to };
     }),
 
-  apontamentos: protectedProcedure
+  apontamentos: organizationProcedure
     .input(z.object({ tarefaId: z.number().int().positive() }))
     .query(async ({ ctx, input }) => {
-      await assertOwnsTarefa(ctx.user.id, input.tarefaId);
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requireTarefaInTenant(tenant, input.tarefaId);
       return getApontamentosByTarefa(input.tarefaId);
     }),
 });
