@@ -129,7 +129,7 @@ export default function PropriedadeDetailScreen() {
     { enabled: propId > 0 && !!orgScope },
   );
   const { data: custosBundle } = trpc.coreData.expansao.custos.list.useQuery(
-    { propriedadeId: propId, cacheScope: orgScope },
+    { propriedadeId: propId },
     { enabled: propId > 0 && !!orgScope },
   );
 
