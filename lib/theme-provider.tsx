@@ -38,21 +38,22 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     applyScheme(colorScheme);
   }, [applyScheme, colorScheme]);
 
-  const themeVariables = useMemo(
-    () =>
-      vars({
-        "color-primary": SchemeColors[colorScheme].primary,
-        "color-background": SchemeColors[colorScheme].background,
-        "color-surface": SchemeColors[colorScheme].surface,
-        "color-foreground": SchemeColors[colorScheme].foreground,
-        "color-muted": SchemeColors[colorScheme].muted,
-        "color-border": SchemeColors[colorScheme].border,
-        "color-success": SchemeColors[colorScheme].success,
-        "color-warning": SchemeColors[colorScheme].warning,
-        "color-error": SchemeColors[colorScheme].error,
-      }),
-    [colorScheme],
-  );
+  const themeVariables = useMemo(() => {
+    const palette = SchemeColors[colorScheme];
+    // NativeWind vars() exige prefixo "--" (ex.: --color-warning)
+    return vars({
+      "--color-primary": palette.primary,
+      "--color-background": palette.background,
+      "--color-surface": palette.surface,
+      "--color-foreground": palette.foreground,
+      "--color-muted": palette.muted,
+      "--color-border": palette.border,
+      "--color-success": palette.success,
+      "--color-warning": palette.warning,
+      "--color-error": palette.error,
+      "--color-tint": palette.tint,
+    });
+  }, [colorScheme]);
 
   const value = useMemo(
     () => ({
@@ -61,7 +62,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     }),
     [colorScheme, setColorScheme],
   );
-  console.log(value, themeVariables)
 
   return (
     <ThemeContext.Provider value={value}>
