@@ -441,6 +441,14 @@ const MENU_SECTIONS: MenuSection[] = [
     title: "Educação e Suporte",
     items: [
       {
+        title: "Centro de Capacitação AFU",
+        subtitle: "Universidade Rural Digital · cursos, trilhas e certificação",
+        icon: "graduationcap.fill",
+        route: "/mais/capacitacao",
+        color: "#1B4332",
+        badge: "Novo",
+      },
+      {
         title: "Materiais Didáticos",
         subtitle: "Vídeos, áudios, apostilas, guias e checklists",
         icon: "doc.text.fill",
