@@ -149,11 +149,24 @@ export default function LoginScreen() {
                   variant="primary"
                 />
 
+                <AuthButton
+                  label="Criar usuário / Nova conta"
+                  onPress={() => router.push('/auth/cadastro')}
+                  disabled={apiLoading}
+                  variant="outline"
+                />
+
                 {isDemoLoginEnabled() && (
                 <View style={{ gap: 10 }}>
                   <RNText style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
-                    Acesso rapido para teste
+                    Acesso rápido para teste
                   </RNText>
+                  <AuthButton
+                    label="Entrar com Demo Admin"
+                    onPress={() => handleQuickLogin('admin@afuagro.com.br', 'Demo@1234')}
+                    disabled={apiLoading}
+                    variant="outline"
+                  />
                   <AuthButton
                     label="Entrar com Demo Produtor"
                     onPress={() => handleQuickLogin('demo@afuagro.com.br', 'Demo@1234')}

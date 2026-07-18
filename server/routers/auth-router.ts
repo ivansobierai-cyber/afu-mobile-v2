@@ -331,6 +331,8 @@ export const authRouter = router({
     const user = opts.ctx.user;
     if (!user) return { user: null, perfil: null, isAdmin: false };
     const perfil = await getUsuarioAfuByUserId(user.id);
+    const isAdmin =
+      user.role === "admin" || perfil?.tipoUsuario === "administrador";
     return {
       user: {
         id: user.id,
@@ -340,7 +342,7 @@ export const authRouter = router({
         lastSignedIn: user.lastSignedIn,
       },
       perfil: perfil ?? null,
-      isAdmin: user.role === "admin",
+      isAdmin,
     };
   }),
 

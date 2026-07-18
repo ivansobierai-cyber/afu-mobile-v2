@@ -7,6 +7,10 @@
  * Credenciais demo criadas:
  *   e-mail: demo@afuagro.com.br
  *   senha:  Demo@1234
+ *
+ * Também garante admin (idempotente via seed-admin):
+ *   e-mail: admin@afuagro.com.br
+ *   senha:  Demo@1234
  */
 import "dotenv/config";
 import { eq } from "drizzle-orm";
@@ -39,7 +43,10 @@ async function main() {
 
   const existing = await db.select().from(users).where(eq(users.email, DEMO_EMAIL)).limit(1);
   if (existing.length > 0) {
-    console.log(`Seed já aplicado (usuário ${DEMO_EMAIL} existe). Nada a fazer.`);
+    console.log(`Seed já aplicado (usuário ${DEMO_EMAIL} existe).`);
+    // Garante admin mesmo quando o seed principal já rodou
+    const { execSync } = await import("node:child_process");
+    execSync("npx tsx scripts/seed-admin.ts", { stdio: "inherit" });
     process.exit(0);
   }
 
@@ -400,6 +407,9 @@ async function main() {
   console.log(`  Login demo: ${DEMO_EMAIL} / ${DEMO_PASSWORD}`);
   console.log("  1 propriedade, 2 terrenos, 2 cultivos, 6 pragas/doenças,");
   console.log("  4 materiais, 3 eventos de calendário, 1 parceiro, 8 produtos, 1 análise fitotécnica.");
+
+  const { execSync } = await import("node:child_process");
+  execSync("npx tsx scripts/seed-admin.ts", { stdio: "inherit" });
   process.exit(0);
 }
 
