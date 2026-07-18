@@ -27,24 +27,34 @@ type MenuItem = {
 type MenuSection = {
   title: string;
   items: MenuItem[];
-};
+  /** Se true, seção inteira só para admin (docs de planejamento / CRUD) */
+  requireAdmin?: boolean;
+}
 
 const MENU_SECTIONS: MenuSection[] = [
   {
-    title: "Visão Geral do Projeto",
+    title: "Início",
     items: [
       {
-        title: "Índice Geral — 46 Etapas",
-        subtitle: "6 Fases · Progresso · Links Diretos · Estatísticas do Projeto",
+        title: "Índice Geral — Etapas AFU",
+        subtitle: "Progresso MVP · Expansão 31–46 · Links diretos",
         icon: "house.fill",
         route: "/mais/indice-geral",
         color: "#1B5E20",
         badge: "Novo",
       },
+      {
+        title: "Laboratório Planta Saudável",
+        subtitle: "Hub de diagnóstico, análises e laudos",
+        icon: "flask.fill",
+        route: "/mais/laboratorio",
+        color: "#2E7D32",
+      },
     ],
   },
   {
     title: "Etapas 1–6 · Estratégia e Negócio",
+    requireAdmin: true,
     items: [
       {
         title: "Visão Geral do AFU",
@@ -98,6 +108,7 @@ const MENU_SECTIONS: MenuSection[] = [
   },
   {
     title: "Etapas 7–12 · Arquitetura Técnica",
+    requireAdmin: true,
     items: [
       {
         title: "Arquitetura de Sistema",
@@ -151,6 +162,7 @@ const MENU_SECTIONS: MenuSection[] = [
   },
   {
     title: "Etapas 13–16 · Design e UX/UI",
+    requireAdmin: true,
     items: [
       {
         title: "Design System Base",
@@ -188,6 +200,7 @@ const MENU_SECTIONS: MenuSection[] = [
   },
   {
     title: "Etapas 17–21 · Governança",
+    requireAdmin: true,
     items: [
       {
         title: "Estrutura Organizacional",
@@ -232,7 +245,8 @@ const MENU_SECTIONS: MenuSection[] = [
     ],
   },
   {
-    title: "Etapas 22–29 · Implementação",
+    title: "Etapas 22–30 · Implementação",
+    requireAdmin: true,
     items: [
       {
         title: "Design System AFU",
@@ -445,418 +459,51 @@ const MENU_SECTIONS: MenuSection[] = [
     ],
   },
   {
-    title: "Administração",
+    title: "Banco Agronômico · Etapas 31–46",
     items: [
-      {
-        title: "Dashboard Admin",
-        subtitle: "Contadores em tempo real — usuários, cultivos, pragas e materiais",
-        icon: "chart.bar.fill",
-        route: "/mais/admin-dashboard",
-        color: "#1E3A5F",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Gerenciar Usuários",
-        subtitle: "CRUD real — roles, status e tipos de perfil",
-        icon: "person.2.fill",
-        route: "/mais/admin-usuarios",
-        color: "#7C3AED",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Gestão de Culturas",
-        subtitle: "Criar, editar e excluir culturas do banco de dados",
-        icon: "leaf.fill",
-        route: "/mais/admin-culturas",
-        color: "#166534",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Gestão de Pragas e Doenças",
-        subtitle: "Banco de conhecimento fitossanitário — CRUD completo",
-        icon: "cross.circle.fill",
-        route: "/mais/admin-pragas",
-        color: "#7F1D1D",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Gestão de Materiais Didáticos",
-        subtitle: "Vídeos, apostilas, guias e infográficos — CRUD completo",
-        icon: "books.vertical.fill",
-        route: "/mais/admin-materiais",
-        color: "#1565C0",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Conteúdos Educativos",
-        subtitle: "Artigos, guias, PDFs, vídeos — Offline-first com sincronização",
-        icon: "doc.richtext.fill",
-        route: "/admin/conteudos-offline",
-        color: "#0D47A1",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Gestão de Parceiros",
-        subtitle: "Laboratórios, cooperativas e consultorias — CRUD completo",
-        icon: "person.2.fill",
-        route: "/mais/admin-parceiros",
-        color: "#7C3AED",
-        badge: "Admin",
-        requireAdmin: true,
-      },
-      {
-        title: "Banco de Dados",
-        subtitle: "Esquema completo — 17 tabelas PostgreSQL",
-        icon: "server.rack",
-        route: "/mais/banco-dados",
-        color: "#1B4332",
-        badge: "Etapa 3",
-      },
-      {
-        title: "Arquitetura Técnica",
-        subtitle: "Stack, módulos, segurança e deploy",
-        icon: "wrench.fill",
-        route: "/mais/arquitetura",
-        color: "#6A1B9A",
-        badge: "Etapa 4",
-      },
-      {
-        title: "API Backend",
-        subtitle: "11 módulos · endpoints · permissões · segurança",
-        icon: "chevron.left.forwardslash.chevron.right",
-        route: "/mais/api-docs",
-        color: "#1565C0",
-        badge: "Etapa 5",
-      },
-      {
-        title: "Autenticação",
-        subtitle: "JWT · bcrypt · MFA · RBAC · LGPD · 8 endpoints",
-        icon: "lock.fill",
-        route: "/mais/autenticacao",
-        color: "#1565C0",
-        badge: "Etapa 7",
-      },
-      {
-        title: "Frontend Mobile",
-        subtitle: "Design System · 12 telas · 5 tabs · Notificações · Offline",
-        icon: "iphone",
-        route: "/mais/frontend-mobile",
-        color: "#2E7D32",
-        badge: "Etapa 8",
-      },
-      {
-        title: "Frontend Web Admin",
-        subtitle: "Next.js 14 · 12 telas · 13 componentes · 4 perfis · Recharts",
-        icon: "desktopcomputer",
-        route: "/mais/web-admin",
-        color: "#1565C0",
-        badge: "Etapa 9",
-      },
-      {
-        title: "Portal Web do Produtor",
-        subtitle: "Next.js · PWA · 9 telas · Menu lateral · App vs Web",
-        icon: "globe",
-        route: "/mais/portal-web",
-        color: "#00695C",
-        badge: "Etapa 10",
-      },
-      {
-        title: "Módulo de IA",
-        subtitle: "7 motores · 3.300+ registros · Confiança · Governança",
-        icon: "brain",
-        route: "/mais/modulo-ia",
-        color: "#6A1B9A",
-        badge: "Etapa 11",
-      },
-      {
-        title: "Banco de Conhecimento",
-        subtitle: "8 módulos BC-01 a BC-08 · 3.300+ registros · RAG + pgvector",
-        icon: "books.vertical.fill",
-        route: "/mais/banco-conhecimento",
-        color: "#1B5E20",
-        badge: "Etapa 12",
-      },
-      {
-        title: "Visão Computacional",
-        subtitle: "EfficientNet · ResNet · 50K imagens · Pipeline 8 etapas · Precisão >90%",
-        icon: "eye.fill",
-        route: "/mais/visao-computacional",
-        color: "#1A237E",
-        badge: "Etapa 13",
-      },
-      {
-        title: "Análises Laboratoriais",
-        subtitle: "6 tipos · Solo · Água · Tecido Vegetal · Fertilizantes · Bioinsumos · Alimentos",
-        icon: "flask.fill",
-        route: "/mais/analises-lab",
-        color: "#795548",
-        badge: "Etapa 14",
-      },
-      {
-        title: "IoT & Agricultura Inteligente",
-        subtitle: "16 sensores · MQTT · Irrigação · Drones · NDVI · Alertas · IA Preditiva",
-        icon: "antenna.radiowaves.left.and.right",
-        route: "/mais/iot-agricultura",
-        color: "#1B4332",
-        badge: "Etapa 15",
-      },
-      {
-        title: "Marketplace Rural AFU",
-        subtitle: "5 participantes · 4 categorias · Rastreabilidade · Pedidos · IA Mercado",
-        icon: "cart.fill",
-        route: "/mais/marketplace-rural",
-        color: "#2E7D32",
-        badge: "Etapa 16",
-      },
-      {
-        title: "Centro de Capacitação AFU",
-        subtitle: "6 áreas · 23 cursos · Trilhas · Certificação · Gamificação · IA Educacional",
-        icon: "graduationcap.fill",
-        route: "/mais/capacitacao",
-        color: "#1B4332",
-        badge: "Etapa 17",
-      },
-      {
-        title: "BI & Inteligência Estratégica",
-        subtitle: "6 Dashboards · Data Warehouse · KPIs · BI Geográfico · Alertas Analíticos",
-        icon: "chart.bar.fill",
-        route: "/mais/bi-estrategico",
-        color: "#1565C0",
-        badge: "Etapa 18",
-      },
-      {
-        title: "Governança & DevOps",
-        subtitle: "Segurança · LGPD · Infra Cloud · CI/CD · Conformidade · Escalabilidade",
-        icon: "shield.fill",
-        route: "/mais/governanca-devops",
-        color: "#37474F",
-        badge: "Etapa 19",
-      },
-      {
-        title: "Plano Mestre AFU 1.0 → 5.0",
-        subtitle: "Roadmap · Cronograma · Equipes · KPIs · Financeiro · Status Geral",
-        icon: "map.fill",
-        route: "/mais/plano-mestre",
-        color: "#1B5E20",
-        badge: "Etapa 20",
-      },
-      {
-        title: "Execução Real — MVP 1.0",
-        subtitle: "Monorepo · 5 Sprints · Docker · API · Apps · Critérios MVP",
-        icon: "hammer.fill",
-        route: "/mais/execucao-mvp",
-        color: "#0D47A1",
-        badge: "Etapa 21",
-      },
-      {
-        title: "Design System AFU",
-        subtitle: "Marca · Cores · Tipografia · Componentes · UX/UI · Biblioteca",
-        icon: "paintbrush.fill",
-        route: "/mais/design-system",
-        color: "#1B5E20",
-        badge: "Etapa 22",
-      },
-      {
-        title: "Protótipos UX/UI — MVP 1.0",
-        subtitle: "Fluxos · Mobile · Portal · Admin · Responsivo · Entregáveis",
-        icon: "rectangle.on.rectangle",
-        route: "/mais/prototipos-ux",
-        color: "#4A148C",
-        badge: "Etapa 23",
-      },
-      {
-        title: "Backend NestJS — MVP 1.0",
-        subtitle: "Estrutura · Auth · Módulos CRUD · Uploads · IA · Docker",
-        icon: "server.rack",
-        route: "/mais/backend-nestjs",
-        color: "#B71C1C",
-        badge: "Etapa 24",
-      },
-      {
-        title: "App Planta Saudável — React Native",
-        subtitle: "Stack · Navegação · Telas · Recursos · Componentes · Build",
-        icon: "leaf.fill",
-        route: "/mais/app-react-native",
-        color: "#1B5E20",
-        badge: "Etapa 25",
-      },
-      {
-        title: "Portal Web do Produtor — Next.js 15",
-        subtitle: "13 Rotas · CRUD · Diagnóstico IA · PWA · Segurança JWT",
-        icon: "globe",
-        route: "/mais/portal-web-v2",
-        color: "#0D47A1",
-        badge: "Etapa 26",
-      },
-      {
-        title: "Painel Administrativo AFU",
-        subtitle: "Dashboard · RBAC · Diagnósticos · Laboratório · Auditoria · Monitor",
-        icon: "gearshape.2.fill",
-        route: "/mais/painel-admin",
-        color: "#37474F",
-        badge: "Etapa 27",
-        requireAdmin: true,
-      },
-      {
-        title: "Deploy Beta — Homologação STAGING",
-        subtitle: "Docker · CI/CD · 5 Containers · Testes · Piloto · Critérios",
-        icon: "server.rack",
-        route: "/mais/deploy-beta",
-        color: "#0D47A1",
-        badge: "Etapa 28",
-      },
-      {
-        title: "Testes de Campo — Projeto Piloto AFU 1.0",
-        subtitle: "50 Produtores · IA 85%+ · Satisfação 4,5+ · 6 Culturas · RC",
-        icon: "leaf.fill",
-        route: "/mais/testes-campo",
-        color: "#2E7D32",
-        badge: "Etapa 29",
-      },
-      {
-        title: "Banco de Dados Agronômico Avançado",
-        subtitle: "13 Tabelas · G1→G5 · 12 Nutrientes · Pragas · IA Inteligente",
-        icon: "leaf.fill",
-        route: "/mais/banco-agronomico",
-        color: "#1B5E20",
-        badge: "Etapa 30",
-      },
-      {
-        title: "Culturas Iniciais do Banco Agronômico",
-        subtitle: "17 fichas live · MySQL · Catálogo Botânico",
-        icon: "leaf.fill",
-        route: "/mais/culturas-iniciais",
-        color: "#2E7D32",
-        badge: "Etapa 31",
-      },
-      {
-        title: "Seed Inicial das Culturas AFU",
-        subtitle: "seed:agronomico · Drizzle upsert · Idempotente",
-        icon: "leaf.fill",
-        route: "/mais/seed-culturas",
-        color: "#1B5E20",
-        badge: "Etapa 32",
-      },
-      {
-        title: "Seed Técnico — Clima, Irrigação e Fases",
-        subtitle: "Clima · Irrigação · 12 nutrientes × 17 · Live stats",
-        icon: "leaf.fill",
-        route: "/mais/seed-tecnico",
-        color: "#1565C0",
-        badge: "Etapa 33",
-      },
-      {
-        title: "Banco Fitossanitário e Genético",
-        subtitle: "Pragas · Doenças · G1–G5 · Rotação · MySQL",
-        icon: "leaf.fill",
-        route: "/mais/banco-fitossanitario",
-        color: "#880E4F",
-        badge: "Etapa 34",
-      },
-      {
-        title: "AFU GeoClima — Banco Climático Nacional",
-        subtitle: "9 zonas Köppen · MySQL · seed:expansao",
-        icon: "leaf.fill",
-        route: "/mais/geoclima",
-        color: "#0D47A1",
-        badge: "Etapa 35",
-      },
-      {
-        title: "AFU Solos — Banco Nacional de Solos",
-        subtitle: "8 classes SiBCS · pH · aptidão · live",
-        icon: "leaf.fill",
-        route: "/mais/afu-solos",
-        color: "#4E342E",
-        badge: "Etapa 36",
-      },
-      {
-        title: "AFU Genoma Vegetal e Melhoramento Genético",
-        subtitle: "G1–G5 live · 85 linhas genetica_cultura",
-        icon: "leaf.fill",
-        route: "/mais/genoma-vegetal",
-        color: "#1B5E20",
-        badge: "Etapa 37",
-      },
-      {
-        title: "Calendário Agrícola Inteligente",
-        subtitle: "Épocas de plantio · ciclos · calendario_cuidados",
-        icon: "leaf.fill",
-        route: "/mais/calendario-agricola",
-        color: "#2E7D32",
-        badge: "Etapa 38",
-      },
-      {
-        title: "AFU Laboratório Digital",
-        subtitle: "7 módulos · analises_fitotecnicas · seed:lab-economia",
-        icon: "leaf.fill",
-        route: "/mais/laboratorio-digital",
-        color: "#1A237E",
-        badge: "Etapa 39",
-      },
-      {
-        title: "AFU Economia Agrícola",
-        subtitle: "17 fichas · custo/ha · simulador margem",
-        icon: "leaf.fill",
-        route: "/mais/economia-agricola",
-        color: "#1B5E20",
-        badge: "Etapa 40",
-      },
-      {
-        title: "AFU IA Agrônomo Virtual",
-        subtitle: "Diagnóstico + consulta composta · 10 fontes",
-        icon: "leaf.fill",
-        route: "/mais/ia-agronomo",
-        color: "#6A1B9A",
-        badge: "Etapa 41",
-      },
-      {
-        title: "AFU Geointeligência",
-        subtitle: "Satélite · Drones · NDVI · Mapas · Agricultura de Precisão",
-        icon: "leaf.fill",
-        route: "/mais/geointeligencia",
-        color: "#1A237E",
-        badge: "Etapa 42",
-      },
-      {
-        title: "AFU IoT e Automação Rural",
-        subtitle: "Sensores · Irrigação · Fertirrigação · Estufas · Fazenda Inteligente",
-        icon: "leaf.fill",
-        route: "/mais/iot-automacao",
-        color: "#004D40",
-        badge: "Etapa 43",
-      },
-      {
-        title: "AFU Marketplace Agrícola",
-        subtitle: "Produtos · Mudas · Sementes · Rastreabilidade · Logística · Pagamentos",
-        icon: "leaf.fill",
-        route: "/mais/marketplace-agricola",
-        color: "#1B5E20",
-        badge: "Etapa 44",
-      },
-      {
-        title: "AFU Centro de Comando NOC",
-        subtitle: "NOC Agrícola · 8 Módulos · Monitoramento 24h · Controle Total",
-        icon: "leaf.fill",
-        route: "/mais/noc-agricola",
-        color: "#0D47A1",
-        badge: "Etapa 45",
-      },
-      {
-        title: "Arquitetura Final AFU",
-        subtitle: "Software · Cloud · DevOps · Segurança · LGPD · 46 Etapas Concluídas",
-        icon: "leaf.fill",
-        route: "/mais/arquitetura-final",
-        color: "#212121",
-        badge: "Etapa 46",
-      },
+      { title: "Culturas Iniciais", subtitle: "17 fichas live · catálogo botânico", icon: "leaf.fill", route: "/mais/culturas-iniciais", color: "#2E7D32", badge: "Etapa 31" },
+      { title: "Seed das Culturas", subtitle: "seed:agronomico · idempotente", icon: "leaf.fill", route: "/mais/seed-culturas", color: "#1B5E20", badge: "Etapa 32" },
+      { title: "Seed Técnico", subtitle: "Clima · Irrigação · Nutrientes", icon: "drop.fill", route: "/mais/seed-tecnico", color: "#1565C0", badge: "Etapa 33" },
+      { title: "Fitossanitário e Genética", subtitle: "Pragas · Doenças · G1–G5", icon: "ant.fill", route: "/mais/banco-fitossanitario", color: "#880E4F", badge: "Etapa 34" },
+      { title: "GeoClima", subtitle: "Zonas Köppen · clima nacional", icon: "cloud.fill", route: "/mais/geoclima", color: "#0D47A1", badge: "Etapa 35" },
+      { title: "AFU Solos", subtitle: "Classes SiBCS · pH · aptidão", icon: "globe", route: "/mais/afu-solos", color: "#4E342E", badge: "Etapa 36" },
+      { title: "Genoma Vegetal", subtitle: "Melhoramento G1–G5", icon: "leaf.fill", route: "/mais/genoma-vegetal", color: "#1B5E20", badge: "Etapa 37" },
+      { title: "Calendário Agrícola Inteligente", subtitle: "Épocas de plantio · ciclos", icon: "calendar", route: "/mais/calendario-agricola", color: "#2E7D32", badge: "Etapa 38" },
+      { title: "Laboratório Digital", subtitle: "7 módulos · laudos", icon: "flask.fill", route: "/mais/laboratorio-digital", color: "#1A237E", badge: "Etapa 39" },
+      { title: "Economia Agrícola", subtitle: "Custo/ha · simulador de margem", icon: "chart.bar.fill", route: "/mais/economia-agricola", color: "#1B5E20", badge: "Etapa 40" },
+      { title: "IA Agrônomo Virtual", subtitle: "Diagnóstico + consulta composta", icon: "brain", route: "/mais/ia-agronomo", color: "#6A1B9A", badge: "Etapa 41" },
+      { title: "Geointeligência", subtitle: "Camadas satélite · NDVI · drones", icon: "map.fill", route: "/mais/geointeligencia", color: "#1A237E", badge: "Etapa 42" },
+      { title: "IoT e Automação", subtitle: "Sensores · leituras · alertas", icon: "antenna.radiowaves.left.and.right", route: "/mais/iot-automacao", color: "#004D40", badge: "Etapa 43" },
+      { title: "Marketplace Agrícola", subtitle: "Catálogo live · comercialização", icon: "cart.fill", route: "/mais/marketplace-agricola", color: "#1B5E20", badge: "Etapa 44" },
+      { title: "Centro de Comando NOC", subtitle: "Painel operacional · alertas", icon: "desktopcomputer", route: "/mais/noc-agricola", color: "#0D47A1", badge: "Etapa 45" },
+      { title: "Arquitetura Final", subtitle: "Stack real · componentes vivos", icon: "wrench.fill", route: "/mais/arquitetura-final", color: "#212121", badge: "Etapa 46" },
     ],
   },
+  {
+    title: "Administração",
+    requireAdmin: true,
+    items: [
+      { title: "Dashboard Admin", subtitle: "Contadores em tempo real", icon: "chart.bar.fill", route: "/mais/admin-dashboard", color: "#1E3A5F", badge: "Admin", requireAdmin: true },
+      { title: "Gerenciar Usuários", subtitle: "Roles, status e tipos de perfil", icon: "person.2.fill", route: "/mais/admin-usuarios", color: "#7C3AED", badge: "Admin", requireAdmin: true },
+      { title: "Gestão de Culturas", subtitle: "CRUD do banco de culturas", icon: "leaf.fill", route: "/mais/admin-culturas", color: "#166534", badge: "Admin", requireAdmin: true },
+      { title: "Gestão de Pragas e Doenças", subtitle: "Banco fitossanitário — CRUD", icon: "cross.circle.fill", route: "/mais/admin-pragas", color: "#7F1D1D", badge: "Admin", requireAdmin: true },
+      { title: "Gestão de Materiais", subtitle: "Conteúdos didáticos — CRUD", icon: "books.vertical.fill", route: "/mais/admin-materiais", color: "#1565C0", badge: "Admin", requireAdmin: true },
+      { title: "Conteúdos Offline", subtitle: "Artigos e mídia — sync offline", icon: "doc.richtext.fill", route: "/admin/conteudos-offline", color: "#0D47A1", badge: "Admin", requireAdmin: true },
+      { title: "Gestão de Parceiros", subtitle: "Laboratórios e cooperativas — CRUD", icon: "building.2.fill", route: "/mais/admin-parceiros", color: "#7C3AED", badge: "Admin", requireAdmin: true },
+      { title: "Painel Administrativo", subtitle: "RBAC · auditoria · monitor", icon: "gearshape.2.fill", route: "/mais/painel-admin", color: "#37474F", badge: "Etapa 27", requireAdmin: true },
+    ],
+  },
+  {
+    title: "Documentação (referência)",
+    requireAdmin: true,
+    items: [
+      { title: "Schema / Banco (legado)", subtitle: "Doc histórica — stack real em drizzle/schema", icon: "server.rack", route: "/mais/banco-dados", color: "#1B4332" },
+      { title: "Arquitetura (legado)", subtitle: "Plano Nest/Prisma — ver banners de stack", icon: "wrench.fill", route: "/mais/arquitetura", color: "#6A1B9A" },
+      { title: "API Docs (legado)", subtitle: "Referência Nest — API real Express/tRPC", icon: "chevron.left.forwardslash.chevron.right", route: "/mais/api-docs", color: "#1565C0" },
+      { title: "Backend API (etapa 24)", subtitle: "Express · tRPC · MySQL · Drizzle", icon: "server.rack", route: "/mais/backend-nestjs", color: "#B71C1C", badge: "Etapa 24" },
+    ],
+  },
+
 ];
 
 export default function MaisScreen() {
@@ -882,8 +529,9 @@ export default function MaisScreen() {
     return null;
   }
 
-  // Filtra seções e itens com base na permissão do usuário
+  // Produtor: operações + banco 31–46. Admin: + docs de etapas + CRUD.
   const visibleSections = MENU_SECTIONS
+    .filter((section) => !section.requireAdmin || isAdmin)
     .map((section) => ({
       ...section,
       items: section.items.filter((item) => !item.requireAdmin || isAdmin),
@@ -925,7 +573,7 @@ export default function MaisScreen() {
       {/* Header */}
       <View style={{ backgroundColor: colors.primary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20 }}>
         <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
-          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF", flex: 1 }}>Módulos AFU</Text>
+          <Text style={{ fontSize: 22, fontWeight: "700", color: "#FFFFFF", flex: 1 }}>Mais</Text>
           {isAdmin && (
             <View style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4, borderWidth: 1, borderColor: "rgba(255,255,255,0.4)" }}>
               <Text style={{ color: "#FFFFFF", fontSize: 11, fontWeight: "800" }}>🔑 Administrador</Text>

@@ -52,8 +52,9 @@ export function useSession(): UseSessionResult {
   const user = (data?.user as SessionUser | null | undefined) ?? null;
   const perfil = (data?.perfil as SessionPerfil | null | undefined) ?? null;
   const isAdmin = data?.isAdmin ?? false;
-  const canAccessMaisTab = isAdmin || perfil?.tipoUsuario === "administrador";
   const isAuthenticated = !!user;
+  /** Aba Mais: todos autenticados (módulos operacionais); docs/admin filtrados no menu */
+  const canAccessMaisTab = isAuthenticated;
   const onboardingPendente = isAuthenticated && !perfil;
   const contaSuspensa = perfil?.status === "suspenso";
 
