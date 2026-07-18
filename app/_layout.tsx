@@ -245,8 +245,10 @@ export default function RootLayout() {
 }
 
 /**
- * Desmonta grupos protegidos enquanto desautenticado (não só redireciona).
- * Auth e OAuth permanecem montados para a tela pública imediata.
+ * Rotas protegidas via Stack.Protected (Expo Router 6).
+ * Evita Fragment/null como filhos do Stack — isso dispara o aviso
+ * "Layout children must be of type Screen".
+ * AuthGuard continua redirecionando; Protected impede deep-link sem sessão.
  */
 function ProtectedStack() {
   const { isAuthenticated, loading } = useSession();
@@ -254,15 +256,13 @@ function ProtectedStack() {
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
-      {showProtected ? (
-        <>
-          <Stack.Screen name="(tabs)" />
-          <Stack.Screen name="admin" />
-          <Stack.Screen name="mais" />
-          <Stack.Screen name="propriedades" />
-          <Stack.Screen name="cultivos" />
-        </>
-      ) : null}
+      <Stack.Protected guard={showProtected}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="admin" />
+        <Stack.Screen name="mais" />
+        <Stack.Screen name="propriedades" />
+        <Stack.Screen name="cultivos" />
+      </Stack.Protected>
       <Stack.Screen name="oauth/callback" />
       <Stack.Screen name="auth" />
     </Stack>
