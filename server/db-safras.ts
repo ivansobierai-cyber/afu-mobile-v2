@@ -59,6 +59,9 @@ export async function requireSafraInProperty(
   return row;
 }
 
+/** Código de domínio estável para clientes/offline (Etapa 5). */
+export const SAFRA_READ_ONLY = "SAFRA_READ_ONLY";
+
 /** Bloqueia escrita comum em safra encerrada/arquivada (Etapa 5). */
 export async function requireWritableSafraInProperty(
   organizationId: number,
@@ -69,7 +72,7 @@ export async function requireWritableSafraInProperty(
   if (row.status === "encerrada" || row.status === "arquivada") {
     throw new TRPCError({
       code: "FORBIDDEN",
-      message: "Safra encerrada ou arquivada — somente leitura.",
+      message: `${SAFRA_READ_ONLY}: Safra encerrada ou arquivada — somente leitura.`,
     });
   }
   return row;
@@ -160,47 +163,134 @@ export async function ensureDefaultSafra(opts: {
   return created;
 }
 
-/** Encerra safra (modo histórico). Remove isDefault. */
+/**
+ * Guarda escrita a partir do safraId real da entidade (nunca confiar só no cliente).
+ * Se safraId for null, tenta a safra padrão da propriedade.
+ */
+export async function requireWritableSafraId(
+  organizationId: number,
+  propriedadeId: number,
+  safraId: number | null | undefined,
+): Promise<Safra> {
+  if (safraId != null && safraId > 0) {
+    return requireWritableSafraInProperty(organizationId, propriedadeId, safraId);
+  }
+  const def = await ensureDefaultSafra({ organizationId, propriedadeId });
+  return requireWritableSafraInProperty(organizationId, propriedadeId, def.id);
+}
+
+/**
+ * Encerra safra em transação.
+ * Se era padrão, exige `nextDefaultSafraId` (outra safra da propriedade) ou
+ * `allowNoDefault` explícito — nunca cria safra silenciosamente.
+ */
 export async function closeSafra(opts: {
   organizationId: number;
   propriedadeId: number;
   safraId: number;
-}): Promise<Safra> {
+  nextDefaultSafraId?: number | null;
+  allowNoDefault?: boolean;
+}): Promise<{ closed: Safra; newDefault: Safra | null }> {
   const row = await requireSafraInProperty(
     opts.organizationId,
     opts.propriedadeId,
     opts.safraId,
   );
   if (row.status === "encerrada" || row.status === "arquivada") {
-    return row;
+    const list = await listSafrasByPropriedade(opts.organizationId, opts.propriedadeId);
+    return {
+      closed: row,
+      newDefault: list.find((s) => s.isDefault) ?? null,
+    };
   }
+
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
-  await db
-    .update(safras)
-    .set({
-      status: "encerrada",
-      isDefault: false,
-      closedAt: new Date(),
-    })
-    .where(
-      and(
-        eq(safras.id, opts.safraId),
-        eq(safras.organizationId, opts.organizationId),
-        eq(safras.propriedadeId, opts.propriedadeId),
-      ),
-    );
-  const updated = await requireSafraInProperty(
+
+  let nextDefault: Safra | null = null;
+  if (row.isDefault) {
+    if (opts.nextDefaultSafraId != null) {
+      if (opts.nextDefaultSafraId === opts.safraId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Próxima safra corrente deve ser diferente da encerrada.",
+        });
+      }
+      nextDefault = await requireSafraInProperty(
+        opts.organizationId,
+        opts.propriedadeId,
+        opts.nextDefaultSafraId,
+      );
+      if (nextDefault.status === "arquivada" || nextDefault.status === "encerrada") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Próxima safra corrente precisa estar ativa ou planejada.",
+        });
+      }
+    } else if (!opts.allowNoDefault) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "Informe nextDefaultSafraId (próxima safra corrente) ou allowNoDefault=true.",
+      });
+    }
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(safras)
+      .set({
+        status: "encerrada",
+        isDefault: false,
+        closedAt: new Date(),
+      })
+      .where(
+        and(
+          eq(safras.id, opts.safraId),
+          eq(safras.organizationId, opts.organizationId),
+          eq(safras.propriedadeId, opts.propriedadeId),
+        ),
+      );
+
+    if (nextDefault) {
+      await tx
+        .update(safras)
+        .set({ isDefault: false })
+        .where(
+          and(
+            eq(safras.organizationId, opts.organizationId),
+            eq(safras.propriedadeId, opts.propriedadeId),
+            eq(safras.isDefault, true),
+          ),
+        );
+      await tx
+        .update(safras)
+        .set({ isDefault: true, status: nextDefault.status === "planejada" ? "ativa" : nextDefault.status })
+        .where(
+          and(
+            eq(safras.id, nextDefault.id),
+            eq(safras.organizationId, opts.organizationId),
+            eq(safras.propriedadeId, opts.propriedadeId),
+          ),
+        );
+    }
+  });
+
+  const closed = await requireSafraInProperty(
     opts.organizationId,
     opts.propriedadeId,
     opts.safraId,
   );
-  return updated;
+  const list = await listSafrasByPropriedade(opts.organizationId, opts.propriedadeId);
+  return {
+    closed,
+    newDefault: list.find((s) => s.isDefault) ?? null,
+  };
 }
 
 /**
- * Reabre safra encerrada → ativa.
- * Se makeDefault, torna-se a safra padrão da propriedade.
+ * Reabre safra encerrada → ativa (transacional).
+ * Se makeDefault, torna-se a única safra padrão da propriedade.
  */
 export async function reopenSafra(opts: {
   organizationId: number;
@@ -225,32 +315,34 @@ export async function reopenSafra(opts: {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
 
-  if (opts.makeDefault) {
-    await db
+  await db.transaction(async (tx) => {
+    if (opts.makeDefault) {
+      await tx
+        .update(safras)
+        .set({ isDefault: false })
+        .where(
+          and(
+            eq(safras.organizationId, opts.organizationId),
+            eq(safras.propriedadeId, opts.propriedadeId),
+            eq(safras.isDefault, true),
+          ),
+        );
+    }
+    await tx
       .update(safras)
-      .set({ isDefault: false })
+      .set({
+        status: "ativa",
+        closedAt: null,
+        isDefault: opts.makeDefault ?? false,
+      })
       .where(
         and(
+          eq(safras.id, opts.safraId),
           eq(safras.organizationId, opts.organizationId),
           eq(safras.propriedadeId, opts.propriedadeId),
-          eq(safras.isDefault, true),
         ),
       );
-  }
+  });
 
-  await db
-    .update(safras)
-    .set({
-      status: "ativa",
-      closedAt: null,
-      isDefault: opts.makeDefault ?? false,
-    })
-    .where(
-      and(
-        eq(safras.id, opts.safraId),
-        eq(safras.organizationId, opts.organizationId),
-        eq(safras.propriedadeId, opts.propriedadeId),
-      ),
-    );
   return requireSafraInProperty(opts.organizationId, opts.propriedadeId, opts.safraId);
 }

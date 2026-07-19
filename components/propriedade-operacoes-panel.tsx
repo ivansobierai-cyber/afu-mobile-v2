@@ -127,6 +127,10 @@ export function PropriedadeOperacoesPanel({
   );
 
   const runTransition = (id: number, status: TarefaStatus, extra?: { motivoCancelamento?: string }) => {
+    if (readOnly) {
+      Alert.alert("Somente leitura", "Safra encerrada — dados disponíveis somente para consulta.");
+      return;
+    }
     transition.mutate(
       { id, status, ...extra },
       {
@@ -237,14 +241,32 @@ export function PropriedadeOperacoesPanel({
         ))}
       </View>
 
+      {readOnly ? (
+        <Text
+          style={{
+            fontSize: 12,
+            color: colors.muted,
+            fontWeight: "600",
+            marginBottom: 10,
+            lineHeight: 17,
+          }}
+        >
+          Safra encerrada — dados disponíveis somente para consulta.
+        </Text>
+      ) : null}
+
       {tarefas.length === 0 ? (
         <ScreenState
           status="empty"
           compact
           title="Nenhuma operação"
-          message="Crie uma tarefa para plantio, vistoria, irrigação ou outras atividades."
-          actionLabel="Nova tarefa"
-          onAction={() => setModalOpen(true)}
+          message={
+            readOnly
+              ? "Não há tarefas nesta safra histórica."
+              : "Crie uma tarefa para plantio, vistoria, irrigação ou outras atividades."
+          }
+          actionLabel={readOnly ? undefined : "Nova tarefa"}
+          onAction={readOnly ? undefined : () => setModalOpen(true)}
         />
       ) : (
         tarefas.map((t) => {
@@ -278,6 +300,7 @@ export function PropriedadeOperacoesPanel({
                 </Text>
               ) : null}
 
+              {!readOnly ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 10 }}>
                 {status === "planejada" || status === "liberada" ? (
                   <TouchableOpacity
@@ -362,12 +385,13 @@ export function PropriedadeOperacoesPanel({
                   </TouchableOpacity>
                 ) : null}
               </View>
+              ) : null}
             </View>
           );
         })
       )}
 
-      <Modal visible={modalOpen} animationType="slide" transparent onRequestClose={() => setModalOpen(false)}>
+      <Modal visible={modalOpen && !readOnly} animationType="slide" transparent onRequestClose={() => setModalOpen(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
           <View
             style={{

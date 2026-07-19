@@ -229,6 +229,35 @@ export const tarefasRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       const tarefa = await requireTarefaInTenant(tenant, input.id);
+      const { requireWritableSafraId, SAFRA_READ_ONLY } = await import("../db-safras");
+      try {
+        await requireWritableSafraId(
+          tenant.organizationId,
+          tarefa.propriedadeId,
+          (tarefa as { safraId?: number | null }).safraId,
+        );
+      } catch (e) {
+        if (e instanceof TRPCError && e.message.includes(SAFRA_READ_ONLY)) {
+          const { recordServerSyncConflict } = await import("../sync-conflicts");
+          await recordServerSyncConflict({
+            organizationId: tenant.organizationId,
+            actorUserId: tenant.userId,
+            deviceId: input.deviceId,
+            clientMutationId: input.clientMutationId,
+            entity: "tarefa",
+            action: "transition",
+            resourceType: "tarefa",
+            resourceId: String(tarefa.id),
+            reason: "safra_read_only",
+            message: e.message,
+            payload: JSON.stringify({
+              status: input.status,
+              safraId: (tarefa as { safraId?: number | null }).safraId,
+            }),
+          });
+        }
+        throw e;
+      }
       const from = tarefa.status as TarefaStatus;
       const to = input.status as TarefaStatus;
 

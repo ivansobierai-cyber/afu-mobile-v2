@@ -354,10 +354,17 @@ export const propriedadeExpansaoRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
         await requirePropertyInTenant(tenant, oc.propriedadeId);
+        const { requireWritableSafraId } = await import("../db-safras");
+        const safra = await requireWritableSafraId(
+          tenant.organizationId,
+          oc.propriedadeId,
+          (oc as { safraId?: number | null }).safraId,
+        );
         const tarefaId = await createTarefa({
           usuarioId: tenant.perfilId,
           organizationId: tenant.organizationId,
           propriedadeId: oc.propriedadeId,
+          safraId: safra.id,
           terrenoId: oc.terrenoId ?? undefined,
           culturaId: oc.culturaId ?? undefined,
           tipoOperacao: oc.categoria === "praga" || oc.categoria === "doenca" ? "monitoramento" : "vistoria",
@@ -398,6 +405,12 @@ export const propriedadeExpansaoRouter = router({
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
         await requirePropertyInTenant(tenant, oc.propriedadeId);
+        const { requireWritableSafraId } = await import("../db-safras");
+        await requireWritableSafraId(
+          tenant.organizationId,
+          oc.propriedadeId,
+          (oc as { safraId?: number | null }).safraId,
+        );
         await updateOcorrencia(
           oc.id,
           {
@@ -750,8 +763,24 @@ export const propriedadeExpansaoRouter = router({
       .query(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
         await assertPropertyInTenant(tenant, input.propriedadeId);
-        const { listSafrasByPropriedade } = await import("../db-safras");
-        return listSafrasByPropriedade(tenant.organizationId, input.propriedadeId);
+        const { listSafrasByPropriedade, ensureDefaultSafra } = await import("../db-safras");
+        let list = await listSafrasByPropriedade(
+          tenant.organizationId,
+          input.propriedadeId,
+        );
+        // Reparo server-side: leitor não depende de mutação property.write
+        if (list.length === 0) {
+          await ensureDefaultSafra({
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId,
+            createdByUserId: tenant.userId,
+          });
+          list = await listSafrasByPropriedade(
+            tenant.organizationId,
+            input.propriedadeId,
+          );
+        }
+        return list;
       }),
 
     ensureDefault: orgPermissionProcedure("property.write")
@@ -790,6 +819,9 @@ export const propriedadeExpansaoRouter = router({
         z.object({
           propriedadeId: z.number().int().positive(),
           safraId: z.number().int().positive(),
+          /** Obrigatório se a safra encerrada for a padrão — não criar silenciosamente */
+          nextDefaultSafraId: z.number().int().positive().optional(),
+          allowNoDefault: z.boolean().optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -798,34 +830,39 @@ export const propriedadeExpansaoRouter = router({
         const { closeSafra } = await import("../db-safras");
         const { writeAuditLog } = await import("../private-files");
         const { registrarAtividade } = await import("../db-propriedade-expansao");
-        const safra = await closeSafra({
+        const { closed, newDefault } = await closeSafra({
           organizationId: tenant.organizationId,
           propriedadeId: input.propriedadeId,
           safraId: input.safraId,
+          nextDefaultSafraId: input.nextDefaultSafraId,
+          allowNoDefault: input.allowNoDefault,
         });
         await writeAuditLog({
           organizationId: tenant.organizationId,
           actorUserId: tenant.userId,
           action: "safra.close",
           resourceType: "safra",
-          resourceId: String(safra.id),
+          resourceId: String(closed.id),
           meta: JSON.stringify({
             propriedadeId: input.propriedadeId,
-            nome: safra.nome,
-            status: safra.status,
+            nome: closed.nome,
+            status: closed.status,
+            nextDefaultSafraId: newDefault?.id ?? null,
           }),
         });
         await registrarAtividade({
           propriedadeId: input.propriedadeId,
           organizationId: tenant.organizationId,
-          safraId: safra.id,
+          safraId: closed.id,
           usuarioId: tenant.perfilId,
           tipo: "safra",
-          titulo: `Safra encerrada: ${safra.nome}`,
-          detalhe: "Modo histórico — somente leitura",
+          titulo: `Safra encerrada: ${closed.nome}`,
+          detalhe: newDefault
+            ? `Nova corrente: ${newDefault.nome}`
+            : "Modo histórico — somente leitura",
           gravidade: "atencao",
         } as any);
-        return safra;
+        return { ...closed, newDefault };
       }),
 
     reopen: orgPermissionProcedure("safra.reopen")

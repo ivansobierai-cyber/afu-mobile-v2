@@ -23,12 +23,12 @@ Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 | 2 | Entidade `safras` + migration/backfill | **Feito** |
 | 3 | PropertyWorkspaceContext + URL `?tab=&safraId=` | **Feito** |
 | 4 | Overview/painéis filtrados por `safraId` | **Feito** |
-| 5 | Modo histórico seguro (close/reopen + audit) | **Feito** |
+| 5 | Modo histórico seguro (close/reopen + audit) | **Quase** — transitions bloqueadas, close transacional, CI MySQL; falta homologação preview |
 | 6 | `+ Registrar` contextual | **Parcial** (contexto safra/URL; formulários dedicados pendentes) |
-| 7 | RBAC + arquivamento soft | **Feito** (`property.archive` / `property.delete` + confirmNome) |
+| 7 | RBAC + arquivamento soft | **Parcial** — archive/restore API ok; falta UI arquivadas + export auditado + digitar nome |
 | 8 | Navegação/estado de retorno | **Parcial** (`tab` + `safraId`) |
-| 9 | Loading/erro/vazio/offline/parcial | Parcial |
-| 10 | Testes/evidências/CI/entrega | Em progresso |
+| 9 | Loading/erro/vazio/offline/parcial | Parcial (empty histórico corrigido) |
+| 10 | Testes/evidências/CI/entrega | CI com MySQL; falta E2E + merge |
 
 ---
 

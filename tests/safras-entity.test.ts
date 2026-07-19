@@ -118,28 +118,67 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
     const safra = await a.caller.coreData.expansao.safras.ensureDefault({
       propriedadeId: a.propriedadeId,
     });
-    const closed = await a.caller.coreData.expansao.safras.close({
+    const closedRes = await a.caller.coreData.expansao.safras.close({
       propriedadeId: a.propriedadeId,
       safraId: safra.id,
+      allowNoDefault: true,
     });
-    expect(closed.status).toBe("encerrada");
-    expect(closed.isDefault).toBe(false);
+    expect(closedRes.status).toBe("encerrada");
+    expect(closedRes.isDefault).toBe(false);
 
     await expect(
       a.caller.coreData.cultivos.create({
         propriedadeId: a.propriedadeId,
-        safraId: closed.id,
+        safraId: closedRes.id,
         nomeCultura: "Bloqueado pós-close",
       }),
     ).rejects.toBeInstanceOf(TRPCError);
 
     const reopened = await a.caller.coreData.expansao.safras.reopen({
       propriedadeId: a.propriedadeId,
-      safraId: closed.id,
+      safraId: closedRes.id,
       makeDefault: true,
     });
     expect(reopened.status).toBe("ativa");
     expect(reopened.isDefault).toBe(true);
+  });
+
+  it("transition de tarefa em safra encerrada é negada (SAFRA_READ_ONLY)", async () => {
+    const atual = await a.caller.coreData.expansao.safras.ensureDefault({
+      propriedadeId: a.propriedadeId,
+    });
+    const { createSafra } = await import("../server/db-safras");
+    const histId = await createSafra({
+      organizationId: a.organizationId,
+      propriedadeId: a.propriedadeId,
+      nome: "Safra Transição Histórica",
+      status: "ativa",
+      isDefault: false,
+    });
+    const tarefaId = await a.caller.coreData.tarefas.create({
+      propriedadeId: a.propriedadeId,
+      safraId: histId,
+      tipoOperacao: "monitoramento",
+      titulo: "Tarefa histórica",
+      dataPrevista: new Date().toISOString(),
+    });
+    await a.caller.coreData.expansao.safras.close({
+      propriedadeId: a.propriedadeId,
+      safraId: histId,
+      allowNoDefault: true,
+    });
+    // garantir corrente permanece
+    expect(atual.id).toBeTruthy();
+
+    await expect(
+      a.caller.coreData.tarefas.transition({
+        id: tarefaId,
+        status: "em_execucao",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringContaining("SAFRA_READ_ONLY"),
+    });
   });
 });
 

@@ -109,14 +109,7 @@ export default function PropriedadeDetailScreen() {
     { propriedadeId: propId },
     { enabled: propId > 0 && !!orgScope },
   );
-  const ensureDefaultSafra = trpc.coreData.expansao.safras.ensureDefault.useMutation();
-
-  useEffect(() => {
-    if (!propId || !orgScope || safrasRaw.length > 0 || ensureDefaultSafra.isPending) return;
-    void ensureDefaultSafra.mutateAsync({ propriedadeId: propId }).catch(() => {
-      /* leitor sem property.write — overview garante default no servidor */
-    });
-  }, [propId, orgScope, safrasRaw.length]);
+  // Safra padrão é garantida no servidor (safras.list / overview) — sem write-on-read no cliente
 
   const workspaceSafras: WorkspaceSafra[] = useMemo(
     () =>
@@ -512,9 +505,20 @@ export default function PropriedadeDetailScreen() {
             return;
           }
           if (action === "close" && activeSafraId != null) {
+            const alternatives = workspaceSafras.filter(
+              (s) =>
+                s.id !== activeSafraId &&
+                (s.status === "ativa" || s.status === "planejada"),
+            );
+            const nextId = alternatives[0]?.id;
+            const closingDefault = Boolean(resolvedSafra?.isDefault);
             Alert.alert(
               "Encerrar safra?",
-              `${safraLabel} passará a modo histórico (somente leitura).`,
+              closingDefault
+                ? nextId
+                  ? `${safraLabel} passará a histórico. Próxima corrente: ${alternatives[0]!.nome}.`
+                  : `${safraLabel} é a safra padrão e não há outra ativa/planejada. Encerrar deixará a propriedade sem corrente.`
+                : `${safraLabel} passará a modo histórico (somente leitura).`,
               [
                 { text: "Cancelar", style: "cancel" },
                 {
@@ -525,6 +529,16 @@ export default function PropriedadeDetailScreen() {
                       .mutateAsync({
                         propriedadeId: propriedade.id,
                         safraId: activeSafraId,
+                        ...(closingDefault
+                          ? nextId
+                            ? { nextDefaultSafraId: nextId }
+                            : { allowNoDefault: true }
+                          : {}),
+                      })
+                      .then((res) => {
+                        const next = (res as { newDefault?: { id: number } | null })
+                          ?.newDefault;
+                        if (next?.id) selectSafraId(next.id);
                       })
                       .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao encerrar")),
                 },
