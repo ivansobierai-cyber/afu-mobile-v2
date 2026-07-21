@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -16,6 +16,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { buildPropertyReturnHref } from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
 
 const TIPO_SOLO = [
@@ -39,16 +40,28 @@ export default function TerrenosScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
-  const { propriedadeId, returnTab } = useLocalSearchParams<{
+  const utils = trpc.useUtils();
+  const { propriedadeId, returnTab, safraId, openCreate } = useLocalSearchParams<{
     propriedadeId: string;
     returnTab?: string;
+    safraId?: string;
+    openCreate?: string;
   }>();
   const propId = parseInt(propriedadeId ?? "0", 10);
+  const parsedSafraId = safraId ? parseInt(safraId, 10) : NaN;
+  const activeSafraId =
+    Number.isFinite(parsedSafraId) && parsedSafraId > 0 ? parsedSafraId : null;
 
   const goBackToProperty = () => {
     if (propId > 0) {
       const tab = returnTab && returnTab.length ? returnTab : "talhoes";
-      router.replace(`/propriedades/${propId}?tab=${tab}` as any);
+      router.replace(
+        buildPropertyReturnHref({
+          propriedadeId: propId,
+          tab,
+          safraId: activeSafraId,
+        }) as any,
+      );
       return;
     }
     router.back();
@@ -83,6 +96,14 @@ export default function TerrenosScreen() {
     setObservacoes("");
     setModalVisible(true);
   };
+
+  // Etapa 6: + Registrar → talhão abre o formulário com returnTab/safraId
+  useEffect(() => {
+    if (openCreate === "1" && propId > 0) {
+      openNew();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na entrada com openCreate
+  }, [openCreate, propId]);
 
   const openEdit = (t: (typeof terrenos)[0]) => {
     setEditingId(t.id);
@@ -127,6 +148,11 @@ export default function TerrenosScreen() {
       } else {
         await runMutation("terreno", "create", payload);
       }
+      await utils.coreData.terrenos.listByPropriedade.invalidate({ propriedadeId: propId });
+      await utils.coreData.expansao.overview.invalidate({
+        propriedadeId: propId,
+        safraId: activeSafraId ?? undefined,
+      });
       setModalVisible(false);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Não foi possível salvar.";

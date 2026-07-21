@@ -28,6 +28,7 @@ import {
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
 import { PropriedadePanelMenus } from "@/components/propriedade-panel-menus";
+import { PropriedadeCultivoCreateModal } from "@/components/propriedade-cultivo-create-modal";
 import {
   PropriedadeAlertasFeed,
   PropriedadeMonitoramentoPanel,
@@ -37,6 +38,11 @@ import {
 } from "@/components/propriedade-expansao-panels";
 import { extractPolygonRings, squarePolygonAround, approxAreaHaFromGeoJson } from "@/lib/propriedades/geojson-helpers";
 import type { MapPolygon } from "@/components/property-map-types";
+import {
+  buildTerrenosManageHref,
+  resolveRegistrarTarget,
+  type RegistrarAction,
+} from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -93,6 +99,9 @@ export default function PropriedadeDetailScreen() {
   const [tab, setTab] = useState<PanelTab>(initialTab);
   const [maisSection, setMaisSection] = useState<MaisSection>("menu");
   const [menu, setMenu] = useState<"safra" | "registrar" | "admin" | null>(null);
+  const [openTarefaNonce, setOpenTarefaNonce] = useState(0);
+  const [openOcorrenciaNonce, setOpenOcorrenciaNonce] = useState(0);
+  const [cultivoModalOpen, setCultivoModalOpen] = useState(false);
   const utils = trpc.useUtils();
 
   // Deep link / retorno preserva aba (?tab=)
@@ -349,11 +358,14 @@ export default function PropriedadeDetailScreen() {
   const talhoesCount = overview?.contagens.talhoes ?? terrenos.length;
   const cultivosCount = overview?.contagens.cultivos ?? cultivos.length;
   const tarefasAbertas = overview?.contagens.tarefasAbertas ?? resumoHoje?.abertas ?? 0;
-  const goTalhoesManage = () =>
+  const goTalhoesManage = (opts?: { openCreate?: boolean }) =>
     router.push(
-      `/propriedades/terrenos?propriedadeId=${propriedade.id}&returnTab=talhoes${
-        activeSafraId != null ? `&safraId=${activeSafraId}` : ""
-      }` as any,
+      buildTerrenosManageHref({
+        propriedadeId: propriedade.id,
+        safraId: activeSafraId,
+        returnTab: "talhoes",
+        openCreate: opts?.openCreate,
+      }) as any,
     );
 
   const mapPolygons: MapPolygon[] = [];
@@ -439,6 +451,25 @@ export default function PropriedadeDetailScreen() {
     !isHistorical &&
     (canWriteProperty ||
       (activeRole ? roleHasPermission(activeRole, "operations.write") : false));
+  const handleRegistrar = (action: RegistrarAction) => {
+    if (!canRegister) {
+      Alert.alert(
+        "Somente leitura",
+        "Safra histórica — volte para a safra atual para registrar.",
+      );
+      return;
+    }
+    const target = resolveRegistrarTarget(action);
+    if (target.externalRoute === "terrenos") {
+      goTalhoesManage({ openCreate: true });
+      return;
+    }
+    if (target.tab) selectTab(target.tab);
+    if (target.maisSection) setMaisSection(target.maisSection);
+    if (action === "tarefa") setOpenTarefaNonce((n) => n + 1);
+    else if (action === "ocorrencia") setOpenOcorrenciaNonce((n) => n + 1);
+    else if (action === "cultivo") setCultivoModalOpen(true);
+  };
   const periodFilterActive =
     !filterComplete &&
     Boolean(
@@ -567,28 +598,7 @@ export default function PropriedadeDetailScreen() {
             );
           }
         }}
-        onRegistrar={(action) => {
-          if (!canRegister) {
-            Alert.alert(
-              "Somente leitura",
-              "Safra histórica — volte para a safra atual para registrar.",
-            );
-            return;
-          }
-          const ctxQ =
-            activeSafraId != null
-              ? `propriedadeId=${propriedade.id}&safraId=${activeSafraId}&returnTab=`
-              : `propriedadeId=${propriedade.id}&returnTab=`;
-          if (action === "tarefa") selectTab("operacoes");
-          else if (action === "ocorrencia") {
-            selectTab("mais");
-            setMaisSection("monitoramento");
-          } else if (action === "talhao") goTalhoesManage();
-          else {
-            selectTab("cultivos");
-            router.push(`/(tabs)/cultivos?${ctxQ}cultivos` as any);
-          }
-        }}
+        onRegistrar={handleRegistrar}
         onAdmin={(action) => {
           if (action === "editar") {
             router.push(`/(tabs)/propriedades?editId=${propriedade.id}` as any);
@@ -922,6 +932,7 @@ export default function PropriedadeDetailScreen() {
             terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
             safraId={activeSafraId ?? undefined}
             readOnly={isHistorical}
+            openCreateNonce={openTarefaNonce}
           />
         )}
 
@@ -1019,7 +1030,7 @@ export default function PropriedadeDetailScreen() {
                   alignItems: "center",
                   gap: 4,
                 }}
-                onPress={goTalhoesManage}
+                onPress={() => goTalhoesManage()}
                 accessibilityRole="button"
                 accessibilityLabel="Gerenciar talhões"
               >
@@ -1035,7 +1046,7 @@ export default function PropriedadeDetailScreen() {
                 title="Nenhum talhão"
                 message="Cadastre talhões para organizar área e cultivos."
                 actionLabel="Cadastrar talhão"
-                onAction={goTalhoesManage}
+                onAction={() => goTalhoesManage({ openCreate: true })}
               />
             ) : (
               <>
@@ -1090,15 +1101,36 @@ export default function PropriedadeDetailScreen() {
           <>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <Text style={styles.sectionTitle}>Cultivos e safras</Text>
-              <View
-                style={{
-                  backgroundColor: colors.primary + "18",
-                  borderRadius: 10,
-                  paddingHorizontal: 10,
-                  paddingVertical: 4,
-                }}
-              >
-                <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>{safraLabel}</Text>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View
+                  style={{
+                    backgroundColor: colors.primary + "18",
+                    borderRadius: 10,
+                    paddingHorizontal: 10,
+                    paddingVertical: 4,
+                  }}
+                >
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>{safraLabel}</Text>
+                </View>
+                {!isHistorical ? (
+                  <TouchableOpacity
+                    onPress={() => setCultivoModalOpen(true)}
+                    accessibilityRole="button"
+                    accessibilityLabel="Novo cultivo"
+                    style={{
+                      backgroundColor: colors.primary,
+                      borderRadius: 12,
+                      minHeight: 40,
+                      paddingHorizontal: 12,
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <IconSymbol name="plus" size={14} color="#FFF" />
+                    <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 13 }}>Novo</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             </View>
             <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 12 }}>
@@ -1111,9 +1143,13 @@ export default function PropriedadeDetailScreen() {
                 status="empty"
                 compact
                 title="Nenhum cultivo"
-                message="Cadastre um cultivo vinculado a um talhão."
-                actionLabel="Ir para Cultivos"
-                onAction={() => router.push("/(tabs)/cultivos" as any)}
+                message={
+                  isHistorical
+                    ? "Não há cultivos nesta safra histórica."
+                    : "Cadastre um cultivo vinculado a um talhão."
+                }
+                actionLabel={isHistorical ? undefined : "Novo cultivo"}
+                onAction={isHistorical ? undefined : () => setCultivoModalOpen(true)}
               />
             ) : (
               cultivos.map((cultivo) => {
@@ -1159,6 +1195,14 @@ export default function PropriedadeDetailScreen() {
                 );
               })
             )}
+            <PropriedadeCultivoCreateModal
+              visible={cultivoModalOpen && !isHistorical}
+              onClose={() => setCultivoModalOpen(false)}
+              propriedadeId={propriedade.id}
+              safraId={activeSafraId ?? undefined}
+              safraLabel={safraLabel}
+              terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome, area: t.area }))}
+            />
           </>
         )}
 
@@ -1295,6 +1339,7 @@ export default function PropriedadeDetailScreen() {
                 terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
                 safraId={activeSafraId ?? undefined}
                 readOnly={isHistorical}
+                openCreateNonce={openOcorrenciaNonce}
               />
             )}
             {maisSection === "estoque" && (

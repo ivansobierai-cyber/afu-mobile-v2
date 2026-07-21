@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -50,6 +50,9 @@ type Props = {
   terrenos: { id: number; nome: string }[];
   safraId?: number;
   readOnly?: boolean;
+  /** Incrementar para abrir o formulário de criação (menu + Registrar) */
+  openCreateNonce?: number;
+  onCreateOpened?: () => void;
 };
 
 export function PropriedadeOperacoesPanel({
@@ -57,12 +60,21 @@ export function PropriedadeOperacoesPanel({
   terrenos,
   safraId,
   readOnly = false,
+  openCreateNonce = 0,
+  onCreateOpened,
 }: Props) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const { queueMutation, isOnline, pending, isSyncing } = useCoreOfflineSync();
   const [filtro, setFiltro] = useState<"abertas" | "todas">("abertas");
   const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openCreateNonce || readOnly) return;
+    setModalOpen(true);
+    onCreateOpened?.();
+  }, [openCreateNonce, readOnly, onCreateOpened]);
+
   const [saving, setSaving] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [instrucoes, setInstrucoes] = useState("");
@@ -162,8 +174,12 @@ export function PropriedadeOperacoesPanel({
       setTitulo("");
       setInstrucoes("");
       setTerrenoId(null);
-      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
+      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
       await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
+      await utils.coreData.expansao.overview.invalidate({
+        propriedadeId,
+        safraId,
+      });
       if (result.queued) {
         Alert.alert("Fila offline", "Tarefa salva localmente e será sincronizada ao reconectar.");
       }

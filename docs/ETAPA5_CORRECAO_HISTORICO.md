@@ -14,7 +14,7 @@
 
 ## Critérios ainda abertos (próximos)
 
-- Formulários completos do `+ Registrar` (Etapa 6)
+- Formulários completos do `+ Registrar` (Etapa 6) — **feito** em `registrar-flow` + painéis contextuais
 - Exportação auditada + exclusão com digitação do nome na UI + lista de arquivadas (Etapa 7)
 - E2E multitenant + homologação preview autenticada
 

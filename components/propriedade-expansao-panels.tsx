@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -136,6 +136,9 @@ type MonitoramentoProps = {
   terrenos: { id: number; nome: string }[];
   safraId?: number;
   readOnly?: boolean;
+  /** Incrementar para focar o formulário de ocorrência (menu + Registrar) */
+  openCreateNonce?: number;
+  onCreateOpened?: () => void;
 };
 
 export function PropriedadeMonitoramentoPanel({
@@ -143,6 +146,8 @@ export function PropriedadeMonitoramentoPanel({
   terrenos,
   safraId,
   readOnly = false,
+  openCreateNonce = 0,
+  onCreateOpened,
 }: MonitoramentoProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
@@ -156,6 +161,18 @@ export function PropriedadeMonitoramentoPanel({
   const [severidade, setSeveridade] = useState<"baixa" | "media" | "alta" | "critica">("media");
   const [terrenoId, setTerrenoId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [formHighlight, setFormHighlight] = useState(false);
+  const tituloRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!openCreateNonce || readOnly) return;
+    setFormHighlight(true);
+    const t = setTimeout(() => {
+      tituloRef.current?.focus?.();
+      onCreateOpened?.();
+    }, 80);
+    return () => clearTimeout(t);
+  }, [openCreateNonce, readOnly, onCreateOpened]);
 
   const { data: ocorrencias = [], isLoading, isError, refetch } =
     trpc.coreData.expansao.ocorrencias.list.useQuery({ propriedadeId, safraId });
@@ -165,6 +182,7 @@ export function PropriedadeMonitoramentoPanel({
       await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
       await utils.coreData.expansao.atividades.invalidate({ propriedadeId, cacheScope });
+      await utils.coreData.expansao.overview.invalidate({ propriedadeId, safraId });
     },
   });
   const criarTarefa = trpc.coreData.expansao.ocorrencias.criarTarefa.useMutation({
@@ -236,6 +254,7 @@ export function PropriedadeMonitoramentoPanel({
       });
       setTitulo("");
       setDescricao("");
+      setFormHighlight(false);
     } catch (e: any) {
       Alert.alert("Erro", e?.message ?? "Falha ao criar ocorrência");
     } finally {
@@ -248,14 +267,28 @@ export function PropriedadeMonitoramentoPanel({
 
   return (
     <View>
-      <View style={styles.card}>
+      <View
+        style={[
+          styles.card,
+          formHighlight && !readOnly
+            ? { borderColor: colors.primary, borderWidth: 2 }
+            : null,
+        ]}
+      >
         <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
           Nova ocorrência de campo
         </Text>
-        <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
-          Diagnóstico automatizado é apoio à decisão — não confirmação absoluta.
-        </Text>
+        {formHighlight && !readOnly ? (
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600", marginBottom: 8 }}>
+            Preencha os campos abaixo — propriedade e safra já estão vinculadas.
+          </Text>
+        ) : (
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
+            Diagnóstico automatizado é apoio à decisão — não confirmação absoluta.
+          </Text>
+        )}
         <TextInput
+          ref={tituloRef}
           style={styles.input}
           placeholder="Título (ex.: Mancha foliar no talhão 2)"
           placeholderTextColor={colors.muted}
