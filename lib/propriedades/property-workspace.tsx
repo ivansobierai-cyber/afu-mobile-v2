@@ -63,6 +63,37 @@ export function resolveWorkspaceMode(opts: {
   return "current";
 }
 
+/**
+ * Regra central: “Modo histórico” só com filtragem completa.
+ * Sem complete → banner de filtro parcial (não histórico).
+ */
+export function resolveSafraBannerKind(opts: {
+  safraStatus: SafraStatus | null;
+  filterComplete: boolean;
+}): "none" | "partial_period" | "historical" {
+  const mode = resolveWorkspaceMode(opts);
+  if (mode === "historical") return "historical";
+  const closed =
+    opts.safraStatus === "encerrada" || opts.safraStatus === "arquivada";
+  if (closed && !opts.filterComplete) return "partial_period";
+  return "none";
+}
+
+/** + Registrar liberado só fora do modo histórico e com write. */
+export function resolveCanRegister(opts: {
+  mode: "current" | "historical";
+  canWriteProperty: boolean;
+  canWriteOperations: boolean;
+}): boolean {
+  if (opts.mode === "historical") return false;
+  return opts.canWriteProperty || opts.canWriteOperations;
+}
+
+/** Confirmação tipada — exclusão definitiva (Etapa 7). */
+export function confirmNameMatches(expected: string, typed: string): boolean {
+  return expected.trim() === typed.trim();
+}
+
 export function PropertyWorkspaceProvider({
   organizationId,
   propriedadeId,

@@ -20,6 +20,8 @@ import { formatCoordinates, hasValidCoordinates, parseCoordinate } from "@/lib/g
 import { resolveCultivosShortcutValue } from "@/lib/propriedades/overview-counts";
 import {
   PropertyWorkspaceProvider,
+  resolveCanRegister,
+  resolveSafraBannerKind,
   resolveWorkspaceMode,
   resolveWorkspaceSafra,
   type PanelTab,
@@ -456,10 +458,18 @@ export default function PropriedadeDetailScreen() {
     filterComplete,
   });
   const isHistorical = workspaceMode === "historical";
-  const canRegister =
-    !isHistorical &&
-    (canWriteProperty ||
-      (activeRole ? roleHasPermission(activeRole, "operations.write") : false));
+  const canRegister = resolveCanRegister({
+    mode: workspaceMode,
+    canWriteProperty,
+    canWriteOperations: activeRole
+      ? roleHasPermission(activeRole, "operations.write")
+      : false,
+  });
+  const bannerKind = resolveSafraBannerKind({
+    safraStatus: resolvedSafra?.status ?? null,
+    filterComplete,
+  });
+  const periodFilterActive = bannerKind === "partial_period";
   const handleRegistrar = (action: RegistrarAction) => {
     if (!canRegister) {
       Alert.alert(
@@ -479,12 +489,6 @@ export default function PropriedadeDetailScreen() {
     else if (action === "ocorrencia") setOpenOcorrenciaNonce((n) => n + 1);
     else if (action === "cultivo") setCultivoModalOpen(true);
   };
-  const periodFilterActive =
-    !filterComplete &&
-    Boolean(
-      resolvedSafra &&
-        (resolvedSafra.status === "encerrada" || resolvedSafra.status === "arquivada"),
-    );
 
   if (invalidUrl && parsedUrlSafraId != null) {
     return (

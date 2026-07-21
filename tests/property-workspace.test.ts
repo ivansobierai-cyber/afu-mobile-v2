@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  confirmNameMatches,
+  resolveCanRegister,
+  resolveSafraBannerKind,
   resolveWorkspaceMode,
   resolveWorkspaceSafra,
   type WorkspaceSafra,
@@ -39,6 +42,37 @@ describe("property workspace (correção Etapa 3)", () => {
     expect(resolveWorkspaceMode({ safraStatus: "ativa", filterComplete: true })).toBe(
       "current",
     );
+  });
+
+  it("banner partial vs historical respeita completeness", () => {
+    expect(
+      resolveSafraBannerKind({ safraStatus: "encerrada", filterComplete: false }),
+    ).toBe("partial_period");
+    expect(
+      resolveSafraBannerKind({ safraStatus: "encerrada", filterComplete: true }),
+    ).toBe("historical");
+  });
+
+  it("canRegister bloqueia histórico", () => {
+    expect(
+      resolveCanRegister({
+        mode: "historical",
+        canWriteProperty: true,
+        canWriteOperations: true,
+      }),
+    ).toBe(false);
+    expect(
+      resolveCanRegister({
+        mode: "current",
+        canWriteProperty: false,
+        canWriteOperations: true,
+      }),
+    ).toBe(true);
+  });
+
+  it("confirmNameMatches trim", () => {
+    expect(confirmNameMatches("A", " A ")).toBe(true);
+    expect(confirmNameMatches("A", "a")).toBe(false);
   });
 });
 

@@ -1,6 +1,6 @@
 # Etapa 2 — Painel da propriedade (correção em andamento)
 
-**Status:** correção em andamento (plano `AFU_Agro_Plano_Correcao_Etapa_2_PR12`)  
+**Status:** etapas 1–9 feitas · Etapa 10 aceite automatizado pronto · falta smoke preview + merge  
 **Branch:** `cursor/security-multitenant-audit-fd64`  
 **PR:** #12
 
@@ -23,14 +23,14 @@ Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 | 2 | Entidade `safras` + migration/backfill | **Feito** |
 | 3 | PropertyWorkspaceContext + URL `?tab=&safraId=` | **Feito** |
 | 4 | Overview/painéis filtrados por `safraId` | **Feito** |
-| 5 | Modo histórico seguro (close/reopen + audit) | **Quase** — transitions bloqueadas, close transacional, CI MySQL; falta homologação preview |
+| 5 | Modo histórico seguro (close/reopen + audit) | **Feito** — transitions bloqueadas; homologação preview na Etapa 10 |
 | 6 | `+ Registrar` contextual | **Feito** — abre formulários com propriedade+safra; talhão preserva returnTab/safraId |
-
 | 7 | RBAC + arquivamento soft | **Feito** — listArchived/restore UI, exclusão tipando nome, exportResumo auditado |
-
 | 8 | Navegação/estado de retorno | **Feito** — edit/cultivo/talhão preservam `tab` + `safraId` |
 | 9 | Loading/erro/vazio/offline/parcial | **Feito** — ScreenState `partial`, banner offline, UI status helper |
-| 10 | Testes/evidências/CI/entrega | CI com MySQL; falta E2E + merge |
+| 10 | Testes/evidências/CI/entrega | **Quase** — `npm run test:propriedades:etapa2` + CI; falta smoke preview + merge |
+
+Ver checklist completo: `docs/ETAPA10_PROPRIEDADES_ACEITE.md`.
 
 ---
 
@@ -97,5 +97,9 @@ npm run db:archive:apply
 ## Testes
 
 ```bash
-npx vitest run tests/overview-counts.test.ts tests/property-workspace.test.ts tests/safras-entity.test.ts tests/org-roles.test.ts tests/registrar-flow.test.ts
+npm run test:propriedades:etapa2
+# ou:
+npx vitest run tests/propriedades-etapa2-aceitacao.test.ts tests/overview-counts.test.ts tests/property-workspace.test.ts tests/safras-entity.test.ts tests/org-roles.test.ts tests/registrar-flow.test.ts
 ```
+
+Evidência: `docs/evidencias/propriedades-etapa2-aceitacao-latest.json`

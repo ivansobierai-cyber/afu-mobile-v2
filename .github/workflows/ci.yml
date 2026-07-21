@@ -54,3 +54,6 @@ jobs:
 
       - name: Unit + integration tests (com DATABASE_URL)
         run: npm run test:ci
+
+      - name: Aceite painel propriedades (evidência)
+        run: AFU_RUN_DB_TESTS=1 npm run test:propriedades:etapa2
