@@ -49,8 +49,9 @@ Login demo: `demo@afuagro.com.br` / `Demo@1234`
 
 - [x] Etapas 1–9 implementadas no branch
 - [x] Suíte `test:propriedades:etapa2` verde (unit)
-- [ ] Homologação smoke acima no preview (humano)
-- [ ] CI `validate` verde no PR
+- [x] Smoke autenticado local (ver `docs/ETAPA10_SMOKE_HOMOLOGACAO.md`)
+- [x] CI `validate` verde no PR
+- [ ] Seed demo na API do preview Vercel (ops)
 - [ ] Aprovação / merge em `main`
 
 ---

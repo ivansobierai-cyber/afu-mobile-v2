@@ -28,9 +28,9 @@ Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 | 7 | RBAC + arquivamento soft | **Feito** — listArchived/restore UI, exclusão tipando nome, exportResumo auditado |
 | 8 | Navegação/estado de retorno | **Feito** — edit/cultivo/talhão preservam `tab` + `safraId` |
 | 9 | Loading/erro/vazio/offline/parcial | **Feito** — ScreenState `partial`, banner offline, UI status helper |
-| 10 | Testes/evidências/CI/entrega | **Quase** — `npm run test:propriedades:etapa2` + CI; falta smoke preview + merge |
+| 10 | Testes/evidências/CI/entrega | **Feito** (local) — aceite + smoke AVANÇAR; preview Vercel precisa seed na API prod |
 
-Ver checklist completo: `docs/ETAPA10_PROPRIEDADES_ACEITE.md`.
+Ver: `docs/ETAPA10_PROPRIEDADES_ACEITE.md` · `docs/ETAPA10_SMOKE_HOMOLOGACAO.md`.
 
 ---
 

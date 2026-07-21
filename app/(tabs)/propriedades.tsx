@@ -484,7 +484,8 @@ export default function PropriedadesScreen() {
 
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.overlay}>
-          <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
+          <View style={styles.sheet}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
             <Text style={styles.sheetTitle}>{editingId ? "Editar Propriedade" : "Nova Propriedade"}</Text>
 
             <Text style={styles.label}>Nome *</Text>
@@ -557,14 +558,33 @@ export default function PropriedadesScreen() {
                 <TextInput style={styles.input} value={form.longitude} onChangeText={(v) => setForm((f) => ({ ...f, longitude: v }))} placeholder="-47.810300" placeholderTextColor={colors.muted} keyboardType="numbers-and-punctuation" />
               </View>
             </View>
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{editingId ? "Salvar Alterações" : "Cadastrar Propriedade"}</Text>}
+          </ScrollView>
+          <View style={{ paddingHorizontal: 4, paddingBottom: 8, gap: 8 }}>
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSave}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel={editingId ? "Salvar alterações" : "Cadastrar propriedade"}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>
+                  {editingId ? "Salvar Alterações" : "Cadastrar Propriedade"}
+                </Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setModalVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+            >
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
-          </ScrollView>
+          </View>
+          </View>
         </View>
       </Modal>
     </ScreenContainer>
