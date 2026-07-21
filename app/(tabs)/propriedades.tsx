@@ -21,6 +21,10 @@ import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { getDeviceCoordinates } from "@/hooks/use-device-location";
 import { hasValidCoordinates, parseCoordinate, parseCoordinateInput } from "@/lib/geo/coordinates";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
+import {
+  buildPropertyReturnHref,
+  parsePropertyReturnParams,
+} from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
@@ -63,7 +67,12 @@ export default function PropriedadesScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
-  const { editId } = useLocalSearchParams<{ editId?: string }>();
+  const { editId, returnTo, returnTab, safraId: safraParam } = useLocalSearchParams<{
+    editId?: string;
+    returnTo?: string;
+    returnTab?: string;
+    safraId?: string;
+  }>();
 
   const { cacheInput, activeOrganizationId } = useTenantQueryScope();
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
@@ -188,6 +197,17 @@ export default function PropriedadesScreen() {
         await runMutation("propriedade", "create", payload);
       }
       setModalVisible(false);
+      // Etapa 8: voltar ao painel preservando tab + safraId
+      if (editingId && returnTo === "propriedade") {
+        const ctx = parsePropertyReturnParams({
+          propriedadeId: String(editingId),
+          returnTab,
+          safraId: safraParam,
+        });
+        if (ctx) {
+          router.replace(buildPropertyReturnHref(ctx) as any);
+        }
+      }
     } catch (e: any) {
       Alert.alert("Erro", e.message ?? "Não foi possível salvar.");
     } finally {

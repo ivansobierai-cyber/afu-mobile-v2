@@ -9,10 +9,10 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenState } from "@/components/screen-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
@@ -221,9 +221,7 @@ export default function TerrenosScreen() {
   if (loadingProp || loadingTerrenos) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ScreenState status="loading" message="Carregando talhões…" />
       </ScreenContainer>
     );
   }
@@ -231,9 +229,13 @@ export default function TerrenosScreen() {
   if (!propriedade) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: colors.muted }}>Propriedade não encontrada.</Text>
-        </View>
+        <ScreenState
+          status="empty"
+          title="Propriedade não encontrada"
+          message="Não foi possível abrir o cadastro de talhões."
+          actionLabel="Voltar"
+          onAction={goBackToProperty}
+        />
       </ScreenContainer>
     );
   }

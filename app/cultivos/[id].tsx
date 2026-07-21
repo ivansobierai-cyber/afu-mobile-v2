@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, StyleSheet, ActivityIndicator } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, StyleSheet } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenState } from "@/components/screen-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import {
+  buildPropertyReturnHref,
+  parsePropertyReturnParams,
+} from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
@@ -35,17 +40,39 @@ const FASES = [
 ];
 
 export default function CultivoDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, propriedadeId, returnTab, safraId } = useLocalSearchParams<{
+    id: string;
+    propriedadeId?: string;
+    returnTab?: string;
+    safraId?: string;
+  }>();
   const cultivoId = parseInt(id ?? "0", 10);
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
   const [advancingFase, setAdvancingFase] = useState(false);
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
-  const { data: cultivos = [], isLoading } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
-    enabled: !!activeOrganizationId,
+  const returnCtx = parsePropertyReturnParams({
+    propriedadeId: propriedadeId ?? undefined,
+    returnTab,
+    safraId,
   });
+
+  const goBack = () => {
+    if (returnCtx) {
+      router.replace(buildPropertyReturnHref(returnCtx) as any);
+      return;
+    }
+    router.back();
+  };
+
+  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { data: cultivos = [], isLoading, isError, refetch } = trpc.coreData.cultivos.list.useQuery(
+    cacheInput,
+    {
+      enabled: !!activeOrganizationId,
+    },
+  );
   const cultivo = cultivos.find((c) => c.id === cultivoId) ?? null;
 
   const advanceFase = async () => {
@@ -69,9 +96,15 @@ export default function CultivoDetailScreen() {
   if (isLoading) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ScreenState status="loading" message="Carregando cultivo…" />
+      </ScreenContainer>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ScreenContainer>
+        <ScreenState status="error" onAction={() => void refetch()} />
       </ScreenContainer>
     );
   }
@@ -79,9 +112,13 @@ export default function CultivoDetailScreen() {
   if (!cultivo) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: colors.muted }}>Cultivo não encontrado.</Text>
-        </View>
+        <ScreenState
+          status="empty"
+          title="Cultivo não encontrado"
+          message="Ele pode ter sido removido ou você não tem acesso."
+          actionLabel="Voltar"
+          onAction={goBack}
+        />
       </ScreenContainer>
     );
   }
@@ -119,7 +156,7 @@ export default function CultivoDetailScreen() {
           gap: 12,
         }}
       >
-        <TouchableOpacity onPress={() => router.back()}>
+        <TouchableOpacity onPress={goBack} accessibilityRole="button" accessibilityLabel="Voltar">
           <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
         </TouchableOpacity>
         <View style={{ flex: 1 }}>

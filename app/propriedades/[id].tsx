@@ -40,10 +40,13 @@ import {
 import { extractPolygonRings, squarePolygonAround, approxAreaHaFromGeoJson } from "@/lib/propriedades/geojson-helpers";
 import type { MapPolygon } from "@/components/property-map-types";
 import {
+  buildCultivoDetailHref,
+  buildPropertyEditHref,
   buildTerrenosManageHref,
   resolveRegistrarTarget,
   type RegistrarAction,
 } from "@/lib/propriedades/registrar-flow";
+import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -105,6 +108,7 @@ export default function PropriedadeDetailScreen() {
   const [cultivoModalOpen, setCultivoModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const utils = trpc.useUtils();
+  const { isOnline, pending: offlinePending } = useCoreOfflineSync();
 
   // Deep link / retorno preserva aba (?tab=)
   useEffect(() => {
@@ -606,7 +610,13 @@ export default function PropriedadeDetailScreen() {
         onRegistrar={handleRegistrar}
         onAdmin={(action) => {
           if (action === "editar") {
-            router.push(`/(tabs)/propriedades?editId=${propriedade.id}` as any);
+            router.push(
+              buildPropertyEditHref({
+                propriedadeId: propriedade.id,
+                tab,
+                safraId: activeSafraId,
+              }) as any,
+            );
           } else if (action === "exportar") {
             if (!canExport) {
               Alert.alert("Sem permissão", "Seu papel não inclui exportação de relatórios.");
@@ -759,6 +769,29 @@ export default function PropriedadeDetailScreen() {
             {overview?.completeness?.missing?.length
               ? ` (pendente: ${overview.completeness.missing.join(", ")})`
               : ""}.
+          </Text>
+        ) : null}
+        {!isOnline ? (
+          <Text
+            style={{
+              marginTop: 8,
+              marginLeft: 52,
+              color: "#FFF",
+              fontSize: 11,
+              fontWeight: "700",
+              lineHeight: 15,
+              backgroundColor: "rgba(183,28,28,0.55)",
+              paddingHorizontal: 10,
+              paddingVertical: 6,
+              borderRadius: 8,
+              overflow: "hidden",
+              alignSelf: "flex-start",
+            }}
+            accessibilityRole="text"
+            accessibilityLabel="Sem conexão"
+          >
+            Offline
+            {offlinePending > 0 ? ` · ${offlinePending} pendente(s)` : " · dados em cache"}
           </Text>
         ) : null}
         {isHistorical ? (
@@ -1025,8 +1058,16 @@ export default function PropriedadeDetailScreen() {
                 compact
                 title="Sem coordenadas GPS"
                 message="Edite o cadastro na lista de propriedades para adicionar latitude e longitude."
-                actionLabel="Ir para lista"
-                onAction={() => router.push("/(tabs)/propriedades" as any)}
+                actionLabel="Editar GPS"
+                onAction={() =>
+                  router.push(
+                    buildPropertyEditHref({
+                      propriedadeId: propriedade.id,
+                      tab: "mapa",
+                      safraId: activeSafraId,
+                    }) as any,
+                  )
+                }
               />
             )}
           </View>
@@ -1034,6 +1075,14 @@ export default function PropriedadeDetailScreen() {
 
         {tab === "talhoes" && (
           <>
+            {loadingTer ? (
+              <ScreenState status="loading" compact message="Carregando talhões…" />
+            ) : errorTer ? (
+              <ScreenState status="error" compact onAction={() => void refetchTer()} />
+            ) : !isOnline && terrenos.length === 0 ? (
+              <ScreenState status="offline" compact onAction={() => void refetchTer()} />
+            ) : (
+              <>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <Text style={styles.sectionTitle}>Talhões ({terrenos.length})</Text>
               <TouchableOpacity
@@ -1110,11 +1159,19 @@ export default function PropriedadeDetailScreen() {
                 )}
               </>
             )}
+              </>
+            )}
           </>
         )}
 
         {tab === "cultivos" && (
           <>
+            {loadingCult ? (
+              <ScreenState status="loading" compact message="Carregando cultivos…" />
+            ) : errorCult ? (
+              <ScreenState status="error" compact onAction={() => void refetchCult()} />
+            ) : (
+              <>
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <Text style={styles.sectionTitle}>Cultivos e safras</Text>
               <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
@@ -1174,7 +1231,16 @@ export default function PropriedadeDetailScreen() {
                   <TouchableOpacity
                     key={cultivo.id}
                     style={styles.cultivoCard}
-                    onPress={() => router.push(`/cultivos/${cultivo.id}`)}
+                    onPress={() =>
+                      router.push(
+                        buildCultivoDetailHref({
+                          cultivoId: cultivo.id,
+                          propriedadeId: propriedade.id,
+                          tab: "cultivos",
+                          safraId: activeSafraId,
+                        }) as any,
+                      )
+                    }
                     accessibilityRole="button"
                     accessibilityLabel={`Cultivo ${cultivo.nomeCultura}`}
                   >
@@ -1219,6 +1285,8 @@ export default function PropriedadeDetailScreen() {
               safraLabel={safraLabel}
               terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome, area: t.area }))}
             />
+              </>
+            )}
           </>
         )}
 
@@ -1330,7 +1398,13 @@ export default function PropriedadeDetailScreen() {
                 <TouchableOpacity
                   style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
                   onPress={() =>
-                    router.push(`/(tabs)/propriedades?editId=${propriedade.id}` as any)
+                    router.push(
+                      buildPropertyEditHref({
+                        propriedadeId: propriedade.id,
+                        tab: "mais",
+                        safraId: activeSafraId,
+                      }) as any,
+                    )
                   }
                   accessibilityRole="button"
                   accessibilityLabel="Editar propriedade na lista"

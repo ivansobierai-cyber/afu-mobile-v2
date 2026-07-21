@@ -5,7 +5,13 @@ import type { ComponentProps } from "react";
 
 type StateIcon = ComponentProps<typeof IconSymbol>["name"];
 
-export type ScreenStateStatus = "loading" | "empty" | "error" | "offline" | "forbidden";
+export type ScreenStateStatus =
+  | "loading"
+  | "empty"
+  | "error"
+  | "offline"
+  | "forbidden"
+  | "partial";
 
 type ScreenStateProps = {
   status: ScreenStateStatus;
@@ -48,6 +54,12 @@ const DEFAULTS: Record<
     title: "Acesso restrito",
     message: "Você não tem permissão para ver este conteúdo.",
     icon: "lock.fill",
+  },
+  partial: {
+    title: "Dados parciais",
+    message: "Parte do ciclo ainda não está filtrada por safra. Preferimos filtro financeiro até completar.",
+    icon: "exclamationmark.triangle.fill",
+    actionLabel: "Entendi",
   },
 };
 

@@ -28,11 +28,27 @@ Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 
 | 7 | RBAC + arquivamento soft | **Feito** — listArchived/restore UI, exclusão tipando nome, exportResumo auditado |
 
-| 8 | Navegação/estado de retorno | **Parcial** (`tab` + `safraId`) |
-| 9 | Loading/erro/vazio/offline/parcial | Parcial (empty histórico corrigido) |
+| 8 | Navegação/estado de retorno | **Feito** — edit/cultivo/talhão preservam `tab` + `safraId` |
+| 9 | Loading/erro/vazio/offline/parcial | **Feito** — ScreenState `partial`, banner offline, UI status helper |
 | 10 | Testes/evidências/CI/entrega | CI com MySQL; falta E2E + merge |
 
 ---
+
+## Etapa 8 — Navegação / retorno
+
+Deep links canônicos:
+
+- Editar: `/(tabs)/propriedades?editId=&returnTo=propriedade&returnTab=&safraId=`
+- Cultivo: `/cultivos/:id?propriedadeId=&returnTab=cultivos&safraId=`
+- Talhão: já via `buildTerrenosManageHref`
+
+Após salvar/voltar, `buildPropertyReturnHref` restaura o painel.
+
+## Etapa 9 — Estados de UI
+
+- `ScreenState` inclui `partial`
+- Painel mostra chip **Offline** + pendentes da fila
+- `resolvePanelQueryUiStatus` padroniza prioridade offline > loading > error > empty
 
 ## Etapa 6 — `+ Registrar` contextual
 
