@@ -26,7 +26,8 @@ Caso contrário, usa **“Filtro financeiro por período”** / filtro parcial.
 | 5 | Modo histórico seguro (close/reopen + audit) | **Quase** — transitions bloqueadas, close transacional, CI MySQL; falta homologação preview |
 | 6 | `+ Registrar` contextual | **Feito** — abre formulários com propriedade+safra; talhão preserva returnTab/safraId |
 
-| 7 | RBAC + arquivamento soft | **Parcial** — archive/restore API ok; falta UI arquivadas + export auditado + digitar nome |
+| 7 | RBAC + arquivamento soft | **Feito** — listArchived/restore UI, exclusão tipando nome, exportResumo auditado |
+
 | 8 | Navegação/estado de retorno | **Parcial** (`tab` + `safraId`) |
 | 9 | Loading/erro/vazio/offline/parcial | Parcial (empty histórico corrigido) |
 | 10 | Testes/evidências/CI/entrega | CI com MySQL; falta E2E + merge |
@@ -57,7 +58,13 @@ safra.close        — encerrar ciclo
 safra.reopen       — reabrir com auditoria
 ```
 
-Auditoria (`audit_logs`): `safra.close`, `safra.reopen`, `property.archive`, `property.restore`, `property.delete`.
+Auditoria (`audit_logs`): `safra.close`, `safra.reopen`, `property.archive`, `property.restore`, `property.delete`, `property.export`.
+
+## Etapa 7 — Arquivo / exclusão / export
+
+- `propriedades.listArchived` + aba **Arquivadas** com restaurar
+- Exclusão definitiva exige digitar o nome (`ConfirmNameModal` + `confirmNome`)
+- `propriedades.exportResumo` grava `property.export` em `audit_logs`
 
 ---
 

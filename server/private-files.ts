@@ -46,7 +46,8 @@ export type AuditAction =
   | "safra.write_blocked"
   | "property.archive"
   | "property.restore"
-  | "property.delete";
+  | "property.delete"
+  | "property.export";
 
 /** Auditoria de tentativa bloqueada (cross-tenant / sem membership / sem permissão). */
 export async function auditAccessDenied(opts: {

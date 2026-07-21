@@ -213,6 +213,28 @@ describe.skipIf(!hasDb)("property archive (correção Etapa 7)", () => {
     expect(restored.some((p) => p.id === a.propriedadeId)).toBe(true);
   });
 
+  it("listArchived lista soft-arquivadas", async () => {
+    await a.caller.coreData.propriedades.archive({
+      id: a.propriedadeId,
+      motivo: "Listagem arquivadas",
+    });
+    const archived = await a.caller.coreData.propriedades.listArchived({
+      cacheScope: a.organizationId,
+    });
+    expect(archived.some((p) => p.id === a.propriedadeId)).toBe(true);
+    await a.caller.coreData.propriedades.restore({ id: a.propriedadeId });
+  });
+
+  it("exportResumo retorna texto e exige reports.export", async () => {
+    const res = await a.caller.coreData.propriedades.exportResumo({
+      id: a.propriedadeId,
+      safraLabel: "Safra teste",
+    });
+    expect(res.text).toContain("Propriedade:");
+    expect(res.title).toContain("Resumo");
+    expect(res.exportedAt).toBeTruthy();
+  });
+
   it("delete definitivo exige confirmNome e property.delete", async () => {
     const created = await a.caller.coreData.propriedades.create({
       nome: "Prop Delete Test",

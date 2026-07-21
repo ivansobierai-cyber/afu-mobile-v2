@@ -29,6 +29,7 @@ import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
 import { PropriedadePanelMenus } from "@/components/propriedade-panel-menus";
 import { PropriedadeCultivoCreateModal } from "@/components/propriedade-cultivo-create-modal";
+import { ConfirmNameModal } from "@/components/confirm-name-modal";
 import {
   PropriedadeAlertasFeed,
   PropriedadeMonitoramentoPanel,
@@ -102,6 +103,7 @@ export default function PropriedadeDetailScreen() {
   const [openTarefaNonce, setOpenTarefaNonce] = useState(0);
   const [openOcorrenciaNonce, setOpenOcorrenciaNonce] = useState(0);
   const [cultivoModalOpen, setCultivoModalOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const utils = trpc.useUtils();
 
   // Deep link / retorno preserva aba (?tab=)
@@ -186,15 +188,18 @@ export default function PropriedadeDetailScreen() {
   const archiveProp = trpc.coreData.propriedades.archive.useMutation({
     onSuccess: async () => {
       await utils.coreData.propriedades.list.invalidate();
+      await utils.coreData.propriedades.listArchived.invalidate();
       router.replace("/(tabs)/propriedades" as any);
     },
   });
   const deleteProp = trpc.coreData.propriedades.delete.useMutation({
     onSuccess: async () => {
       await utils.coreData.propriedades.list.invalidate();
+      setDeleteConfirmOpen(false);
       router.replace("/(tabs)/propriedades" as any);
     },
   });
+  const exportResumo = trpc.coreData.propriedades.exportResumo.useMutation();
   const closeSafraMut = trpc.coreData.expansao.safras.close.useMutation({
     onSuccess: async () => {
       await utils.coreData.expansao.safras.list.invalidate({ propriedadeId: propId });
@@ -607,17 +612,18 @@ export default function PropriedadeDetailScreen() {
               Alert.alert("Sem permissão", "Seu papel não inclui exportação de relatórios.");
               return;
             }
-            const summary = [
-              `Propriedade: ${propriedade.nome}`,
-              `Safra: ${safraLabel}${activeSafraId != null ? ` (#${activeSafraId})` : ""}`,
-              `Área: ${areaTotal || "—"} ha`,
-              `Talhões: ${talhoesCount}`,
-              `Cultivos: ${cultivosCount}`,
-              `Tarefas abertas: ${tarefasAbertas}`,
-            ].join("\n");
-            void Share.share({ message: summary, title: `Resumo — ${propriedade.nome}` }).catch(() => {
-              Alert.alert("Resumo", summary);
-            });
+            void exportResumo
+              .mutateAsync({
+                id: propriedade.id,
+                safraId: activeSafraId ?? undefined,
+                safraLabel,
+              })
+              .then((res) =>
+                Share.share({ message: res.text, title: res.title }).catch(() => {
+                  Alert.alert(res.title, res.text);
+                }),
+              )
+              .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao exportar"));
           } else if (action === "arquivar") {
             if (!canArchiveProperty) {
               Alert.alert("Sem permissão", "Seu papel não pode arquivar propriedades.");
@@ -634,10 +640,20 @@ export default function PropriedadeDetailScreen() {
               Alert.alert("Sem permissão", "Exclusão definitiva exige property.delete.");
               return;
             }
-            void deleteProp
-              .mutateAsync({ id: propriedade.id, confirmNome: propriedade.nome })
-              .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
+            setDeleteConfirmOpen(true);
           }
+        }}
+      />
+
+      <ConfirmNameModal
+        visible={deleteConfirmOpen}
+        expectedName={propriedade.nome}
+        loading={deleteProp.isPending}
+        onCancel={() => setDeleteConfirmOpen(false)}
+        onConfirm={(confirmNome) => {
+          void deleteProp
+            .mutateAsync({ id: propriedade.id, confirmNome })
+            .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
         }}
       />
 

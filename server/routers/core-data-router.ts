@@ -23,6 +23,7 @@ import {
   deleteCultura,
   createEvento,
   updateEvento,
+  getTarefasByPropriedade,
   getDb,
 } from "../db";
 import { tarefasRouter } from "./tarefas-router";
@@ -107,6 +108,16 @@ const propriedadesRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "property.read");
       return listPropriedadesInTenant(tenant);
+    }),
+
+  /** Propriedades soft-arquivadas (Etapa 7 — UI de restauração). */
+  listArchived: orgPermissionProcedure("property.archive")
+    .input(tenantCacheScopeSchema.optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      const tdb = createTenantDb(tenant.organizationId);
+      const all = await tdb.listPropriedades({ includeArchived: true });
+      return all.filter((p) => (p as { archivedAt?: Date | null }).archivedAt != null);
     }),
 
   get: organizationProcedure
@@ -236,6 +247,74 @@ const propriedadesRouter = router({
       });
       await deletePropriedade(input.id, tenant.organizationId);
       return { success: true };
+    }),
+
+  /**
+   * Exporta resumo da propriedade com auditoria (Etapa 7).
+   * Preferível ao Share local sem rastros.
+   */
+  exportResumo: orgPermissionProcedure("reports.export")
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        safraId: z.number().int().positive().optional(),
+        safraLabel: z.string().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const prop = await requirePropertyInTenant(tenant, input.id);
+      const terrenos = await getTerrenosByPropriedade(input.id);
+      const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
+      let safraId = input.safraId;
+      if (safraId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(tenant.organizationId, input.id, safraId);
+      }
+      const cultivosAll = await getCulturasByPropriedade(input.id);
+      const cultivos = filterRowsBySafraId(cultivosAll, safraId ?? null).matched;
+      const tarefasAll = await getTarefasByPropriedade(input.id);
+      const tarefas = filterRowsBySafraId(tarefasAll as any[], safraId ?? null).matched;
+      const abertas = tarefas.filter((t: any) =>
+        ["planejada", "liberada", "em_execucao", "pausada", "bloqueada"].includes(t.status),
+      );
+
+      const safraLine = input.safraLabel
+        ? `Safra: ${input.safraLabel}${safraId != null ? ` (#${safraId})` : ""}`
+        : safraId != null
+          ? `Safra: #${safraId}`
+          : "Safra: (não filtrada)";
+
+      const text = [
+        `Propriedade: ${prop.nome}`,
+        safraLine,
+        `Área: ${prop.tamanhoArea ?? "—"} ${prop.unidadeArea ?? "ha"}`,
+        `Talhões: ${terrenos.length}`,
+        `Cultivos: ${cultivos.length}`,
+        `Tarefas abertas: ${abertas.length}`,
+        `Exportado em: ${new Date().toISOString()}`,
+      ].join("\n");
+
+      const { writeAuditLog } = await import("../private-files");
+      await writeAuditLog({
+        organizationId: tenant.organizationId,
+        actorUserId: tenant.userId,
+        action: "property.export",
+        resourceType: "propriedade",
+        resourceId: String(input.id),
+        meta: JSON.stringify({
+          safraId: safraId ?? null,
+          talhoes: terrenos.length,
+          cultivos: cultivos.length,
+          tarefasAbertas: abertas.length,
+        }),
+      });
+
+      return {
+        text,
+        title: `Resumo — ${prop.nome}`,
+        exportedAt: new Date().toISOString(),
+      };
     }),
 
   stats: organizationProcedure
