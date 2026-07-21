@@ -69,8 +69,8 @@ export default function CultivosScreen() {
   const prefSafraId =
     Number.isFinite(contextSafraId) && contextSafraId > 0 ? contextSafraId : null;
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
-  const tenantReady = !!activeOrganizationId;
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  
   const { data: cultivos = [], isLoading, refetch } = trpc.coreData.cultivos.list.useQuery(
     cacheInput,
     { enabled: tenantReady },

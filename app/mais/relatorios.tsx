@@ -49,10 +49,10 @@ export default function RelatoriosScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
   const { data: relatorios = [], isLoading, refetch } = trpc.secondaryData.relatorios.list.useQuery(
     cacheInput,
-    { enabled: !!activeOrganizationId },
+    { enabled: tenantReady },
   );
   const downloadUrlMutation = trpc.secondaryData.relatorios.getDownloadUrl.useMutation();
   const createMutation = trpc.secondaryData.relatorios.create.useMutation({

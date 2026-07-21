@@ -44,10 +44,10 @@ export default function CalendarioScreen() {
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
   const { data: eventos = [], isLoading, refetch } = trpc.coreData.calendario.list.useQuery(
     cacheInput,
-    { enabled: !!activeOrganizationId },
+    { enabled: tenantReady },
   );
 
   const [modalVisible, setModalVisible] = useState(false);

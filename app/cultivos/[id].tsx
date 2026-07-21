@@ -66,11 +66,11 @@ export default function CultivoDetailScreen() {
     router.back();
   };
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
   const { data: cultivos = [], isLoading, isError, refetch } = trpc.coreData.cultivos.list.useQuery(
     cacheInput,
     {
-      enabled: !!activeOrganizationId,
+      enabled: tenantReady,
     },
   );
   const cultivo = cultivos.find((c) => c.id === cultivoId) ?? null;

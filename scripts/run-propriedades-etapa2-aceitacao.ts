@@ -20,6 +20,7 @@ const unitTests = [
   "tests/screen-state.test.ts",
   "tests/org-roles.test.ts",
   "tests/safra-label.test.ts",
+  "tests/tenant-ready.test.ts",
 ];
 
 /**

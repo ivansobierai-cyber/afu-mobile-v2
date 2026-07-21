@@ -121,10 +121,12 @@ export default function PropriedadeDetailScreen() {
 
   const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const orgScope = sessionProp?.activeOrganizationId ?? undefined;
+  /** Features de safra/expansão exigem API com organizações */
+  const safraApiReady = orgScope != null && orgScope > 0;
 
   const { data: safrasRaw = [] } = trpc.coreData.expansao.safras.list.useQuery(
     { propriedadeId: propId },
-    { enabled: propId > 0 && !!orgScope },
+    { enabled: propId > 0 && safraApiReady },
   );
   // Safra padrão é garantida no servidor (safras.list / overview) — sem write-on-read no cliente
 
@@ -168,7 +170,7 @@ export default function PropriedadeDetailScreen() {
     refetch: refetchCult,
   } = trpc.coreData.cultivos.listByPropriedade.useQuery(
     { propriedadeId: propId, safraId: activeSafraId ?? undefined },
-    { enabled: propId > 0 && activeSafraId != null },
+    { enabled: propId > 0 && (activeSafraId != null || !safraApiReady) },
   );
   const {
     data: terrenos = [],
@@ -181,7 +183,7 @@ export default function PropriedadeDetailScreen() {
   );
   const { data: resumoHoje } = trpc.coreData.tarefas.resumoHoje.useQuery(
     { propriedadeId: propId, safraId: activeSafraId ?? undefined },
-    { enabled: propId > 0 && activeSafraId != null },
+    { enabled: propId > 0 && (activeSafraId != null || !safraApiReady) },
   );
   const { data: overview } = trpc.coreData.expansao.overview.useQuery(
     {
@@ -189,7 +191,7 @@ export default function PropriedadeDetailScreen() {
       safraId: activeSafraId ?? undefined,
       cacheScope: orgScope,
     },
-    { enabled: propId > 0 && !!orgScope && activeSafraId != null },
+    { enabled: propId > 0 && safraApiReady && activeSafraId != null },
   );
   const archiveProp = trpc.coreData.propriedades.archive.useMutation({
     onSuccess: async () => {

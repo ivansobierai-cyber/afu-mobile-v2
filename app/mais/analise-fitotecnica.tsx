@@ -58,8 +58,8 @@ export default function AnaliseFitotecnicaScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
-  const tenantReady = !!activeOrganizationId;
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  
   const { data: analises = [], isLoading, refetch } = trpc.secondaryData.analises.list.useQuery(
     cacheInput,
     { enabled: tenantReady },

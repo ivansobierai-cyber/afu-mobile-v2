@@ -7,8 +7,8 @@ import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import { trpc } from "@/lib/trpc";
 
 export default function LaboratorioScreen() {
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
-  const enabled = !!activeOrganizationId;
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  const enabled = tenantReady;
   const { data: diagnosticos = [] } = trpc.diagnostico.historico.useQuery(cacheInput, { enabled });
   const { data: analises = [] } = trpc.secondaryData.analises.list.useQuery(cacheInput, { enabled });
   const { data: relatorios = [] } = trpc.secondaryData.relatorios.list.useQuery(cacheInput, {

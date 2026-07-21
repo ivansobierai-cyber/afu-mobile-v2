@@ -21,10 +21,10 @@ import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 export default function TempoScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
   const { data: propriedades = [], isLoading } = trpc.coreData.propriedades.list.useQuery(
     cacheInput,
-    { enabled: !!activeOrganizationId },
+    { enabled: tenantReady },
   );
 
   const comGps = propriedades.filter((p) =>

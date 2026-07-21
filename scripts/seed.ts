@@ -44,7 +44,42 @@ async function main() {
   const existing = await db.select().from(users).where(eq(users.email, DEMO_EMAIL)).limit(1);
   if (existing.length > 0) {
     console.log(`Seed já aplicado (usuário ${DEMO_EMAIL} existe).`);
-    // Garante admin mesmo quando o seed principal já rodou
+    // Reparo multi-tenant: org pessoal + organizationId em propriedades órfãs + safra default
+    try {
+      const { ensurePersonalOrganization } = await import("../server/db-organizations");
+      const { ensureDefaultSafra } = await import("../server/db-safras");
+      const { eq: eq2, isNull, and } = await import("drizzle-orm");
+      const org = await ensurePersonalOrganization(existing[0]!.id);
+      const orphanProps = await db
+        .select({ id: propriedades.id })
+        .from(propriedades)
+        .where(isNull(propriedades.organizationId));
+      for (const p of orphanProps) {
+        await db
+          .update(propriedades)
+          .set({ organizationId: org.organizationId })
+          .where(eq2(propriedades.id, p.id));
+        await ensureDefaultSafra({
+          organizationId: org.organizationId,
+          propriedadeId: p.id,
+          createdByUserId: existing[0]!.id,
+        });
+      }
+      // Também amarra terrenos/culturas órfãos da org
+      await db
+        .update(terrenos)
+        .set({ organizationId: org.organizationId })
+        .where(and(isNull(terrenos.organizationId)));
+      await db
+        .update(culturas)
+        .set({ organizationId: org.organizationId })
+        .where(and(isNull(culturas.organizationId)));
+      console.log(
+        `Reparo tenant: org=${org.organizationId}, propriedades vinculadas=${orphanProps.length}`,
+      );
+    } catch (e) {
+      console.warn("Reparo multi-tenant falhou (API/schema antigo?):", e);
+    }
     const { execSync } = await import("node:child_process");
     execSync("npx tsx scripts/seed-admin.ts", { stdio: "inherit" });
     process.exit(0);
@@ -83,9 +118,16 @@ async function main() {
   });
   const produtorId = produtorResult.insertId;
 
+  // Multi-tenant: org pessoal + activeOrganizationId
+  const { ensurePersonalOrganization } = await import("../server/db-organizations");
+  const { ensureDefaultSafra } = await import("../server/db-safras");
+  const org = await ensurePersonalOrganization(userId);
+  const organizationId = org.organizationId;
+
   console.log("Criando propriedade, terrenos e cultivos...");
   const [propResult] = await db.insert(propriedades).values({
     produtorId,
+    organizationId,
     nome: "Fazenda Santa Clara",
     cidade: "Ribeirão Preto",
     estado: "SP",
@@ -100,8 +142,15 @@ async function main() {
   });
   const propriedadeId = propResult.insertId;
 
+  const safra = await ensureDefaultSafra({
+    organizationId,
+    propriedadeId,
+    createdByUserId: userId,
+  });
+
   const [terreno1] = await db.insert(terrenos).values({
     propriedadeId,
+    organizationId,
     nome: "Talhão Norte",
     area: "50.00",
     tipoSolo: "Latossolo Vermelho",
@@ -110,6 +159,7 @@ async function main() {
   });
   const [terreno2] = await db.insert(terrenos).values({
     propriedadeId,
+    organizationId,
     nome: "Talhão Sul",
     area: "35.00",
     tipoSolo: "Argissolo",
@@ -120,6 +170,8 @@ async function main() {
   await db.insert(culturas).values([
     {
       propriedadeId,
+      organizationId,
+      safraId: safra.id,
       terrenoId: terreno1.insertId,
       nomeCultura: "Soja",
       variedade: "BRS 1010",
@@ -133,6 +185,8 @@ async function main() {
     },
     {
       propriedadeId,
+      organizationId,
+      safraId: safra.id,
       terrenoId: terreno2.insertId,
       nomeCultura: "Milho",
       variedade: "AG 8088",

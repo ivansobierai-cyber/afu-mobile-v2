@@ -74,7 +74,7 @@ export default function PropriedadesScreen() {
     safraId?: string;
   }>();
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const activeRole = (session?.activeRole ?? null) as OrgRole | null;
   const canArchive = activeRole ? roleHasPermission(activeRole, "property.archive") : false;
@@ -83,14 +83,14 @@ export default function PropriedadesScreen() {
   const utils = trpc.useUtils();
   const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery(
     cacheInput,
-    { enabled: !!activeOrganizationId },
+    { enabled: tenantReady },
   );
   const {
     data: arquivadas = [],
     isLoading: loadingArchived,
     refetch: refetchArchived,
   } = trpc.coreData.propriedades.listArchived.useQuery(cacheInput, {
-    enabled: !!activeOrganizationId && canArchive,
+    enabled: tenantReady && canArchive,
   });
 
   const archiveMut = trpc.coreData.propriedades.archive.useMutation({

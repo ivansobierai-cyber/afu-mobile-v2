@@ -24,17 +24,15 @@ Screenshots: `docs/evidencias/smoke-preview/` e `/opt/cursor/artifacts/smoke-eta
 
 ---
 
-## Preview Vercel (parcial)
+## Preview Vercel vs API Railway
 
-| Item | Resultado |
-|------|-----------|
-| Login demo no preview | PASS |
-| Lista de propriedades | FAIL — conta demo na API Railway sem propriedades seedadas |
-| Cadastro via UI (antes do fix) | FAIL — botões do modal no fim do `ScrollView` não respondiam bem no web |
+**Causa do smoke vazio no preview:** o front do PR exige `session.activeOrganizationId`, mas a API em `afu-mobile-v2-production.up.railway.app` ainda **não expõe** `organizations.*` (deploy antigo). Queries ficavam `enabled: false`.
 
-**Fix aplicado:** botões Salvar/Cancelar do modal de propriedade saíram do `ScrollView` (footer fixo), melhorando clique no web.
+**Mitigação no cliente (este PR):** `resolveTenantReady` / `isLegacySessionWithoutOrgs` — se a sessão não traz o campo `organizations`, libera listagens para usuário autenticado (modo legado).
 
-**Ação ops (produção/Railway):** rodar seed + backfill de org/safras na API apontada pelo preview (`afu-mobile-v2-production`) para o demo ter `Fazenda Santa Clara` (ou equivalente).
+**Ops para fechar 100% no preview multi-tenant:**
+1. Deploy da API deste branch no Railway
+2. `npm run db:safras:apply && npm run db:archive:apply && npm run seed` no banco de produção (seed agora repara org + propriedades órfãs)
 
 ---
 

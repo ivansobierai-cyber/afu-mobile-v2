@@ -62,14 +62,14 @@ export default function DashboardScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
   const { isAuthenticated, perfil } = useSession();
-  const { cacheInput, activeOrganizationId, withScope } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady, withScope } = useTenantQueryScope();
   const { isOnline, pending } = useCoreOfflineSync();
   const { cards, moveCard, toggleVisible, resetCards } = useDashboardCards();
   const [refreshing, setRefreshing] = useState(false);
   const [cardsModalOpen, setCardsModalOpen] = useState(false);
   const safraLabel = useMemo(() => currentSafraLabel(), []);
 
-  const tenantReady = !!activeOrganizationId;
+  
 
   const { data: propriedades = [], isLoading: loadingProp } = trpc.coreData.propriedades.list.useQuery(
     cacheInput,

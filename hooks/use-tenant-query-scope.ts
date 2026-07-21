@@ -5,10 +5,12 @@ import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 import { tenantCacheInput, withTenantCacheScope } from "@/lib/trpc-cache-scope";
+import { resolveTenantReady } from "@/lib/security/tenant-ready";
 
 export function useTenantQueryScope() {
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const activeOrganizationId = session?.activeOrganizationId ?? null;
+  const tenantReady = resolveTenantReady({ session, activeOrganizationId });
   const queryClient = useQueryClient();
   const prevOrg = useRef<number | null | undefined>(undefined);
 
@@ -25,6 +27,8 @@ export function useTenantQueryScope() {
 
   return {
     activeOrganizationId,
+    /** true quando há org ativa OU API legada sem campo organizations */
+    tenantReady,
     organizations: session?.organizations ?? [],
     activeRole: session?.activeRole ?? null,
     cacheInput: tenantCacheInput(activeOrganizationId),

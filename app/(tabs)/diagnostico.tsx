@@ -80,8 +80,8 @@ export default function DiagnosticoScreen() {
   const { historico: historicoParam } = useLocalSearchParams<{ historico?: string }>();
   const utils = trpc.useUtils();
 
-  const { cacheInput, activeOrganizationId } = useTenantQueryScope();
-  const tenantReady = !!activeOrganizationId;
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  
   const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoAtivo | null>(null);
   const { rememberDiagnostico } = useAiContext(cultivoSelecionado?.propriedadeId ?? null);
   const { data: historicoRaw = [], refetch: refetchHistorico } = trpc.diagnostico.historico.useQuery(
