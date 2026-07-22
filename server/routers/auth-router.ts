@@ -66,7 +66,8 @@ const signupSchema = z.object({
   password: z.string().min(8),
   confirmPassword: z.string(),
   name: z.string().min(2).max(150),
-  profile: z.enum(["produtor", "tecnico", "administrador"]),
+  /** Público: não permite auto-promoção a admin de plataforma (P0-4) */
+  profile: z.enum(["produtor", "tecnico"]),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Senhas nao conferem",
   path: ["confirmPassword"],
@@ -189,6 +190,14 @@ export const authRouter = router({
         if (!user.openId) {
           throw new Error('User openId is missing');
         }
+
+        // Etapa 10 — org pessoal só no login/signup (não em cada resolveSession)
+        try {
+          const { ensurePersonalOrganization } = await import("../db-organizations");
+          await ensurePersonalOrganization(user.id);
+        } catch (e) {
+          console.warn("[auth.login] ensurePersonalOrganization failed:", e);
+        }
         
         // Criar access token (curta duração)
         const accessToken = await createAccessToken(user.openId, user.name || '');
@@ -229,6 +238,13 @@ export const authRouter = router({
           name: input.name,
           profile: input.profile,
         });
+
+        try {
+          const { ensurePersonalOrganization } = await import("../db-organizations");
+          await ensurePersonalOrganization(result.userId);
+        } catch (e) {
+          console.warn("[auth.signup] ensurePersonalOrganization failed:", e);
+        }
         
         // Garantir que openId sempre existe (nunca null)
         if (!result.openId) {
@@ -329,10 +345,36 @@ export const authRouter = router({
 
   session: publicProcedure.query(async (opts) => {
     const user = opts.ctx.user;
-    if (!user) return { user: null, perfil: null, isAdmin: false };
+    if (!user) {
+      return {
+        user: null,
+        perfil: null,
+        isAdmin: false,
+        organizations: [] as const,
+        activeOrganizationId: null,
+        activeRole: null,
+      };
+    }
     const perfil = await getUsuarioAfuByUserId(user.id);
     const isAdmin =
       user.role === "admin" || perfil?.tipoUsuario === "administrador";
+    let orgSession: {
+      organizations: Array<{
+        id: number;
+        nome: string;
+        tipo: string;
+        role: string;
+        status: string;
+      }>;
+      activeOrganizationId: number | null;
+      activeRole: string | null;
+    } | null = null;
+    try {
+      const { resolveSessionOrganization } = await import("../db-organizations");
+      orgSession = await resolveSessionOrganization(user.id);
+    } catch {
+      orgSession = null;
+    }
     return {
       user: {
         id: user.id,
@@ -343,6 +385,9 @@ export const authRouter = router({
       },
       perfil: perfil ?? null,
       isAdmin,
+      organizations: orgSession?.organizations ?? [],
+      activeOrganizationId: orgSession?.activeOrganizationId ?? null,
+      activeRole: orgSession?.activeRole ?? null,
     };
   }),
 

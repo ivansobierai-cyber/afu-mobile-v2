@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/use-colors";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
 import { openLaudoHtml } from "@/lib/laudo-html";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const TIPOS = [
   { value: "solo", label: "Solo", color: "#92400E" },
@@ -57,13 +58,20 @@ export default function AnaliseFitotecnicaScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
 
-  const { data: analises = [], isLoading, refetch } = trpc.secondaryData.analises.list.useQuery();
-  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  
+  const { data: analises = [], isLoading, refetch } = trpc.secondaryData.analises.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
   const createMutation = trpc.secondaryData.analises.create.useMutation({
-    onSuccess: () => utils.secondaryData.analises.list.invalidate(),
+    onSuccess: () => utils.secondaryData.analises.list.invalidate(cacheInput),
   });
   const deleteMutation = trpc.secondaryData.analises.delete.useMutation({
-    onSuccess: () => utils.secondaryData.analises.list.invalidate(),
+    onSuccess: () => utils.secondaryData.analises.list.invalidate(cacheInput),
   });
   const interpretarMutation = trpc.analise.interpretar.useMutation();
   const pdfMutation = trpc.analise.gerarPDF.useMutation();
@@ -95,6 +103,7 @@ export default function AnaliseFitotecnicaScreen() {
     condutividadeEletrica?: string | null;
   }) => ({
     tipoAmostra: TIPO_AMOSTRA[source.tipoAnalise ?? "solo"] ?? "solo",
+    propriedadeId: source.propriedadeId ?? form.propriedadeId ?? undefined,
     propriedadeNome: getPropriedadeNome(source.propriedadeId ?? form.propriedadeId),
     phSolo: source.phSolo ? parseFloat(source.phSolo) : parseNum(form.phSolo),
     phAgua: source.phAgua ? parseFloat(source.phAgua) : parseNum(form.phAgua),

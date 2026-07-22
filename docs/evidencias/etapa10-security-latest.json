@@ -1,0 +1,24 @@
+{
+  "etapa": 10,
+  "started": "2026-07-18T13:16:18.587Z",
+  "ended": "2026-07-18T13:16:21.141Z",
+  "exitCode": 0,
+  "decision": "AVANCAR",
+  "stdoutTail": "\n RUN  v2.1.9 /workspace\n\n ✓ tests/core-mutation-queue.test.ts (6 tests) 13ms\n ✓ tests/ai-governance.test.ts (8 tests) 8ms\nstdout | tests/storage-proxy.test.ts\n[OAuth] Initialized with baseURL: \n\n ✓ tests/tenant-db.isolation.test.ts (7 tests) 365ms\n ✓ tests/storage-proxy.test.ts (7 tests) 270ms\nstdout | tests/cross-tenant-attack.test.ts > Etapa 10 — cross-tenant attack suite > evidência consolidada: todos os casos registrados\n\n[Etapa10 EVIDENCE]\n - list_isolation: PASS\n - A_read_B_property: NOT_FOUND:Recurso não encontrado\n - A_list_B_terrenos: NOT_FOUND:Recurso não encontrado\n - A_update_B_property: NOT_FOUND:Recurso não encontrado\n - A_delete_B_property: NOT_FOUND:Recurso não encontrado\n - A_create_cultivo_on_B: NOT_FOUND:Recurso não encontrado\n - A_read_update_B_cultivo_tarefa: NOT_FOUND:Recurso não encontrado|NOT_FOUND:Recurso não encontrado|NOT_FOUND:Recurso não encontrado\n - audit_access_denied: id=46\n - A_download_B_report: NOT_FOUND:Recurso não encontrado\n - A_download_B_storageKey: NOT_FOUND:Arquivo não encontrado\n - report_cache_isolation: PASS\n - dashboard_stats_isolation: A=1,B=1\n - removed_member_sync: FORBIDDEN/blocked+activeOrganizationId_cleared\n - A_ai_with_B_property: NOT_FOUND:Recurso não encontrado\n - assert_storage_acl: PASS\n\n ✓ tests/cross-tenant-attack.test.ts (16 tests) 385ms\n ✓ tests/offline-tenant-scope.test.ts (5 tests) 69ms\n ✓ tests/etapa10-rollback-rehearsal.test.ts (4 tests) 354ms\n   ✓ Etapa 10 — rollback rehearsal > MySQL: colunas de política IA existem (ensaio pode dropar em staging) 351ms\n ✓ tests/tenant-access.test.ts (6 tests) 9ms\n ✓ tests/private-files.test.ts (6 tests) 7ms\n ✓ tests/admin-storage-scope.test.ts (4 tests) 3ms\n ✓ tests/etapa10-offline-removed-member.test.ts (1 test) 5ms\n ✓ tests/org-roles.test.ts (5 tests) 3ms\n ✓ tests/trpc-cache-scope.test.ts (5 tests) 3ms\n\n Test Files  13 passed (13)\n      Tests  80 passed (80)\n   Start at  13:16:18\n   Duration  2.15s (transform 582ms, setup 175ms, collect 3.08s, tests 1.49s, environment 2ms, prepare 582ms)\n\n",
+  "stderrTail": "\u001b[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.\u001b[39m\nstderr | tests/cross-tenant-attack.test.ts\n[SendGrid] SENDGRID_API_KEY não configurada. E-mails não serão enviados.\n\nstderr | tests/storage-proxy.test.ts\n[OAuth] ERROR: OAUTH_SERVER_URL is not configured! Set OAUTH_SERVER_URL environment variable.\n\nstderr | tests/storage-proxy.test.ts\n[SendGrid] SENDGRID_API_KEY não configurada. E-mails não serão enviados.\n\n",
+  "tests": [
+    "tests/cross-tenant-attack.test.ts",
+    "tests/tenant-db.isolation.test.ts",
+    "tests/private-files.test.ts",
+    "tests/storage-proxy.test.ts",
+    "tests/admin-storage-scope.test.ts",
+    "tests/trpc-cache-scope.test.ts",
+    "tests/offline-tenant-scope.test.ts",
+    "tests/core-mutation-queue.test.ts",
+    "tests/etapa10-offline-removed-member.test.ts",
+    "tests/etapa10-rollback-rehearsal.test.ts",
+    "tests/ai-governance.test.ts",
+    "tests/tenant-access.test.ts",
+    "tests/org-roles.test.ts"
+  ]
+}

@@ -9,6 +9,25 @@ on:
 jobs:
   validate:
     runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: afu_mobile
+          MYSQL_USER: afu
+          MYSQL_PASSWORD: afu_local_dev
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uafu -pafu_local_dev"
+          --health-interval=8s
+          --health-timeout=5s
+          --health-retries=20
+    env:
+      JWT_SECRET: ci_jwt_secret_afu_mobile_validate
+      NODE_ENV: test
+      DATABASE_URL: mysql://afu:afu_local_dev@127.0.0.1:3306/afu_mobile
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +42,18 @@ jobs:
       - name: Typecheck
         run: npm run check
 
+      - name: Apply schema (MySQL)
+        run: |
+          npx drizzle-kit push --force
+          npm run db:safras:apply
+          npm run db:archive:apply
+
+
       - name: Build web (Vercel)
         run: npm run build:web:preview && npm run prepare:web-dist
 
-      - name: Unit tests
+      - name: Unit + integration tests (com DATABASE_URL)
         run: npm run test:ci
+
+      - name: Aceite painel propriedades (evidência)
+        run: AFU_RUN_DB_TESTS=1 npm run test:propriedades:etapa2

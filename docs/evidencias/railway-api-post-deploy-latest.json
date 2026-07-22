@@ -1,0 +1,23 @@
+{
+  "suite": "railway-api-post-deploy",
+  "date": "2026-07-22T17:06:42.571569Z",
+  "commit": "51c8cfe",
+  "deployment": "f77796e7-652e-4649-8493-5add1ce984cf",
+  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "decision": "AVANCAR",
+  "results": {
+    "health": "PASS",
+    "session": {
+      "activeOrganizationId": 1,
+      "activeRole": "proprietario",
+      "organizations": [
+        "Produtor Demo"
+      ]
+    },
+    "propriedades.list": "PASS n=3 with organizationId",
+    "safras.list": "PASS Safra 2026/27 ativa",
+    "dashboard.stats": "PASS",
+    "listArchived": "PASS n=0",
+    "SEED_ON_START": "set to 0 after success"
+  }
+}

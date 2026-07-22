@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text as RNText, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text as RNText, KeyboardAvoidingView, Platform, ScrollView, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { AuthCard } from '@/components/auth-card';
@@ -10,6 +10,8 @@ import { useSession } from '@/hooks/use-session';
 import { useColors } from '@/hooks/use-colors';
 import { startOAuthLogin } from '@/constants/oauth';
 import { isDemoLoginEnabled } from '@/shared/dev-auth';
+
+const FORM_MAX_WIDTH = 520;
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -27,13 +29,7 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, authLoading, router]);
 
-  if (authLoading) {
-    return (
-      <ScreenContainer className="items-center justify-center">
-        <RNText className="text-lg text-muted">Verificando autenticação...</RNText>
-      </ScreenContainer>
-    );
-  }
+  // Formulário público imediato — sessão resolve em background (sem bloquear a UI)
 
   const validateForm = () => {
     const newErrors: typeof errors = {};
@@ -101,9 +97,16 @@ export default function LoginScreen() {
           keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
           showsVerticalScrollIndicator={false}
         >
-          <View style={{ paddingHorizontal: 20 }}>
+          <View
+            style={{
+              paddingHorizontal: 20,
+              width: '100%',
+              maxWidth: FORM_MAX_WIDTH,
+              alignSelf: 'center',
+            }}
+          >
             <AuthCard
-              title="Bem-vindo de Volta"
+              title="Bem-vindo de volta"
               subtitle="Faça login para acessar sua conta"
               icon="🔐"
             >
@@ -132,7 +135,7 @@ export default function LoginScreen() {
                   }}
                   error={errors.password}
                   secureTextEntry
-                  autoComplete="password"
+                  autoComplete="current-password"
                   editable={!apiLoading}
                 />
 
@@ -159,7 +162,7 @@ export default function LoginScreen() {
                 {isDemoLoginEnabled() && (
                 <View style={{ gap: 10 }}>
                   <RNText style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
-                    Acesso rápido para teste
+                    Acesso rápido para teste (somente desenvolvimento)
                   </RNText>
                   <AuthButton
                     label="Entrar com Demo Admin"
@@ -198,12 +201,20 @@ export default function LoginScreen() {
                 />
 
                 <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 }}>
-                  <TouchableOpacity onPress={() => router.push('/auth/forgot-password')}>
+                  <Pressable
+                    onPress={() => router.push('/auth/forgot-password')}
+                    accessibilityRole="link"
+                    accessibilityLabel="Esqueceu a senha?"
+                  >
                     <RNText style={{ color: colors.primary, fontSize: 13, fontWeight: '500' }}>Esqueceu a senha?</RNText>
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => router.push('/auth/cadastro')}>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => router.push('/auth/cadastro')}
+                    accessibilityRole="link"
+                    accessibilityLabel="Criar conta"
+                  >
                     <RNText style={{ color: colors.primary, fontSize: 13, fontWeight: '500' }}>Criar conta</RNText>
-                  </TouchableOpacity>
+                  </Pressable>
                 </View>
               </View>
             </AuthCard>

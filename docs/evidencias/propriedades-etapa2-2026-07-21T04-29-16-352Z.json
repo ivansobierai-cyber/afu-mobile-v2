@@ -1,0 +1,33 @@
+{
+  "etapa": "propriedades-etapa2-aceitacao",
+  "plano": "AFU_Agro_Plano_Correcao_Etapa_2_PR12",
+  "started": "2026-07-21T04:29:16.352Z",
+  "ended": "2026-07-21T04:29:17.185Z",
+  "exitCode": 0,
+  "decision": "AVANCAR",
+  "hasDatabaseUrl": false,
+  "ranDbIntegration": false,
+  "summary": {
+    "testFilesPassed": "7",
+    "testFilesFailed": null
+  },
+  "checklist": {
+    "regraHistoricoParcial": true,
+    "registrarContextual": true,
+    "navegacaoRetorno": true,
+    "rbacArquivoExport": true,
+    "estadosUi": true,
+    "integracaoSafras": false
+  },
+  "stdoutTail": "\n RUN  v2.1.9 /workspace\n\n ✓ tests/registrar-flow.test.ts (12 tests) 4ms\n ✓ tests/property-workspace.test.ts (10 tests) 4ms\n ✓ tests/propriedades-etapa2-aceitacao.test.ts (12 tests) 5ms\n ✓ tests/org-roles.test.ts (6 tests) 3ms\n ✓ tests/overview-counts.test.ts (4 tests) 3ms\n ✓ tests/safra-label.test.ts (3 tests) 3ms\n ✓ tests/screen-state.test.ts (2 tests) 2ms\n\n Test Files  7 passed (7)\n      Tests  49 passed (49)\n   Start at  04:29:16\n   Duration  451ms (transform 117ms, setup 111ms, collect 180ms, tests 24ms, environment 1ms, prepare 295ms)\n\n",
+  "stderrTail": "\u001b[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.\u001b[39m\n",
+  "tests": [
+    "tests/propriedades-etapa2-aceitacao.test.ts",
+    "tests/overview-counts.test.ts",
+    "tests/property-workspace.test.ts",
+    "tests/registrar-flow.test.ts",
+    "tests/screen-state.test.ts",
+    "tests/org-roles.test.ts",
+    "tests/safra-label.test.ts"
+  ]
+}

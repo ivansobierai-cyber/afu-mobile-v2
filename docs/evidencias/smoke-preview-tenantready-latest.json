@@ -1,0 +1,48 @@
+{
+  "suite": "smoke-preview-tenantready",
+  "date": "2026-07-21T07:18:00.000Z",
+  "commit": "19af66755755c972f6a570982a6cff12e73be2bb",
+  "pr": 12,
+  "url": "https://afu-mobile-o8asm2ep2-ivansobierai-8642s-projects.vercel.app/?_vercel_share=kLmWm1X4iTPervyGMctpyxGdmcTouS5i",
+  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "login": "demo@afuagro.com.br / Entrar com Demo Produtor",
+  "decision": "AVANCAR_COM_RESSALVA_API",
+  "results": {
+    "login": "PASS",
+    "propriedadesList": {
+      "status": "PASS",
+      "items": ["Fazenda Atra", "Fazenda Santa Clara"],
+      "note": "tenantReady liberou coreData.propriedades.list com sessão legado sem organizations"
+    },
+    "propertyDetail": {
+      "status": "PASS",
+      "property": "Fazenda Santa Clara",
+      "registrarVisible": true,
+      "safraChipVisible": true
+    },
+    "safraBanner": {
+      "status": "PASS",
+      "label": "Filtro financeiro por período",
+      "modoHistorico": false,
+      "note": "Regra central respeitada: sem completeness completo não mostra Modo histórico"
+    },
+    "registrarMenu": {
+      "status": "BLOCKED_BY_API",
+      "note": "Sem coreData.expansao.safras.* no Railway; canRegister/safraId incompletos"
+    },
+    "adminMenu": {
+      "status": "PARTIAL",
+      "message": "Nenhuma ação administrativa disponível para o seu papel.",
+      "note": "listArchived/archive/exportResumo ausentes na API Railway antiga"
+    },
+    "apiGaps": [
+      "coreData.dashboard.stats NOT_FOUND",
+      "coreData.dashboard.startData NOT_FOUND",
+      "coreData.expansao.safras.list NOT_FOUND",
+      "organizations.* NOT_FOUND",
+      "coreData.propriedades.listArchived NOT_FOUND",
+      "coreData.propriedades.archive NOT_FOUND"
+    ]
+  },
+  "screenshots": "docs/evidencias/smoke-preview-tenantready/"
+}

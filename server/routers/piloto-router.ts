@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { router, protectedProcedure } from "../_core/trpc";
+import { router, adminProcedure, protectedProcedure } from "../_core/trpc";
 import {
   criarParticipante,
   listarParticipantes,
@@ -8,9 +8,13 @@ import {
   resumoPiloto,
 } from "../db-piloto";
 
+/**
+ * Etapa 4 — painel piloto/NOC interno: listagens e métricas só admin.
+ * Feedback submit permanece autenticado (participante do piloto).
+ */
 export const pilotoRouter = router({
   participantes: router({
-    create: protectedProcedure
+    create: adminProcedure
       .input(
         z.object({
           nome: z.string().min(2).max(200),
@@ -30,7 +34,7 @@ export const pilotoRouter = router({
         return { id };
       }),
 
-    list: protectedProcedure.query(() => listarParticipantes()),
+    list: adminProcedure.query(() => listarParticipantes()),
   }),
 
   feedback: router({
@@ -51,10 +55,10 @@ export const pilotoRouter = router({
         return { id };
       }),
 
-    list: protectedProcedure.query(() => listarFeedback()),
+    list: adminProcedure.query(() => listarFeedback()),
   }),
 
   metricas: router({
-    resumo: protectedProcedure.query(() => resumoPiloto()),
+    resumo: adminProcedure.query(() => resumoPiloto()),
   }),
 });

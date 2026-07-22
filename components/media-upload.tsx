@@ -1,6 +1,8 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useOfflineTenantScope } from '@/hooks/use-offline-tenant-scope';
+import { localDbGet, localDbSet } from '@/lib/offline/tenant-local-db';
 
 interface MediaFile {
   id: string;
@@ -19,44 +21,60 @@ interface MediaUploadProps {
   maxArquivos?: number;
 }
 
-const STORAGE_KEY = 'admin_media_files';
+const LEGACY_STORAGE_KEY = 'admin_media_files';
 
 export function MediaUpload({
   conteudoId,
   onMediaAdded,
   maxArquivos = 5,
 }: MediaUploadProps) {
+  const { scope } = useOfflineTenantScope();
   const [medias, setMedias] = useState<MediaFile[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-
-  // Carregar mídias do AsyncStorage
-  React.useEffect(() => {
-    carregarMedias();
-  }, [conteudoId]);
+  const legacyKey = useMemo(
+    () => (scope ? null : LEGACY_STORAGE_KEY),
+    [scope],
+  );
 
   const carregarMedias = useCallback(async () => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      if (data) {
-        const todasMedias: MediaFile[] = JSON.parse(data);
-        const mediasConteudo = todasMedias.filter(m => m.conteudoId === conteudoId);
-        setMedias(mediasConteudo);
+      let todasMedias: MediaFile[] = [];
+      if (scope) {
+        todasMedias = (await localDbGet<MediaFile[]>(scope, 'media', 'drafts')) ?? [];
+      } else if (legacyKey) {
+        const data = await AsyncStorage.getItem(legacyKey);
+        todasMedias = data ? (JSON.parse(data) as MediaFile[]) : [];
       }
+      setMedias(todasMedias.filter((m) => m.conteudoId === conteudoId));
     } catch (error) {
       console.error('Erro ao carregar mídias:', error);
     }
-  }, [conteudoId]);
+  }, [conteudoId, scope, legacyKey]);
+
+  // Carregar mídias do AsyncStorage (tenant-scoped)
+  React.useEffect(() => {
+    void carregarMedias();
+  }, [carregarMedias]);
 
   const salvarMedias = useCallback(async (novasMedias: MediaFile[]) => {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEY);
-      const todasMedias: MediaFile[] = data ? JSON.parse(data) : [];
+      let todasMedias: MediaFile[] = [];
+      if (scope) {
+        todasMedias = (await localDbGet<MediaFile[]>(scope, 'media', 'drafts')) ?? [];
+      } else if (legacyKey) {
+        const data = await AsyncStorage.getItem(legacyKey);
+        todasMedias = data ? (JSON.parse(data) as MediaFile[]) : [];
+      }
 
-      // Remover mídias antigas do conteúdo
-      const outrasMedias = todasMedias.filter(m => m.conteudoId !== conteudoId);
+      const outrasMedias = todasMedias.filter((m) => m.conteudoId !== conteudoId);
+      const next = [...outrasMedias, ...novasMedias];
 
-      // Salvar todas
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify([...outrasMedias, ...novasMedias]));
+      if (scope) {
+        await localDbSet(scope, 'media', 'drafts', next, { sensitive: true });
+      } else if (legacyKey) {
+        await AsyncStorage.setItem(legacyKey, JSON.stringify(next));
+      }
+
       setMedias(novasMedias);
 
       if (onMediaAdded && novasMedias.length > medias.length) {
@@ -65,7 +83,7 @@ export function MediaUpload({
     } catch (error) {
       console.error('Erro ao salvar mídias:', error);
     }
-  }, [conteudoId, medias, onMediaAdded]);
+  }, [conteudoId, medias, onMediaAdded, scope, legacyKey]);
 
   const adicionarMedia = useCallback(async (tipo: 'imagem' | 'pdf' | 'video', base64: string, nome: string) => {
     if (medias.length >= maxArquivos) {

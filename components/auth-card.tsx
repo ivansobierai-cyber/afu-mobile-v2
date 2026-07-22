@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text } from 'react-native';
+import React from "react";
+import { Platform, View, Text } from "react-native";
 
 interface AuthCardProps {
   title: string;
@@ -9,29 +9,36 @@ interface AuthCardProps {
 }
 
 /**
- * AuthCard — Container para formulários de autenticação
- *
- * Características:
- * - Título e subtítulo
- * - Ícone opcional
- * - ScrollView para conteúdo longo
- * - Estilos responsivos
+ * AuthCard — container de formulário de autenticação.
+ * Título é h1 / header para leitores de tela e SEO web.
  */
 export function AuthCard({ title, subtitle, children, icon }: AuthCardProps) {
   return (
     <View className="px-6 py-8">
-      {/* Ícone */}
-      {icon && <Text className="text-6xl text-center mb-4">{icon}</Text>}
+      {icon && (
+        <Text className="text-6xl text-center mb-4" accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+          {icon}
+        </Text>
+      )}
 
-      {/* Título */}
-      <Text className="text-3xl font-bold text-foreground text-center mb-2">{title}</Text>
+      <Text
+        accessibilityRole="header"
+        className="text-3xl font-bold text-foreground text-center mb-2"
+        {...(Platform.OS === "web"
+          ? ({
+              accessibilityLevel: 1,
+              role: "heading",
+              "aria-level": 1,
+            } as object)
+          : {})}
+      >
+        {title}
+      </Text>
 
-      {/* Subtítulo */}
       {subtitle && (
         <Text className="text-base text-muted text-center mb-8">{subtitle}</Text>
       )}
 
-      {/* Conteúdo */}
       <View>{children}</View>
     </View>
   );

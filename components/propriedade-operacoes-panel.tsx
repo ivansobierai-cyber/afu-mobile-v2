@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -48,14 +48,33 @@ const STATUS_COLOR: Record<string, string> = {
 type Props = {
   propriedadeId: number;
   terrenos: { id: number; nome: string }[];
+  safraId?: number;
+  readOnly?: boolean;
+  /** Incrementar para abrir o formulário de criação (menu + Registrar) */
+  openCreateNonce?: number;
+  onCreateOpened?: () => void;
 };
 
-export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
+export function PropriedadeOperacoesPanel({
+  propriedadeId,
+  terrenos,
+  safraId,
+  readOnly = false,
+  openCreateNonce = 0,
+  onCreateOpened,
+}: Props) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const { queueMutation, isOnline, pending, isSyncing } = useCoreOfflineSync();
   const [filtro, setFiltro] = useState<"abertas" | "todas">("abertas");
   const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!openCreateNonce || readOnly) return;
+    setModalOpen(true);
+    onCreateOpened?.();
+  }, [openCreateNonce, readOnly, onCreateOpened]);
+
   const [saving, setSaving] = useState(false);
   const [titulo, setTitulo] = useState("");
   const [instrucoes, setInstrucoes] = useState("");
@@ -68,6 +87,7 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
     trpc.coreData.tarefas.listByPropriedade.useQuery({
       propriedadeId,
       abertasOnly: filtro === "abertas",
+      safraId,
     });
 
   const transition = trpc.coreData.tarefas.transition.useMutation({
@@ -119,6 +139,10 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
   );
 
   const runTransition = (id: number, status: TarefaStatus, extra?: { motivoCancelamento?: string }) => {
+    if (readOnly) {
+      Alert.alert("Somente leitura", "Safra encerrada — dados disponíveis somente para consulta.");
+      return;
+    }
     transition.mutate(
       { id, status, ...extra },
       {
@@ -137,6 +161,7 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
       const clientMutationId = `tarefa_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
       const result = await queueMutation("tarefa", "create", {
         propriedadeId,
+        safraId,
         terrenoId: terrenoId ?? undefined,
         tipoOperacao: tipo,
         titulo: titulo.trim(),
@@ -149,8 +174,12 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
       setTitulo("");
       setInstrucoes("");
       setTerrenoId(null);
-      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
+      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
       await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
+      await utils.coreData.expansao.overview.invalidate({
+        propriedadeId,
+        safraId,
+      });
       if (result.queued) {
         Alert.alert("Fila offline", "Tarefa salva localmente e será sincronizada ao reconectar.");
       }
@@ -176,23 +205,29 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
             {pending > 0 ? ` · ${pending} pendente(s)` : ""}
           </Text>
         </View>
-        <TouchableOpacity
-          onPress={() => setModalOpen(true)}
-          accessibilityRole="button"
-          accessibilityLabel="Nova tarefa"
-          style={{
-            backgroundColor: colors.primary,
-            borderRadius: 12,
-            minHeight: 40,
-            paddingHorizontal: 14,
-            flexDirection: "row",
-            alignItems: "center",
-            gap: 4,
-          }}
-        >
-          <IconSymbol name="plus" size={14} color="#FFF" />
-          <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 13 }}>Nova tarefa</Text>
-        </TouchableOpacity>
+        {!readOnly ? (
+          <TouchableOpacity
+            onPress={() => setModalOpen(true)}
+            accessibilityRole="button"
+            accessibilityLabel="Nova tarefa"
+            style={{
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              minHeight: 40,
+              paddingHorizontal: 14,
+              flexDirection: "row",
+              alignItems: "center",
+              gap: 4,
+            }}
+          >
+            <IconSymbol name="plus" size={14} color="#FFF" />
+            <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 13 }}>Nova tarefa</Text>
+          </TouchableOpacity>
+        ) : (
+          <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "600", maxWidth: 140 }}>
+            Somente leitura
+          </Text>
+        )}
       </View>
 
       <View style={{ flexDirection: "row", marginBottom: 12 }}>
@@ -222,14 +257,32 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
         ))}
       </View>
 
+      {readOnly ? (
+        <Text
+          style={{
+            fontSize: 12,
+            color: colors.muted,
+            fontWeight: "600",
+            marginBottom: 10,
+            lineHeight: 17,
+          }}
+        >
+          Safra encerrada — dados disponíveis somente para consulta.
+        </Text>
+      ) : null}
+
       {tarefas.length === 0 ? (
         <ScreenState
           status="empty"
           compact
           title="Nenhuma operação"
-          message="Crie uma tarefa para plantio, vistoria, irrigação ou outras atividades."
-          actionLabel="Nova tarefa"
-          onAction={() => setModalOpen(true)}
+          message={
+            readOnly
+              ? "Não há tarefas nesta safra histórica."
+              : "Crie uma tarefa para plantio, vistoria, irrigação ou outras atividades."
+          }
+          actionLabel={readOnly ? undefined : "Nova tarefa"}
+          onAction={readOnly ? undefined : () => setModalOpen(true)}
         />
       ) : (
         tarefas.map((t) => {
@@ -263,6 +316,7 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
                 </Text>
               ) : null}
 
+              {!readOnly ? (
               <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 10 }}>
                 {status === "planejada" || status === "liberada" ? (
                   <TouchableOpacity
@@ -347,12 +401,13 @@ export function PropriedadeOperacoesPanel({ propriedadeId, terrenos }: Props) {
                   </TouchableOpacity>
                 ) : null}
               </View>
+              ) : null}
             </View>
           );
         })
       )}
 
-      <Modal visible={modalOpen} animationType="slide" transparent onRequestClose={() => setModalOpen(false)}>
+      <Modal visible={modalOpen && !readOnly} animationType="slide" transparent onRequestClose={() => setModalOpen(false)}>
         <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
           <View
             style={{

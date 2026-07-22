@@ -9,6 +9,16 @@ import { trpc } from '@/lib/trpc';
 import * as Auth from '@/lib/_core/auth';
 import { clearTokenRefreshState } from '@/lib/token-refresh-interceptor';
 import * as Api from '@/lib/_core/api';
+import { cleanupOfflineScope } from '@/lib/offline/session-cleanup';
+import {
+  buildOfflineScope,
+  getOrCreateDeviceId,
+} from '@/lib/offline/tenant-scope';
+import {
+  loadCoreQueue,
+  processCoreQueue,
+  type CoreMutationItem,
+} from '@/lib/offline/core-mutation-queue';
 
 export interface AuthError {
   code: string;
@@ -32,13 +42,14 @@ export interface SignupInput {
   password: string;
   confirmPassword: string;
   name: string;
-  profile: 'produtor' | 'tecnico' | 'administrador';
+  profile: 'produtor' | 'tecnico';
 }
 
 export function useAuthAPI() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<AuthError | null>(null);
   const queryClient = useQueryClient();
+  const utils = trpc.useUtils();
 
   // Usar mutations do tRPC
   const loginMutation = trpc.auth.login.useMutation();
@@ -200,7 +211,68 @@ export function useAuthAPI() {
     setIsLoading(true);
     setError(null);
 
+    // Etapa 8 — captura escopo antes de derrubar a sessão
+    const session = utils.auth.session.getData();
+    const deviceId = await getOrCreateDeviceId();
+    const offlineScope = buildOfflineScope(
+      session?.user?.id,
+      session?.activeOrganizationId,
+      deviceId,
+    );
+
     try {
+      // Drena fila pendente do escopo atual enquanto a sessão ainda é válida
+      if (offlineScope) {
+        try {
+          const pending = await loadCoreQueue(offlineScope);
+          if (pending.length > 0) {
+            await processCoreQueue(offlineScope, async (item: CoreMutationItem) => {
+              const { entity, action, payload } = item;
+              const id = payload.id as number | undefined;
+              if (entity === "propriedade") {
+                if (action === "create") await utils.client.coreData.propriedades.create.mutate(payload as any);
+                else if (action === "update" && id) await utils.client.coreData.propriedades.update.mutate({ id, data: payload.data as any });
+                else if (action === "delete" && id)
+                  await utils.client.coreData.propriedades.delete.mutate({
+                    id,
+                    confirmNome: String(payload.confirmNome ?? payload.nome ?? ""),
+                  });
+              } else if (entity === "cultivo") {
+                if (action === "create") await utils.client.coreData.cultivos.create.mutate(payload as any);
+                else if (action === "update" && id) await utils.client.coreData.cultivos.update.mutate({ id, data: payload.data as any });
+                else if (action === "delete" && id) await utils.client.coreData.cultivos.delete.mutate({ id });
+              } else if (entity === "terreno") {
+                if (action === "create") await utils.client.coreData.terrenos.create.mutate(payload as any);
+                else if (action === "update" && id) await utils.client.coreData.terrenos.update.mutate({ id, data: payload.data as any });
+                else if (action === "delete" && id) await utils.client.coreData.terrenos.delete.mutate({ id });
+              } else if (entity === "evento") {
+                if (action === "create") await utils.client.coreData.calendario.create.mutate(payload as any);
+                else if (action === "update" && id) await utils.client.coreData.calendario.update.mutate({ id, data: payload.data as any });
+                else if (action === "delete" && id) await utils.client.coreData.calendario.delete.mutate({ id });
+              } else if (entity === "tarefa") {
+                if (action === "create") {
+                  await utils.client.coreData.tarefas.create.mutate({
+                    ...(payload as any),
+                    clientMutationId: item.clientMutationId,
+                  });
+                } else if (action === "update" && id) {
+                  await utils.client.coreData.tarefas.transition.mutate({
+                    id,
+                    status: payload.status as any,
+                    motivoCancelamento: payload.motivoCancelamento as string | undefined,
+                    notasApontamento: payload.notasApontamento as string | undefined,
+                    areaExecutada: payload.areaExecutada as number | undefined,
+                    expectedStatus: payload.expectedStatus as any,
+                  });
+                }
+              }
+            });
+          }
+        } catch {
+          // Offline ou erro: limpeza abaixo remove resíduos do aparelho
+        }
+      }
+
       // Revogar sessão no servidor (Bearer no web + cookie)
       try {
         await logoutMutation.mutateAsync();
@@ -218,6 +290,7 @@ export function useAuthAPI() {
       const message = err instanceof Error ? err.message : "unknown";
       console.warn("[useAuthAPI] Logout API call failed, continuing local cleanup:", message);
     } finally {
+      await cleanupOfflineScope(offlineScope, "logout");
       clearTokenRefreshState();
       await Auth.clearLocalAuth();
       queryClient.clear();
@@ -225,6 +298,9 @@ export function useAuthAPI() {
         user: null,
         perfil: null,
         isAdmin: false,
+        organizations: [],
+        activeOrganizationId: null,
+        activeRole: null,
       });
     }
     setIsLoading(false);

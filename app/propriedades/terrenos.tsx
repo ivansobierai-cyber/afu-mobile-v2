@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -9,13 +9,14 @@ import {
   ScrollView,
   StyleSheet,
   Alert,
-  ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { ScreenState } from "@/components/screen-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { buildPropertyReturnHref } from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
 
 const TIPO_SOLO = [
@@ -39,8 +40,32 @@ export default function TerrenosScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
-  const { propriedadeId } = useLocalSearchParams<{ propriedadeId: string }>();
+  const utils = trpc.useUtils();
+  const { propriedadeId, returnTab, safraId, openCreate } = useLocalSearchParams<{
+    propriedadeId: string;
+    returnTab?: string;
+    safraId?: string;
+    openCreate?: string;
+  }>();
   const propId = parseInt(propriedadeId ?? "0", 10);
+  const parsedSafraId = safraId ? parseInt(safraId, 10) : NaN;
+  const activeSafraId =
+    Number.isFinite(parsedSafraId) && parsedSafraId > 0 ? parsedSafraId : null;
+
+  const goBackToProperty = () => {
+    if (propId > 0) {
+      const tab = returnTab && returnTab.length ? returnTab : "talhoes";
+      router.replace(
+        buildPropertyReturnHref({
+          propriedadeId: propId,
+          tab,
+          safraId: activeSafraId,
+        }) as any,
+      );
+      return;
+    }
+    router.back();
+  };
 
   const { data: propriedade, isLoading: loadingProp } = trpc.coreData.propriedades.get.useQuery(
     { id: propId },
@@ -71,6 +96,14 @@ export default function TerrenosScreen() {
     setObservacoes("");
     setModalVisible(true);
   };
+
+  // Etapa 6: + Registrar → talhão abre o formulário com returnTab/safraId
+  useEffect(() => {
+    if (openCreate === "1" && propId > 0) {
+      openNew();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- só na entrada com openCreate
+  }, [openCreate, propId]);
 
   const openEdit = (t: (typeof terrenos)[0]) => {
     setEditingId(t.id);
@@ -115,6 +148,11 @@ export default function TerrenosScreen() {
       } else {
         await runMutation("terreno", "create", payload);
       }
+      await utils.coreData.terrenos.listByPropriedade.invalidate({ propriedadeId: propId });
+      await utils.coreData.expansao.overview.invalidate({
+        propriedadeId: propId,
+        safraId: activeSafraId ?? undefined,
+      });
       setModalVisible(false);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Não foi possível salvar.";
@@ -183,9 +221,7 @@ export default function TerrenosScreen() {
   if (loadingProp || loadingTerrenos) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <ScreenState status="loading" message="Carregando talhões…" />
       </ScreenContainer>
     );
   }
@@ -193,9 +229,13 @@ export default function TerrenosScreen() {
   if (!propriedade) {
     return (
       <ScreenContainer>
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <Text style={{ color: colors.muted }}>Propriedade não encontrada.</Text>
-        </View>
+        <ScreenState
+          status="empty"
+          title="Propriedade não encontrada"
+          message="Não foi possível abrir o cadastro de talhões."
+          actionLabel="Voltar"
+          onAction={goBackToProperty}
+        />
       </ScreenContainer>
     );
   }
@@ -214,7 +254,11 @@ export default function TerrenosScreen() {
         }}
       >
         <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
-          <TouchableOpacity onPress={() => router.back()}>
+          <TouchableOpacity
+            onPress={goBackToProperty}
+            accessibilityRole="button"
+            accessibilityLabel="Voltar para a propriedade"
+          >
             <IconSymbol name="chevron.left" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View>

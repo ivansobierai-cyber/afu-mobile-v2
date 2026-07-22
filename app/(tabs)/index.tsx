@@ -13,8 +13,13 @@ import { useColors } from "@/hooks/use-colors";
 import { useSession } from "@/hooks/use-session";
 import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { useDashboardCards, type DashboardCardId } from "@/hooks/use-dashboard-cards";
+import {
+  invalidateDashboardTenantQueries,
+  useTenantQueryScope,
+} from "@/hooks/use-tenant-query-scope";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
+import { currentSafraLabel } from "@/lib/propriedades/safra-label";
 import { trpc } from "@/lib/trpc";
 import type { ComponentProps } from "react";
 
@@ -57,17 +62,45 @@ export default function DashboardScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
   const { isAuthenticated, perfil } = useSession();
+  const { cacheInput, activeOrganizationId, tenantReady, fullTenantApi, withScope } =
+    useTenantQueryScope();
   const { isOnline, pending } = useCoreOfflineSync();
   const { cards, moveCard, toggleVisible, resetCards } = useDashboardCards();
   const [refreshing, setRefreshing] = useState(false);
   const [cardsModalOpen, setCardsModalOpen] = useState(false);
+  const safraLabel = useMemo(() => currentSafraLabel(), []);
 
-  const { data: propriedades = [], isLoading: loadingProp } = trpc.coreData.propriedades.list.useQuery();
-  const { data: cultivos = [], isLoading: loadingCult } = trpc.coreData.cultivos.list.useQuery();
-  const { data: diagnosticos = [], isLoading: loadingDiag } = trpc.diagnostico.historico.useQuery();
-  const { data: analises = [], isLoading: loadingAn } = trpc.secondaryData.analises.list.useQuery();
-  const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery();
-  const { data: eventos = [], isLoading: loadingEv } = trpc.coreData.calendario.list.useQuery();
+  
+
+  const { data: propriedades = [], isLoading: loadingProp } = trpc.coreData.propriedades.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: cultivos = [], isLoading: loadingCult } = trpc.coreData.cultivos.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: diagnosticos = [], isLoading: loadingDiag } = trpc.diagnostico.historico.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: analises = [], isLoading: loadingAn } = trpc.secondaryData.analises.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: relatorios = [], isLoading: loadingRel } = trpc.secondaryData.relatorios.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: eventos = [], isLoading: loadingEv } = trpc.coreData.calendario.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: dashStats } = trpc.coreData.dashboard.stats.useQuery(cacheInput, {
+    // Evita 404 na API Railway antiga (sem coreData.dashboard.stats)
+    enabled: fullTenantApi,
+    retry: false,
+  });
   const { data: produtosMarketplace = [] } = trpc.secondaryData.marketplace.list.useQuery(
     { status: "disponivel", limit: 100 },
     { enabled: isAuthenticated },
@@ -91,8 +124,8 @@ export default function DashboardScreen() {
   );
 
   const { data: weather } = trpc.weather.byPropriedade.useQuery(
-    { propriedadeId: propriedadeComGps?.id ?? 0 },
-    { enabled: !!propriedadeComGps, staleTime: 10 * 60 * 1000 },
+    withScope({ propriedadeId: propriedadeComGps?.id ?? 0 }),
+    { enabled: !!propriedadeComGps && tenantReady, staleTime: 10 * 60 * 1000 },
   );
 
   const eventosPendentes = useMemo(
@@ -124,7 +157,10 @@ export default function DashboardScreen() {
   );
 
   const isInitialLoading = loadingProp && propriedades.length === 0;
-  const labTotal = diagnosticos.length + analises.length + relatorios.length;
+  const labTotal =
+    (dashStats?.diagnosticos ?? diagnosticos.length) +
+    (dashStats?.analises ?? analises.length) +
+    (dashStats?.relatorios ?? relatorios.length);
   const climaValue = propriedadeComGps
     ? weather?.current?.temperature != null
       ? `${Math.round(weather.current.temperature)}°C`
@@ -244,22 +280,19 @@ export default function DashboardScreen() {
     setRefreshing(true);
     try {
       await Promise.all([
-        utils.coreData.propriedades.list.invalidate(),
-        utils.coreData.cultivos.list.invalidate(),
-        utils.diagnostico.historico.invalidate(),
-        utils.secondaryData.analises.list.invalidate(),
-        utils.secondaryData.relatorios.list.invalidate(),
-        utils.coreData.calendario.list.invalidate(),
+        invalidateDashboardTenantQueries(utils, activeOrganizationId),
         utils.secondaryData.marketplace.list.invalidate(),
         utils.materiaisParceiros.materiais.list.invalidate(),
         propriedadeComGps
-          ? utils.weather.byPropriedade.invalidate({ propriedadeId: propriedadeComGps.id })
+          ? utils.weather.byPropriedade.invalidate(
+              withScope({ propriedadeId: propriedadeComGps.id }),
+            )
           : Promise.resolve(),
       ]);
     } finally {
       setRefreshing(false);
     }
-  }, [utils, propriedadeComGps]);
+  }, [utils, propriedadeComGps, activeOrganizationId, withScope]);
 
   const styles = StyleSheet.create({
     header: {

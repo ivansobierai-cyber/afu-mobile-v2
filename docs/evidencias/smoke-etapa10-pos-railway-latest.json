@@ -1,0 +1,24 @@
+{
+  "suite": "smoke-etapa10-pos-railway",
+  "date": "2026-07-22T17:44:49.687723+00:00",
+  "branch": "cursor/security-multitenant-audit-fd64",
+  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "decision": "AVANCAR",
+  "api_probe": {
+    "health": "PASS",
+    "session_orgs": "PASS activeOrganizationId=1 role=proprietario",
+    "safras": "PASS Safra 2026/27",
+    "dashboard.stats": "PASS",
+    "listArchived": "PASS",
+    "evidence": "docs/evidencias/railway-api-post-deploy-latest.json"
+  },
+  "ui_smoke_pr_branch_localhost_8081": {
+    "dashboard": "PASS",
+    "safra_chip": "PASS Safra 2026/27",
+    "header_registrar_menu": "PASS tarefa/ocorrencia/talhao/cultivo",
+    "tarefa_modal": "PASS",
+    "header_admin_menu": "PASS Exportar/Arquivar/Excluir",
+    "note": "afu-mobile-web.vercel.app is main (sem + Registrar at\u00e9 merge). Smoke UI feito no build do PR (localhost:8081)."
+  },
+  "screenshots": "docs/evidencias/smoke-preview-api-nova/"
+}

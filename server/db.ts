@@ -49,6 +49,23 @@ import {
 } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
+/** Etapa 5 — INSERT de tabela privada exige organizationId */
+function requireOrgIdOnInsert(
+  data: { organizationId?: number | null },
+  resolved?: number | null,
+): number {
+  const orgId = data.organizationId ?? resolved ?? null;
+  if (orgId == null || !Number.isFinite(orgId) || orgId <= 0) {
+    throw new Error("organizationId obrigatório no INSERT de tabela privada (Etapa 5)");
+  }
+  return orgId;
+}
+
+function stripOrgId<T extends Record<string, unknown>>(data: T): Omit<T, "organizationId"> {
+  const { organizationId: _drop, ...rest } = data;
+  return rest as Omit<T, "organizationId">;
+}
+
 let _db: ReturnType<typeof drizzle> | null = null;
 
 export async function getDb() {
@@ -187,20 +204,47 @@ export async function getPropriedadeById(id: number) {
 export async function createPropriedade(data: InsertPropriedade) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(propriedades).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.produtorId) {
+    const prod = await db
+      .select({ organizationId: produtores.organizationId })
+      .from(produtores)
+      .where(eq(produtores.id, data.produtorId))
+      .limit(1);
+    organizationId = prod[0]?.organizationId ?? undefined;
+  }
+  organizationId = requireOrgIdOnInsert(data, organizationId);
+  const result = await db.insert(propriedades).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updatePropriedade(id: number, data: Partial<InsertPropriedade>) {
+/** Etapa 5 — UPDATE exige organizationId no WHERE */
+export async function updatePropriedade(
+  id: number,
+  data: Partial<InsertPropriedade>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(propriedades).set(data).where(eq(propriedades.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(propriedades)
+    .set(safe as any)
+    .where(and(eq(propriedades.id, id), eq(propriedades.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Propriedade não encontrada no tenant");
+  }
 }
 
-export async function deletePropriedade(id: number) {
+export async function deletePropriedade(id: number, organizationId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.delete(propriedades).where(eq(propriedades.id, id));
+  const result = await db
+    .delete(propriedades)
+    .where(and(eq(propriedades.id, id), eq(propriedades.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Propriedade não encontrada no tenant");
+  }
 }
 
 // ─── TERRENOS ────────────────────────────────────────────────────────────────
@@ -221,20 +265,42 @@ export async function getTerrenoById(id: number) {
 export async function createTerreno(data: InsertTerreno) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(terrenos).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  organizationId = requireOrgIdOnInsert(data, organizationId);
+  const result = await db.insert(terrenos).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updateTerreno(id: number, data: Partial<InsertTerreno>) {
+export async function updateTerreno(
+  id: number,
+  data: Partial<InsertTerreno>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(terrenos).set(data).where(eq(terrenos.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(terrenos)
+    .set(safe as any)
+    .where(and(eq(terrenos.id, id), eq(terrenos.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Talhão não encontrado no tenant");
+  }
 }
 
-export async function deleteTerreno(id: number) {
+export async function deleteTerreno(id: number, organizationId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.delete(terrenos).where(eq(terrenos.id, id));
+  const result = await db
+    .delete(terrenos)
+    .where(and(eq(terrenos.id, id), eq(terrenos.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Talhão não encontrado no tenant");
+  }
 }
 
 // ─── CULTURAS ────────────────────────────────────────────────────────────────
@@ -296,20 +362,42 @@ export async function getCulturasByPropriedade(propriedadeId: number) {
 export async function createCultura(data: InsertCultura) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(culturas).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  organizationId = requireOrgIdOnInsert(data, organizationId);
+  const result = await db.insert(culturas).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updateCultura(id: number, data: Partial<InsertCultura>) {
+export async function updateCultura(
+  id: number,
+  data: Partial<InsertCultura>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(culturas).set(data).where(eq(culturas.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(culturas)
+    .set(safe as any)
+    .where(and(eq(culturas.id, id), eq(culturas.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Cultivo não encontrado no tenant");
+  }
 }
 
-export async function deleteCultura(id: number) {
+export async function deleteCultura(id: number, organizationId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.delete(culturas).where(eq(culturas.id, id));
+  const result = await db
+    .delete(culturas)
+    .where(and(eq(culturas.id, id), eq(culturas.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Cultivo não encontrado no tenant");
+  }
 }
 
 // ─── DIAGNÓSTICOS ────────────────────────────────────────────────────────────
@@ -323,14 +411,39 @@ export async function getDiagnosticos(userId: number) {
 export async function createDiagnostico(data: InsertDiagnosticoIa) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(diagnosticosIa).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  if (organizationId == null && data.usuarioId) {
+    const prod = await db
+      .select({ organizationId: produtores.organizationId })
+      .from(produtores)
+      .where(eq(produtores.usuarioId, data.usuarioId))
+      .limit(1);
+    organizationId = prod[0]?.organizationId ?? undefined;
+  }
+  organizationId = requireOrgIdOnInsert(data, organizationId);
+  const result = await db.insert(diagnosticosIa).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updateDiagnostico(id: number, data: Partial<InsertDiagnosticoIa>) {
+export async function updateDiagnostico(
+  id: number,
+  data: Partial<InsertDiagnosticoIa>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(diagnosticosIa).set(data).where(eq(diagnosticosIa.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(diagnosticosIa)
+    .set(safe as any)
+    .where(and(eq(diagnosticosIa.id, id), eq(diagnosticosIa.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Diagnóstico não encontrado no tenant");
+  }
 }
 
 // ─── ANÁLISES FITOTÉCNICAS ───────────────────────────────────────────────────
@@ -344,7 +457,8 @@ export async function getAnalises(userId: number) {
 export async function createAnalise(data: InsertAnaliseFitotecnica) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(analisesFitotecnicas).values(data);
+  const organizationId = requireOrgIdOnInsert(data);
+  const result = await db.insert(analisesFitotecnicas).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
@@ -359,14 +473,26 @@ export async function getRelatorios(userId: number) {
 export async function createRelatorio(data: InsertRelatorio) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(relatorios).values(data);
+  const organizationId = requireOrgIdOnInsert(data);
+  const result = await db.insert(relatorios).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updateRelatorio(id: number, data: Partial<InsertRelatorio>) {
+export async function updateRelatorio(
+  id: number,
+  data: Partial<InsertRelatorio>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(relatorios).set(data).where(eq(relatorios.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(relatorios)
+    .set(safe as any)
+    .where(and(eq(relatorios.id, id), eq(relatorios.organizationId, organizationId)));
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Relatório não encontrado no tenant");
+  }
 }
 
 // ─── CALENDÁRIO ──────────────────────────────────────────────────────────────
@@ -380,20 +506,41 @@ export async function getCalendario(userId: number) {
 export async function createEvento(data: InsertCalendarioCuidado) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(calendarioCuidados).values(data);
+  const organizationId = requireOrgIdOnInsert(data);
+  const result = await db.insert(calendarioCuidados).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updateEvento(id: number, data: Partial<InsertCalendarioCuidado>) {
+export async function updateEvento(
+  id: number,
+  data: Partial<InsertCalendarioCuidado>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(calendarioCuidados).set(data).where(eq(calendarioCuidados.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(calendarioCuidados)
+    .set(safe as any)
+    .where(
+      and(eq(calendarioCuidados.id, id), eq(calendarioCuidados.organizationId, organizationId)),
+    );
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Evento não encontrado no tenant");
+  }
 }
 
-export async function deleteEvento(id: number) {
+export async function deleteEvento(id: number, organizationId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.delete(calendarioCuidados).where(eq(calendarioCuidados.id, id));
+  const result = await db
+    .delete(calendarioCuidados)
+    .where(
+      and(eq(calendarioCuidados.id, id), eq(calendarioCuidados.organizationId, organizationId)),
+    );
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Evento não encontrado no tenant");
+  }
 }
 
 export async function getEventoById(id: number) {
@@ -425,14 +572,36 @@ export async function getTarefaById(id: number) {
 export async function createTarefa(data: InsertTarefaOperacional) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(tarefasOperacionais).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  organizationId = requireOrgIdOnInsert(data, organizationId);
+  const result = await db.insert(tarefasOperacionais).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
-export async function updateTarefa(id: number, data: Partial<InsertTarefaOperacional>) {
+export async function updateTarefa(
+  id: number,
+  data: Partial<InsertTarefaOperacional>,
+  organizationId: number,
+) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(tarefasOperacionais).set(data).where(eq(tarefasOperacionais.id, id));
+  const safe = stripOrgId(data as any);
+  const result = await db
+    .update(tarefasOperacionais)
+    .set(safe as any)
+    .where(
+      and(
+        eq(tarefasOperacionais.id, id),
+        eq(tarefasOperacionais.organizationId, organizationId),
+      ),
+    );
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Tarefa não encontrada no tenant");
+  }
 }
 
 export async function createApontamento(data: InsertApontamentoOperacao) {
@@ -463,7 +632,13 @@ export async function getSensoresByPropriedade(propriedadeId: number) {
 export async function createSensor(data: InsertSensor) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const result = await db.insert(sensores).values(data);
+  let organizationId = data.organizationId;
+  if (organizationId == null && data.propriedadeId) {
+    const prop = await getPropriedadeById(data.propriedadeId);
+    organizationId = prop?.organizationId ?? undefined;
+  }
+  organizationId = requireOrgIdOnInsert(data, organizationId);
+  const result = await db.insert(sensores).values({ ...data, organizationId });
   return result[0].insertId;
 }
 
@@ -732,27 +907,13 @@ export async function createMaterialDidatico(data: InsertMaterialDidatico) {
 
 // ─── ESTATÍSTICAS DASHBOARD ──────────────────────────────────────────────────
 
-export async function getDashboardStats(userId: number) {
-  const db = await getDb();
-  if (!db) return { propriedades: 0, culturas: 0, diagnosticos: 0, analises: 0, relatorios: 0, eventos: 0 };
-
-  const [props, cultsAll, diags, anals, rels, evts] = await Promise.all([
-    db.select().from(propriedades),
-    db.select().from(culturas).where(eq(culturas.status, "em_andamento")),
-    db.select().from(diagnosticosIa).where(eq(diagnosticosIa.usuarioId, userId)),
-    db.select().from(analisesFitotecnicas).where(eq(analisesFitotecnicas.usuarioId, userId)),
-    db.select().from(relatorios).where(eq(relatorios.usuarioId, userId)),
-    db.select().from(calendarioCuidados).where(and(eq(calendarioCuidados.usuarioId, userId), eq(calendarioCuidados.status, "pendente"))),
-  ]);
-
-  return {
-    propriedades: props.length,
-    culturas: cultsAll.length,
-    diagnosticos: diags.length,
-    analises: anals.length,
-    relatorios: rels.length,
-    eventos: evts.length,
-  };
+/**
+ * @deprecated Prefer `createTenantDb(organizationId).dashboardStats()`.
+ * Mantido com organizationId obrigatório para não vazar agregados cross-tenant.
+ */
+export async function getDashboardStats(organizationId: number) {
+  const { createTenantDb } = await import("./tenant-db");
+  return createTenantDb(organizationId).dashboardStats();
 }
 
 // ─── PUSH TOKENS ─────────────────────────────────────────────────────────────

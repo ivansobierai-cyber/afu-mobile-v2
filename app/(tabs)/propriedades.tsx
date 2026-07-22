@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -12,14 +12,21 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ConfirmNameModal } from "@/components/confirm-name-modal";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { getDeviceCoordinates } from "@/hooks/use-device-location";
 import { hasValidCoordinates, parseCoordinate, parseCoordinateInput } from "@/lib/geo/coordinates";
+import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
+import {
+  buildPropertyReturnHref,
+  parsePropertyReturnParams,
+} from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const TIPOS_PRODUCAO = [
   { value: "graos", label: "Grãos" },
@@ -60,14 +67,60 @@ export default function PropriedadesScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
+  const { editId, returnTo, returnTab, safraId: safraParam } = useLocalSearchParams<{
+    editId?: string;
+    returnTo?: string;
+    returnTab?: string;
+    safraId?: string;
+  }>();
 
-  const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId, tenantReady, fullTenantApi } = useTenantQueryScope();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const activeRole = (session?.activeRole ?? null) as OrgRole | null;
+  const canArchive = activeRole ? roleHasPermission(activeRole, "property.archive") : false;
+  const canDelete = activeRole ? roleHasPermission(activeRole, "property.delete") : false;
+
+  const utils = trpc.useUtils();
+  const { data: propriedades = [], isLoading, refetch } = trpc.coreData.propriedades.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const {
+    data: arquivadas = [],
+    isLoading: loadingArchived,
+    refetch: refetchArchived,
+  } = trpc.coreData.propriedades.listArchived.useQuery(cacheInput, {
+    enabled: fullTenantApi && canArchive,
+    retry: false,
+  });
+
+  const archiveMut = trpc.coreData.propriedades.archive.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.propriedades.list.invalidate();
+      await utils.coreData.propriedades.listArchived.invalidate();
+    },
+  });
+  const restoreMut = trpc.coreData.propriedades.restore.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.propriedades.list.invalidate();
+      await utils.coreData.propriedades.listArchived.invalidate();
+    },
+  });
+  const deleteMut = trpc.coreData.propriedades.delete.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.propriedades.list.invalidate();
+      await utils.coreData.propriedades.listArchived.invalidate();
+      setDeleteTarget(null);
+    },
+  });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [locating, setLocating] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: number; nome: string } | null>(null);
 
   const openNew = () => { setEditingId(null); setForm(EMPTY_FORM); setModalVisible(true); };
 
@@ -88,6 +141,14 @@ export default function PropriedadesScreen() {
     });
     setModalVisible(true);
   };
+
+  // Deep link: /propriedades?editId=123 abre o modal da propriedade correta
+  useEffect(() => {
+    const id = editId ? parseInt(editId, 10) : NaN;
+    if (!Number.isFinite(id) || id <= 0 || propriedades.length === 0) return;
+    const prop = propriedades.find((p) => p.id === id);
+    if (prop) openEdit(prop);
+  }, [editId, propriedades]);
 
   const handleUseLocation = async () => {
     setLocating(true);
@@ -137,6 +198,17 @@ export default function PropriedadesScreen() {
         await runMutation("propriedade", "create", payload);
       }
       setModalVisible(false);
+      // Etapa 8: voltar ao painel preservando tab + safraId
+      if (editingId && returnTo === "propriedade") {
+        const ctx = parsePropertyReturnParams({
+          propriedadeId: String(editingId),
+          returnTab,
+          safraId: safraParam,
+        });
+        if (ctx) {
+          router.replace(buildPropertyReturnHref(ctx) as any);
+        }
+      }
     } catch (e: any) {
       Alert.alert("Erro", e.message ?? "Não foi possível salvar.");
     } finally {
@@ -144,13 +216,57 @@ export default function PropriedadesScreen() {
     }
   };
 
-  const handleDelete = (id: number, nome: string) => {
-    Alert.alert("Excluir Propriedade", `Deseja excluir "${nome}"?`, [
+  const handleArchive = (id: number, nome: string) => {
+    if (!canArchive) {
+      Alert.alert("Sem permissão", "Seu papel não pode arquivar propriedades.");
+      return;
+    }
+    Alert.alert(
+      "Arquivar propriedade?",
+      `“${nome}” sairá das listas ativas e poderá ser restaurada depois.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Arquivar",
+          onPress: () =>
+            void archiveMut
+              .mutateAsync({ id, motivo: "Arquivada pela lista de propriedades" })
+              .catch((e: any) => Alert.alert("Erro", e?.message ?? "Falha ao arquivar")),
+        },
+      ],
+    );
+  };
+
+  const handleDeleteRequest = (id: number, nome: string) => {
+    if (!canDelete) {
+      Alert.alert(
+        "Sem permissão",
+        canArchive
+          ? "Use Arquivar. Exclusão definitiva exige property.delete."
+          : "Sem permissão para remover esta propriedade.",
+      );
+      return;
+    }
+    Alert.alert(
+      "Excluir definitivamente?",
+      `Prefira arquivar. Digite o nome exato na próxima etapa para remover “${nome}” sem recuperação.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        { text: "Continuar", style: "destructive", onPress: () => setDeleteTarget({ id, nome }) },
+      ],
+    );
+  };
+
+  const handleRestore = (id: number, nome: string) => {
+    Alert.alert("Restaurar propriedade?", `“${nome}” voltará à lista ativa.`, [
       { text: "Cancelar", style: "cancel" },
-      { text: "Excluir", style: "destructive", onPress: async () => {
-        try { await runMutation("propriedade", "delete", { id }); }
-        catch (e: any) { Alert.alert("Erro", e.message ?? "Não foi possível excluir."); }
-      }},
+      {
+        text: "Restaurar",
+        onPress: () =>
+          void restoreMut
+            .mutateAsync({ id })
+            .catch((e: any) => Alert.alert("Erro", e?.message ?? "Falha ao restaurar")),
+      },
     ]);
   };
 
@@ -186,10 +302,20 @@ export default function PropriedadesScreen() {
     locateBtnText: { color: colors.primary, fontWeight: "600", fontSize: 14 },
   });
 
-  const renderItem = ({ item }: { item: typeof propriedades[0] }) => {
+  const listData = showArchived ? arquivadas : propriedades;
+  const listLoading = showArchived ? loadingArchived : isLoading;
+
+  const renderItem = ({ item }: { item: (typeof propriedades)[0] | (typeof arquivadas)[0] }) => {
     const tipoLabel = TIPOS_PRODUCAO.find((t) => t.value === item.tipoProducao)?.label ?? item.tipoProducao;
     return (
-      <TouchableOpacity style={styles.card} onPress={() => router.push(`/propriedades/${item.id}` as any)}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => {
+          if (showArchived) return;
+          router.push(`/propriedades/${item.id}` as any);
+        }}
+        disabled={showArchived}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>{item.nome}</Text>
           <View style={styles.badge}><Text style={styles.badgeText}>{tipoLabel}</Text></View>
@@ -203,13 +329,53 @@ export default function PropriedadesScreen() {
         {item.tamanhoArea && (
           <Text style={styles.cardMeta}>📐 {Number(item.tamanhoArea).toLocaleString("pt-BR")} {item.unidadeArea}</Text>
         )}
+        {showArchived && (item as { archiveMotivo?: string | null }).archiveMotivo ? (
+          <Text style={styles.cardMeta}>
+            Motivo: {(item as { archiveMotivo?: string | null }).archiveMotivo}
+          </Text>
+        ) : null}
         <View style={styles.cardActions}>
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary + "18" }]} onPress={() => openEdit(item)}>
-            <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>✏️ Editar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.error + "18" }]} onPress={() => handleDelete(item.id, item.nome)}>
-            <Text style={{ color: colors.error, fontWeight: "600", fontSize: 13 }}>🗑️ Excluir</Text>
-          </TouchableOpacity>
+          {showArchived ? (
+            <>
+              {canArchive ? (
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.primary + "18" }]}
+                  onPress={() => handleRestore(item.id, item.nome)}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>Restaurar</Text>
+                </TouchableOpacity>
+              ) : null}
+              {canDelete ? (
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.error + "18" }]}
+                  onPress={() => handleDeleteRequest(item.id, item.nome)}
+                >
+                  <Text style={{ color: colors.error, fontWeight: "600", fontSize: 13 }}>Excluir</Text>
+                </TouchableOpacity>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: colors.primary + "18" }]} onPress={() => openEdit(item as (typeof propriedades)[0])}>
+                <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>Editar</Text>
+              </TouchableOpacity>
+              {canArchive ? (
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: "#EF6C00" + "18" }]}
+                  onPress={() => handleArchive(item.id, item.nome)}
+                >
+                  <Text style={{ color: "#EF6C00", fontWeight: "600", fontSize: 13 }}>Arquivar</Text>
+                </TouchableOpacity>
+              ) : canDelete ? (
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: colors.error + "18" }]}
+                  onPress={() => handleDeleteRequest(item.id, item.nome)}
+                >
+                  <Text style={{ color: colors.error, fontWeight: "600", fontSize: 13 }}>Excluir</Text>
+                </TouchableOpacity>
+              ) : null}
+            </>
+          )}
         </View>
       </TouchableOpacity>
     );
@@ -229,34 +395,98 @@ export default function PropriedadesScreen() {
         </View>
       </View>
 
-      {isLoading ? (
+      {canArchive ? (
+        <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingTop: 10, gap: 8 }}>
+          <TouchableOpacity
+            onPress={() => setShowArchived(false)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: !showArchived }}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 10,
+              backgroundColor: !showArchived ? colors.primary : colors.surface,
+              borderWidth: 1,
+              borderColor: !showArchived ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ fontWeight: "700", fontSize: 12, color: !showArchived ? "#FFF" : colors.foreground }}>
+              Ativas
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setShowArchived(true)}
+            accessibilityRole="button"
+            accessibilityState={{ selected: showArchived }}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              borderRadius: 10,
+              backgroundColor: showArchived ? colors.primary : colors.surface,
+              borderWidth: 1,
+              borderColor: showArchived ? colors.primary : colors.border,
+            }}
+          >
+            <Text style={{ fontWeight: "700", fontSize: 12, color: showArchived ? "#FFF" : colors.foreground }}>
+              Arquivadas{arquivadas.length ? ` (${arquivadas.length})` : ""}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {listLoading ? (
         <View style={styles.emptyBox}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={styles.emptyText}>Carregando...</Text>
         </View>
-      ) : propriedades.length === 0 ? (
+      ) : listData.length === 0 ? (
         <View style={styles.emptyBox}>
           <IconSymbol name="house.fill" size={48} color={colors.muted} />
-          <Text style={styles.emptyText}>Nenhuma propriedade cadastrada</Text>
-          <Text style={styles.emptySubText}>Toque em "+" para adicionar sua primeira propriedade.</Text>
-          <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, paddingHorizontal: 24 }]} onPress={openNew}>
-            <Text style={styles.saveBtnText}>+ Nova Propriedade</Text>
-          </TouchableOpacity>
+          <Text style={styles.emptyText}>
+            {showArchived ? "Nenhuma propriedade arquivada" : "Nenhuma propriedade cadastrada"}
+          </Text>
+          {!showArchived ? (
+            <>
+              <Text style={styles.emptySubText}>Toque em "+" para adicionar sua primeira propriedade.</Text>
+              <TouchableOpacity style={[styles.saveBtn, { marginTop: 20, paddingHorizontal: 24 }]} onPress={openNew}>
+                <Text style={styles.saveBtnText}>+ Nova Propriedade</Text>
+              </TouchableOpacity>
+            </>
+          ) : null}
         </View>
       ) : (
         <FlatList
-          data={propriedades}
+          data={listData}
           keyExtractor={(item) => String(item.id)}
           renderItem={renderItem}
           contentContainerStyle={{ padding: 16 }}
           showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={listLoading}
+              onRefresh={() => void (showArchived ? refetchArchived() : refetch())}
+            />
+          }
         />
       )}
 
+      <ConfirmNameModal
+        visible={deleteTarget != null}
+        expectedName={deleteTarget?.nome ?? ""}
+        loading={deleteMut.isPending}
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={(confirmNome) => {
+          if (!deleteTarget) return;
+          void deleteMut
+            .mutateAsync({ id: deleteTarget.id, confirmNome })
+            .catch((e: any) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir."));
+        }}
+      />
+
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.overlay}>
-          <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
+          <View style={styles.sheet}>
+          <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 12 }}>
             <Text style={styles.sheetTitle}>{editingId ? "Editar Propriedade" : "Nova Propriedade"}</Text>
 
             <Text style={styles.label}>Nome *</Text>
@@ -329,14 +559,33 @@ export default function PropriedadesScreen() {
                 <TextInput style={styles.input} value={form.longitude} onChangeText={(v) => setForm((f) => ({ ...f, longitude: v }))} placeholder="-47.810300" placeholderTextColor={colors.muted} keyboardType="numbers-and-punctuation" />
               </View>
             </View>
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>{editingId ? "Salvar Alterações" : "Cadastrar Propriedade"}</Text>}
+          </ScrollView>
+          <View style={{ paddingHorizontal: 4, paddingBottom: 8, gap: 8 }}>
+            <TouchableOpacity
+              style={styles.saveBtn}
+              onPress={handleSave}
+              disabled={saving}
+              accessibilityRole="button"
+              accessibilityLabel={editingId ? "Salvar alterações" : "Cadastrar propriedade"}
+            >
+              {saving ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.saveBtnText}>
+                  {editingId ? "Salvar Alterações" : "Cadastrar Propriedade"}
+                </Text>
+              )}
             </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={() => setModalVisible(false)}
+              accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+            >
               <Text style={styles.cancelBtnText}>Cancelar</Text>
             </TouchableOpacity>
-          </ScrollView>
+          </View>
+          </View>
         </View>
       </Modal>
     </ScreenContainer>

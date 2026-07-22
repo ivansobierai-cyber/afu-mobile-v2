@@ -85,6 +85,9 @@ export function AuthButton({
     <TouchableOpacity
       onPress={onPress}
       disabled={isDisabled}
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: isDisabled, busy: loading }}
       className={
         isWeb
           ? undefined
@@ -94,6 +97,12 @@ export function AuthButton({
       }
       style={webButtonStyle}
       activeOpacity={0.8}
+      {...(isWeb
+        ? ({
+            // web: prefer native button semantics when Pressable maps to div
+            role: "button",
+          } as object)
+        : {})}
     >
       {loading ? (
         <ActivityIndicator color={variant === "outline" ? colors.primary : "white"} />

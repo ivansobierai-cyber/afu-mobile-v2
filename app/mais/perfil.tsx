@@ -6,8 +6,9 @@ import { ScreenHeader, ScreenHeaderIconButton } from "@/components/screen-header
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { useAuthAPI } from "@/hooks/use-auth-api";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import { trpc } from "@/lib/trpc";
-
+import { useQueryClient } from "@tanstack/react-query";
 
 type PerfilData = {
   nome: string;
@@ -32,14 +33,25 @@ export default function PerfilScreen() {
   const utils = trpc.useUtils();
   const { logout, isLoading: loggingOut } = useAuthAPI();
 
+  const queryClient = useQueryClient();
+  const { cacheInput, activeOrganizationId, organizations } = useTenantQueryScope();
   const { data: perfilDb, isLoading: loadingPerfil } = trpc.auth.perfil.get.useQuery();
-  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
-  const { data: cultivos = [] } = trpc.coreData.cultivos.list.useQuery();
-  const { data: diagnosticos = [] } = trpc.diagnostico.historico.useQuery();
-  const { data: eventos = [] } = trpc.coreData.calendario.list.useQuery();
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery(cacheInput);
+  const { data: cultivos = [] } = trpc.coreData.cultivos.list.useQuery(cacheInput);
+  const { data: diagnosticos = [] } = trpc.diagnostico.historico.useQuery(cacheInput);
+  const { data: eventos = [] } = trpc.coreData.calendario.list.useQuery(cacheInput);
 
   const upsertMutation = trpc.auth.perfil.upsert.useMutation({
     onSuccess: () => utils.auth.perfil.get.invalidate(),
+  });
+  const setActiveOrg = trpc.organizations.setActive.useMutation({
+    onSuccess: async () => {
+      // Etapa 7/8 — limpa cache RQ; filas offline ficam namespaced por org
+      const { cleanupOfflineScope } = await import("@/lib/offline/session-cleanup");
+      await cleanupOfflineScope(null, "org_switch");
+      await queryClient.clear();
+      await utils.auth.session.invalidate();
+    },
   });
   const { data: pushStatus } = trpc.push.status.useQuery();
   const sendTestPush = trpc.push.sendTest.useMutation();
@@ -108,7 +120,14 @@ export default function PerfilScreen() {
   const performLogout = async () => {
     setLogoutModalVisible(false);
     await logout();
-    utils.auth.session.setData(undefined, { user: null, perfil: null, isAdmin: false });
+    utils.auth.session.setData(undefined, {
+      user: null,
+      perfil: null,
+      isAdmin: false,
+      organizations: [],
+      activeOrganizationId: null,
+      activeRole: null,
+    });
     router.replace("/auth/login" as never);
   };
 
@@ -205,6 +224,57 @@ export default function PerfilScreen() {
             <Text style={{ fontSize: 14, color: colors.muted, marginTop: 4 }}>{perfil.cargo}</Text>
           )}
         </View>
+
+        {/* Organização ativa (Etapa 7 — troca limpa o cache) */}
+        {organizations.length > 0 && (
+          <View
+            style={{
+              backgroundColor: colors.surface,
+              borderRadius: 12,
+              padding: 14,
+              marginBottom: 16,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.muted, marginBottom: 8 }}>
+              ORGANIZAÇÃO ATIVA
+            </Text>
+            {organizations.map((org) => {
+              const active = org.id === activeOrganizationId;
+              return (
+                <TouchableOpacity
+                  key={org.id}
+                  disabled={active || setActiveOrg.isPending}
+                  onPress={() => setActiveOrg.mutate({ organizationId: org.id })}
+                  style={{
+                    paddingVertical: 10,
+                    paddingHorizontal: 12,
+                    borderRadius: 10,
+                    marginBottom: 6,
+                    backgroundColor: active ? colors.primary + "18" : colors.background,
+                    borderWidth: 1,
+                    borderColor: active ? colors.primary : colors.border,
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                >
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: active ? "700" : "500",
+                      color: active ? colors.primary : colors.foreground,
+                    }}
+                  >
+                    {org.nome}
+                    {active ? " · ativa" : ""}
+                  </Text>
+                  <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2 }}>{org.role}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
 
         {/* Stats */}
         <View style={{ flexDirection: "row", gap: 8, marginBottom: 20 }}>

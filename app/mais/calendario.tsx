@@ -12,6 +12,7 @@ import { MODULE_COLORS } from "@/constants/module-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { trpc } from "@/lib/trpc";
 import { scheduleEventReminder, cancelEventReminder } from "@/lib/notifications";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 const TIPO_EVENTO = [
   { value: "plantio", label: "Plantio", color: "#38A169" },
@@ -43,7 +44,11 @@ export default function CalendarioScreen() {
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
 
-  const { data: eventos = [], isLoading, refetch } = trpc.coreData.calendario.list.useQuery();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  const { data: eventos = [], isLoading, refetch } = trpc.coreData.calendario.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
 
   const [modalVisible, setModalVisible] = useState(false);
   const [filter, setFilter] = useState<"todos" | "pendente" | "concluido">("todos");

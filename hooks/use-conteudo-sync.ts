@@ -1,10 +1,15 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useQueryClient } from '@tanstack/react-query';
 import { Conteudo, ConteudoCreate, ConteudoUpdate } from '@/lib/admin/schemas';
-
-const STORAGE_KEY = 'admin_conteudos';
-const SYNC_QUEUE_KEY = 'admin_conteudo_sync_queue';
+import {
+  adminKeys,
+  buildAdminScope,
+  discardLegacyAdminStorage,
+  isValidAdminScope,
+  type AdminStorageScope,
+} from '@/lib/admin/admin-storage-scope';
+import { trpc } from '@/lib/trpc';
 
 interface SyncQueueItem {
   id: string;
@@ -23,18 +28,23 @@ export function useConteudoSync() {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const queryClient = useQueryClient();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const scope = buildAdminScope(session?.user?.id, session?.activeOrganizationId);
+  const scopeRef = useRef<AdminStorageScope | null>(scope);
+  scopeRef.current = scope;
 
-  // Carregar dados do AsyncStorage ao iniciar
-  useEffect(() => {
-    carregarDados();
-    configurarDeteccaoConectividade();
-  }, []);
-
-  const carregarDados = useCallback(async () => {
+  const carregarDados = useCallback(async (nextScope: AdminStorageScope | null) => {
+    await discardLegacyAdminStorage();
+    if (!isValidAdminScope(nextScope)) {
+      setConteudos([]);
+      setSyncQueue([]);
+      return;
+    }
+    const keys = adminKeys(nextScope);
     try {
       const [conteudosData, queueData] = await Promise.all([
-        AsyncStorage.getItem(STORAGE_KEY),
-        AsyncStorage.getItem(SYNC_QUEUE_KEY),
+        AsyncStorage.getItem(keys.CONTEUDOS),
+        AsyncStorage.getItem(keys.CONTEUDO_SYNC_QUEUE),
       ]);
 
       setConteudos(conteudosData ? JSON.parse(conteudosData) : []);
@@ -44,30 +54,35 @@ export function useConteudoSync() {
     }
   }, []);
 
-  const configurarDeteccaoConectividade = useCallback(() => {
+  useEffect(() => {
+    void carregarDados(scope);
+  }, [scope?.userId, scope?.organizationId, carregarDados]);
+
+  const syncOnReconnectRef = useRef<() => void>(() => undefined);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
     const handleOnline = () => {
       setIsOnline(true);
-      sincronizarAutomatico();
+      syncOnReconnectRef.current();
     };
-
-    const handleOffline = () => {
-      setIsOnline(false);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
     };
-
-    if (typeof window !== 'undefined') {
-      window.addEventListener('online', handleOnline);
-      window.addEventListener('offline', handleOffline);
-
-      return () => {
-        window.removeEventListener('online', handleOnline);
-        window.removeEventListener('offline', handleOffline);
-      };
-    }
   }, []);
 
   const salvarConteudos = useCallback(async (novosConteudos: Conteudo[]) => {
+    const current = scopeRef.current;
+    if (!isValidAdminScope(current)) {
+      setConteudos(novosConteudos);
+      return;
+    }
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(novosConteudos));
+      await AsyncStorage.setItem(adminKeys(current).CONTEUDOS, JSON.stringify(novosConteudos));
       setConteudos(novosConteudos);
     } catch (error) {
       console.error('Erro ao salvar conteúdos:', error);
@@ -75,8 +90,13 @@ export function useConteudoSync() {
   }, []);
 
   const salvarSyncQueue = useCallback(async (novaQueue: SyncQueueItem[]) => {
+    const current = scopeRef.current;
+    if (!isValidAdminScope(current)) {
+      setSyncQueue(novaQueue);
+      return;
+    }
     try {
-      await AsyncStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(novaQueue));
+      await AsyncStorage.setItem(adminKeys(current).CONTEUDO_SYNC_QUEUE, JSON.stringify(novaQueue));
       setSyncQueue(novaQueue);
     } catch (error) {
       console.error('Erro ao salvar fila de sincronização:', error);
@@ -177,11 +197,6 @@ export function useConteudoSync() {
 
   // Sincronização
 
-  const sincronizarAutomatico = useCallback(async () => {
-    if (!isOnline || syncQueue.length === 0) return;
-    await sincronizar();
-  }, [isOnline, syncQueue]);
-
   const sincronizar = useCallback(async () => {
     if (syncQueue.length === 0) return;
 
@@ -234,6 +249,15 @@ export function useConteudoSync() {
       setIsSyncing(false);
     }
   }, [syncQueue, conteudos, salvarConteudos, salvarSyncQueue, queryClient]);
+
+  const sincronizarAutomatico = useCallback(async () => {
+    if (!isOnline || syncQueue.length === 0) return;
+    await sincronizar();
+  }, [isOnline, syncQueue, sincronizar]);
+
+  syncOnReconnectRef.current = () => {
+    void sincronizarAutomatico();
+  };
 
   // Filtrar conteúdos por módulo
   const obterConteudosPorModulo = useCallback(

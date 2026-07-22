@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -131,11 +131,28 @@ export function PropriedadeAlertasFeed({ propriedadeId, onOpenOperacoes }: Alert
   );
 }
 
-type MonitoramentoProps = { propriedadeId: number; terrenos: { id: number; nome: string }[] };
+type MonitoramentoProps = {
+  propriedadeId: number;
+  terrenos: { id: number; nome: string }[];
+  safraId?: number;
+  readOnly?: boolean;
+  /** Incrementar para focar o formulário de ocorrência (menu + Registrar) */
+  openCreateNonce?: number;
+  onCreateOpened?: () => void;
+};
 
-export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: MonitoramentoProps) {
+export function PropriedadeMonitoramentoPanel({
+  propriedadeId,
+  terrenos,
+  safraId,
+  readOnly = false,
+  openCreateNonce = 0,
+  onCreateOpened,
+}: MonitoramentoProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const cacheScope = session?.activeOrganizationId ?? undefined;
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
   const [categoria, setCategoria] = useState<"praga" | "doenca" | "nutricao" | "clima" | "solo" | "outro">(
@@ -144,28 +161,41 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
   const [severidade, setSeveridade] = useState<"baixa" | "media" | "alta" | "critica">("media");
   const [terrenoId, setTerrenoId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
+  const [formHighlight, setFormHighlight] = useState(false);
+  const tituloRef = useRef<TextInput>(null);
+
+  useEffect(() => {
+    if (!openCreateNonce || readOnly) return;
+    setFormHighlight(true);
+    const t = setTimeout(() => {
+      tituloRef.current?.focus?.();
+      onCreateOpened?.();
+    }, 80);
+    return () => clearTimeout(t);
+  }, [openCreateNonce, readOnly, onCreateOpened]);
 
   const { data: ocorrencias = [], isLoading, isError, refetch } =
-    trpc.coreData.expansao.ocorrencias.list.useQuery({ propriedadeId });
+    trpc.coreData.expansao.ocorrencias.list.useQuery({ propriedadeId, safraId });
 
   const create = trpc.coreData.expansao.ocorrencias.create.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId });
-      await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
-      await utils.coreData.expansao.atividades.invalidate({ propriedadeId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
+      await utils.coreData.expansao.atividades.invalidate({ propriedadeId, cacheScope });
+      await utils.coreData.expansao.overview.invalidate({ propriedadeId, safraId });
     },
   });
   const criarTarefa = trpc.coreData.expansao.ocorrencias.criarTarefa.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId });
-      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
-      await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
   const resolver = trpc.coreData.expansao.ocorrencias.resolver.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId });
-      await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
 
@@ -203,6 +233,10 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
   );
 
   const onCreate = async () => {
+    if (readOnly) {
+      Alert.alert("Somente leitura", "Safra histórica — não é possível registrar ocorrências.");
+      return;
+    }
     if (!titulo.trim()) {
       Alert.alert("Informe um título");
       return;
@@ -211,6 +245,7 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
     try {
       await create.mutateAsync({
         propriedadeId,
+        safraId,
         titulo: titulo.trim(),
         descricao: descricao.trim() || undefined,
         categoria,
@@ -219,6 +254,7 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
       });
       setTitulo("");
       setDescricao("");
+      setFormHighlight(false);
     } catch (e: any) {
       Alert.alert("Erro", e?.message ?? "Falha ao criar ocorrência");
     } finally {
@@ -231,14 +267,28 @@ export function PropriedadeMonitoramentoPanel({ propriedadeId, terrenos }: Monit
 
   return (
     <View>
-      <View style={styles.card}>
+      <View
+        style={[
+          styles.card,
+          formHighlight && !readOnly
+            ? { borderColor: colors.primary, borderWidth: 2 }
+            : null,
+        ]}
+      >
         <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
           Nova ocorrência de campo
         </Text>
-        <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
-          Diagnóstico automatizado é apoio à decisão — não confirmação absoluta.
-        </Text>
+        {formHighlight && !readOnly ? (
+          <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600", marginBottom: 8 }}>
+            Preencha os campos abaixo — propriedade e safra já estão vinculadas.
+          </Text>
+        ) : (
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8 }}>
+            Diagnóstico automatizado é apoio à decisão — não confirmação absoluta.
+          </Text>
+        )}
         <TextInput
+          ref={tituloRef}
           style={styles.input}
           placeholder="Título (ex.: Mancha foliar no talhão 2)"
           placeholderTextColor={colors.muted}
@@ -620,29 +670,37 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
   );
 }
 
-type CustosProps = { propriedadeId: number; safraLabel: string };
+type CustosProps = { propriedadeId: number; safraLabel: string; safraId?: number };
 
-export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProps) {
+export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: CustosProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const cacheScope = session?.activeOrganizationId ?? undefined;
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [orcamentoValor, setOrcamentoValor] = useState("10000");
 
   const { data, isLoading, isError, refetch } = trpc.coreData.expansao.custos.list.useQuery({
     propriedadeId,
+    safraId,
   });
   const createOrc = trpc.coreData.expansao.custos.createOrcamento.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId });
-      await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
+      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
   const createCusto = trpc.coreData.expansao.custos.createCusto.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId });
-      await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
-      await utils.coreData.expansao.metricas.invalidate({ propriedadeId });
+      await utils.coreData.expansao.custos.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
+      await utils.coreData.expansao.metricas.invalidate({
+        propriedadeId,
+        nomeSafra: safraLabel,
+        safraId,
+        cacheScope,
+      });
     },
   });
 
@@ -698,6 +756,7 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
                 .mutateAsync({
                   propriedadeId,
                   nomeSafra: safraLabel,
+                  safraId,
                   orcamentoPrevisto: Number(orcamentoValor) || 0,
                 })
                 .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
@@ -784,6 +843,7 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
             void createCusto
               .mutateAsync({
                 propriedadeId,
+                safraId,
                 orcamentoId: orcAtual?.id,
                 descricao: descricao.trim(),
                 valor: Number(valor),
@@ -829,12 +889,17 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel }: CustosProp
   );
 }
 
-type MetricasProps = { propriedadeId: number };
+type MetricasProps = { propriedadeId: number; nomeSafra?: string; safraId?: number };
 
-export function PropriedadeMetricasPanel({ propriedadeId }: MetricasProps) {
+export function PropriedadeMetricasPanel({ propriedadeId, nomeSafra, safraId }: MetricasProps) {
   const colors = useColors();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const orgId = session?.activeOrganizationId ?? undefined;
   const { data, isLoading, isError, refetch } = trpc.coreData.expansao.metricas.useQuery({
     propriedadeId,
+    nomeSafra,
+    safraId,
+    cacheScope: orgId,
   });
 
   if (isLoading) return <ScreenState status="loading" compact />;

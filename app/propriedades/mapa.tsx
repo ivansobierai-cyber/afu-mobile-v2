@@ -6,11 +6,16 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { hasValidCoordinates, parseCoordinate } from "@/lib/geo/coordinates";
 import { trpc } from "@/lib/trpc";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 export default function PropriedadesMapaScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { data: propriedades = [], isLoading } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  const { data: propriedades = [], isLoading } = trpc.coreData.propriedades.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
 
   const comCoordenadas = propriedades
     .map((p) => {

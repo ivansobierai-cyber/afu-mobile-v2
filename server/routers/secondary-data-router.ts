@@ -4,10 +4,9 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, protectedProcedure, adminProcedure } from "../_core/trpc";
+import { router, protectedProcedure, adminProcedure, organizationProcedure } from "../_core/trpc";
 import {
   getUsuarioAfuByUserId,
-  getRelatorios,
   createRelatorio,
   updateRelatorio,
   getProdutosMarketplace,
@@ -22,7 +21,6 @@ import {
   atualizarStatusPedidoVendedor,
   getPedidoById,
   confirmarPagamentoPix,
-  getAnalises,
   createAnalise,
   getTicketsSuporte,
   createTicketSuporte,
@@ -30,8 +28,22 @@ import {
   createMensagemSuporte,
 } from "../db";
 import { getDb } from "../db";
-import { analisesFitotecnicas, relatorios, produtosMarketplace, pedidos } from "../../drizzle/schema";
+import { produtosMarketplace, pedidos } from "../../drizzle/schema";
 import { eq, desc } from "drizzle-orm";
+import {
+  getCtxTenant,
+  requireRelatorioInTenant,
+  requireAnaliseInTenant,
+  assertRelatedIdsInTenant,
+  requireOrgPermission,
+} from "../tenant-access";
+import { createTenantDb } from "../tenant-db";
+import {
+  createTemporaryDownloadUrl,
+  listRecentAuditForOrg,
+  writeAuditLog,
+  proxyPathForKey,
+} from "../private-files";
 import {
   encodeMarketplaceObservacoes,
   generateDemoPixCode,
@@ -88,80 +100,156 @@ const produtoInput = z.object({
   status: z.enum(["disponivel", "indisponivel", "pausado"]).optional(),
 });
 
-// ─── Router de Relatórios ─────────────────────────────────────────────────────
+// ─── Router de Relatórios (Etapa 4 — escopo por organização) ──────────────────
 const relatoriosRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return [];
-    return getRelatorios(perfil.id);
-  }),
-
-  get: protectedProcedure
-    .input(z.object({ id: z.number().int().positive() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const rows = await db
-        .select()
-        .from(relatorios)
-        .where(eq(relatorios.id, input.id))
-        .limit(1);
-      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Relatório não encontrado" });
-      return rows[0];
+  /** cacheScope = activeOrganizationId no cliente → React Query namespaced por org */
+  list: organizationProcedure
+    .input(z.object({ cacheScope: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      return createTenantDb(tenant.organizationId).listRelatorios();
     }),
 
-  create: protectedProcedure
+  get: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      return requireRelatorioInTenant(tenant, input.id);
+    }),
+
+  create: organizationProcedure
     .input(relatorioInput)
     .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
-      return createRelatorio({ ...input, usuarioId: perfil.id } as any);
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.export");
+      return createRelatorio({
+        ...input,
+        usuarioId: tenant.perfilId,
+        organizationId: tenant.organizationId,
+      } as any);
     }),
 
-  update: protectedProcedure
+  update: organizationProcedure
     .input(z.object({ id: z.number().int().positive(), data: relatorioInput.partial() }))
-    .mutation(async ({ input }) => updateRelatorio(input.id, input.data as any)),
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.export");
+      await requireRelatorioInTenant(tenant, input.id);
+      return updateRelatorio(input.id, input.data as any, tenant.organizationId);
+    }),
 
-  delete: protectedProcedure
+  delete: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      await db.delete(relatorios).where(eq(relatorios.id, input.id));
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.export");
+      const ok = await createTenantDb(tenant.organizationId).deleteRelatorio(input.id);
+      if (!ok) throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
       return { success: true };
+    }),
+
+  /**
+   * Etapa 6 — URL temporária para download do artefato do relatório.
+   * Valida relatório no tenant + permissão; audita o download.
+   */
+  getDownloadUrl: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      const rel = await requireRelatorioInTenant(tenant, input.id);
+      const raw = rel.arquivoPdfUrl;
+      if (!raw) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Relatório sem arquivo privado associado",
+        });
+      }
+      const key = raw.replace(/^\/?manus-storage\//, "").replace(/^\/+/, "");
+      const tmp = await createTemporaryDownloadUrl({
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+        storageKey: key,
+        permission: "reports.read",
+        auditAction: "report.download",
+        resourceType: "relatorio",
+        resourceId: String(rel.id),
+      });
+      return {
+        url: tmp.url,
+        expiresAt: tmp.expiresAt.toISOString(),
+        proxyPath: proxyPathForKey(key),
+        relatorioId: rel.id,
+      };
+    }),
+
+  /** Auditoria recente da org (geração/download) */
+  auditTrail: organizationProcedure
+    .input(z.object({ limit: z.number().int().min(1).max(100).optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      return listRecentAuditForOrg(tenant.organizationId, input?.limit ?? 40);
     }),
 });
 
-// ─── Router de Análise Fitotécnica ────────────────────────────────────────────
-const analisesFitotecnicasRouter = router({
-  list: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return [];
-    return getAnalises(perfil.id);
-  }),
+/** Download genérico de arquivo privado por storageKey (ACL + URL temporária) */
+const filesRouter = router({
+  getDownloadUrl: organizationProcedure
+    .input(z.object({ storageKey: z.string().min(1).max(512) }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "reports.read");
+      const key = input.storageKey.replace(/^\/?manus-storage\//, "").replace(/^\/+/, "");
+      // Prefix must match active org (defense in depth)
+      if (key.startsWith("org/") && !key.startsWith(`org/${tenant.organizationId}/`)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Arquivo não encontrado" });
+      }
+      return createTemporaryDownloadUrl({
+        userId: ctx.user.id,
+        userRole: ctx.user.role,
+        storageKey: key,
+        permission: "reports.read",
+        auditAction: "file.download",
+      }).then((tmp) => ({
+        url: tmp.url,
+        expiresAt: tmp.expiresAt.toISOString(),
+        proxyPath: proxyPathForKey(key),
+      }));
+    }),
+});
 
-  get: protectedProcedure
-    .input(z.object({ id: z.number().int().positive() }))
-    .query(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const rows = await db
-        .select()
-        .from(analisesFitotecnicas)
-        .where(eq(analisesFitotecnicas.id, input.id))
-        .limit(1);
-      if (!rows[0]) throw new TRPCError({ code: "NOT_FOUND", message: "Análise não encontrada" });
-      return rows[0];
+
+// ─── Router de Análise Fitotécnica (Etapa 4/5) ────────────────────────────────
+const analisesFitotecnicasRouter = router({
+  list: organizationProcedure
+    .input(z.object({ cacheScope: z.number().int().positive().optional() }).optional())
+    .query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      return createTenantDb(tenant.organizationId).listAnalises();
     }),
 
-  create: protectedProcedure
+  get: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      return requireAnaliseInTenant(tenant, input.id);
+    }),
+
+  create: organizationProcedure
     .input(analiseInput)
     .mutation(async ({ ctx, input }) => {
-      const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-      if (!perfil) throw new TRPCError({ code: "UNAUTHORIZED", message: "Perfil AFU não encontrado" });
+      const tenant = getCtxTenant(ctx);
+      await assertRelatedIdsInTenant(tenant, {
+        propriedadeId: input.propriedadeId,
+        culturaId: input.culturaId,
+      });
       return createAnalise({
         ...input,
-        usuarioId: perfil.id,
+        usuarioId: tenant.perfilId,
+        organizationId: tenant.organizationId,
         phSolo: input.phSolo?.toString(),
         phAgua: input.phAgua?.toString(),
         nitrogenio: input.nitrogenio?.toString(),
@@ -175,26 +263,19 @@ const analisesFitotecnicasRouter = router({
       } as any);
     }),
 
-  delete: protectedProcedure
+  delete: organizationProcedure
     .input(z.object({ id: z.number().int().positive() }))
-    .mutation(async ({ input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      await db.delete(analisesFitotecnicas).where(eq(analisesFitotecnicas.id, input.id));
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const ok = await createTenantDb(tenant.organizationId).deleteAnalise(input.id);
+      if (!ok) throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
       return { success: true };
     }),
 
-  stats: protectedProcedure.query(async ({ ctx }) => {
-    const perfil = await getUsuarioAfuByUserId(ctx.user.id);
-    if (!perfil) return { total: 0 };
-    const lista = await getAnalises(perfil.id);
-    return {
-      total: lista.length,
-      solo: lista.filter((a) => a.tipoAnalise === "solo").length,
-      agua: lista.filter((a) => a.tipoAnalise === "agua").length,
-      foliar: lista.filter((a) => a.tipoAnalise === "foliar").length,
-      completa: lista.filter((a) => a.tipoAnalise === "completa").length,
-    };
+  stats: organizationProcedure.query(async ({ ctx }) => {
+    const tenant = getCtxTenant(ctx);
+    const rows = await createTenantDb(tenant.organizationId).listAnalises();
+    return { total: rows.length };
   }),
 });
 
@@ -663,6 +744,7 @@ const suporteRouter = router({
 export const secondaryDataRouter = router({
   relatorios: relatoriosRouter,
   analises: analisesFitotecnicasRouter,
+  files: filesRouter,
   marketplace: marketplaceRouter,
   suporte: suporteRouter,
 });

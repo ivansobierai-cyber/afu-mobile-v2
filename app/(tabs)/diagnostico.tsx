@@ -20,6 +20,8 @@ import { trpc } from "@/lib/trpc";
 import { mapDbDiagnostico, type DiagnosticoView } from "@/lib/diagnostico-utils";
 import { openLaudoHtml } from "@/lib/laudo-html";
 import { notifyFitossanitario } from "@/lib/notifications";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
+import { useAiContext } from "@/hooks/use-ai-context";
 import type { PartePlanta } from "@/shared/types";
 
 const PARTES: { value: PartePlanta; label: string; icon: string }[] = [
@@ -70,6 +72,7 @@ type CultivoAtivo = {
   faseAtual?: string | null;
   areaPlantada?: string | null;
   status?: string | null;
+  propriedadeId?: number | null;
 };
 
 export default function DiagnosticoScreen() {
@@ -77,8 +80,17 @@ export default function DiagnosticoScreen() {
   const { historico: historicoParam } = useLocalSearchParams<{ historico?: string }>();
   const utils = trpc.useUtils();
 
-  const { data: historicoRaw = [], refetch: refetchHistorico } = trpc.diagnostico.historico.useQuery();
-  const { data: cultivosDb = [] } = trpc.coreData.cultivos.list.useQuery();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  
+  const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoAtivo | null>(null);
+  const { rememberDiagnostico } = useAiContext(cultivoSelecionado?.propriedadeId ?? null);
+  const { data: historicoRaw = [], refetch: refetchHistorico } = trpc.diagnostico.historico.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: cultivosDb = [] } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
   const historico = historicoRaw.map(mapDbDiagnostico);
   const cultivosAtivos = cultivosDb.filter((c) => c.status === "em_andamento");
@@ -88,7 +100,6 @@ export default function DiagnosticoScreen() {
   const [culturaId, setCulturaId] = useState("soja");
   const [parte, setParte] = useState<PartePlanta>("folha");
   const [sintomas, setSintomas] = useState("");
-  const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoAtivo | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [resultado, setResultado] = useState<DiagnosticoView | null>(null);
   const [showHistorico, setShowHistorico] = useState(false);
@@ -102,7 +113,7 @@ export default function DiagnosticoScreen() {
   }, [historicoParam]);
 
   const salvarMutation = trpc.diagnostico.salvar.useMutation({
-    onSuccess: () => utils.diagnostico.historico.invalidate(),
+    onSuccess: () => utils.diagnostico.historico.invalidate(cacheInput),
   });
 
   const pdfMutation = trpc.analise.gerarPDF.useMutation();
@@ -147,6 +158,7 @@ export default function DiagnosticoScreen() {
         await salvarMutation.mutateAsync({
           culturaNome,
           culturaId: cultivoSelecionado?.id,
+          propriedadeId: cultivoSelecionado?.propriedadeId ?? undefined,
           parteAnalisada: parte,
           sintomas: sintomas.trim() || undefined,
           problema: data.problema,
@@ -162,6 +174,12 @@ export default function DiagnosticoScreen() {
       } catch {
         // diagnóstico exibido mesmo se salvar falhar
       }
+
+      void rememberDiagnostico({
+        problema: data.problema,
+        tipo: data.tipo,
+        confianca: data.confianca,
+      });
 
       const diag: DiagnosticoView = {
         id: Date.now(),
@@ -204,6 +222,8 @@ export default function DiagnosticoScreen() {
       parteAnalisada: parte,
       sintomas: sintomas.trim() || undefined,
       faseFenologica: cultivoSelecionado?.faseAtual?.replace(/_/g, " ") || undefined,
+      propriedadeId: cultivoSelecionado?.propriedadeId ?? undefined,
+      culturaId: cultivoSelecionado?.id,
     });
   };
 

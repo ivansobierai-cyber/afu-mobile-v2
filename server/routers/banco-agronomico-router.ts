@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { router, publicProcedure, protectedProcedure } from "../_core/trpc";
+import { router, publicProcedure, protectedProcedure, adminProcedure } from "../_core/trpc";
 import {
   listarCatalogoCulturas,
   getCatalogoCulturaById,
@@ -174,8 +174,8 @@ export const bancoAgronomicoRouter = router({
   }),
 
   noc: router({
-    painel: protectedProcedure.query(() => painelNoc()),
-    alertas: protectedProcedure
+    painel: adminProcedure.query(() => painelNoc()),
+    alertas: adminProcedure
       .input(
         z
           .object({
@@ -184,7 +184,7 @@ export const bancoAgronomicoRouter = router({
           .optional(),
       )
       .query(({ input }) => listarNocAlertas(input?.status)),
-    stats: protectedProcedure.query(() => statsNoc()),
+    stats: adminProcedure.query(() => statsNoc()),
   }),
 
   arquitetura: router({

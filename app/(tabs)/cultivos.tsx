@@ -3,7 +3,7 @@ import {
   View, Text, FlatList, TouchableOpacity, Modal, TextInput,
   ScrollView, StyleSheet, Alert, ActivityIndicator, RefreshControl,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -11,6 +11,8 @@ import { trpc } from "@/lib/trpc";
 import { AreaValidationAlert } from "@/components/area-validation-alert";
 import { useAreaValidation } from "@/hooks/use-area-validation";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
+import { buildPropertyReturnHref } from "@/lib/propriedades/registrar-flow";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#38A169", planejado: "#D97706", colhido: "#6B7C6E", perdido: "#E53E3E",
@@ -49,13 +51,38 @@ export default function CultivosScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
+  const {
+    propriedadeId: propParam,
+    safraId: safraParam,
+    returnTab,
+    openCreate,
+  } = useLocalSearchParams<{
+    propriedadeId?: string;
+    safraId?: string;
+    returnTab?: string;
+    openCreate?: string;
+  }>();
+  const contextPropId = propParam ? parseInt(propParam, 10) : NaN;
+  const contextSafraId = safraParam ? parseInt(safraParam, 10) : NaN;
+  const prefPropId =
+    Number.isFinite(contextPropId) && contextPropId > 0 ? contextPropId : null;
+  const prefSafraId =
+    Number.isFinite(contextSafraId) && contextSafraId > 0 ? contextSafraId : null;
 
-  const { data: cultivos = [], isLoading, refetch } = trpc.coreData.cultivos.list.useQuery();
-  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery();
+  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  
+  const { data: cultivos = [], isLoading, refetch } = trpc.coreData.cultivos.list.useQuery(
+    cacheInput,
+    { enabled: tenantReady },
+  );
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  const [formSafraId, setFormSafraId] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [showCulturasPicker, setShowCulturasPicker] = useState(false);
   const [isAreaValid, setIsAreaValid] = useState(true);
@@ -75,7 +102,9 @@ export default function CultivosScreen() {
     if (match) setSelectedTerreno(match);
   }, [editingId, modalVisible, terrenos, cultivos]);
 
-  const { data: cultivosTerreno = [] } = trpc.coreData.cultivos.list.useQuery();
+  const { data: cultivosTerreno = [] } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
   const areaPlantadaExistente = cultivosTerreno
     .filter((c) => c.terrenoId === selectedTerreno?.id && c.id !== editingId)
@@ -92,9 +121,24 @@ export default function CultivosScreen() {
   const openNew = () => {
     setEditingId(null);
     setSelectedTerreno(null);
-    setForm({ ...EMPTY_FORM, propriedadeId: propriedades[0]?.id ? String(propriedades[0].id) : "" });
+    const defaultProp =
+      prefPropId != null
+        ? String(prefPropId)
+        : propriedades[0]?.id
+          ? String(propriedades[0].id)
+          : "";
+    setForm({ ...EMPTY_FORM, propriedadeId: defaultProp });
+    setFormSafraId(prefSafraId);
     setModalVisible(true);
   };
+
+  // Etapa 6: deep link do painel com propriedade/safra pré-preenchidos
+  useEffect(() => {
+    if (openCreate === "1" && prefPropId != null && propriedades.length > 0) {
+      openNew();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openCreate, prefPropId, propriedades.length]);
 
   const openEdit = (item: typeof cultivos[0]) => {
     setEditingId(item.id);
@@ -125,6 +169,7 @@ export default function CultivosScreen() {
       }
       const payload = {
         propriedadeId: parseInt(form.propriedadeId),
+        safraId: formSafraId ?? undefined,
         terrenoId: selectedTerreno.id as number,
         nomeCultura: form.nomeCultura.trim(),
         variedade: form.variedade.trim() || undefined,
@@ -141,6 +186,15 @@ export default function CultivosScreen() {
         await runMutation("cultivo", "create", payload);
       }
       setModalVisible(false);
+      if (!editingId && prefPropId != null && returnTab) {
+        router.replace(
+          buildPropertyReturnHref({
+            propriedadeId: prefPropId,
+            tab: returnTab,
+            safraId: prefSafraId,
+          }) as any,
+        );
+      }
     } catch (e: any) {
       Alert.alert("Erro", e.message ?? "Não foi possível salvar.");
     } finally {
@@ -252,6 +306,11 @@ export default function CultivosScreen() {
         <View style={styles.overlay}>
           <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
             <Text style={styles.sheetTitle}>{editingId ? "Editar Cultivo" : "Novo Cultivo"}</Text>
+            {formSafraId != null && !editingId ? (
+              <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10 }}>
+                Safra #{formSafraId} · propriedade pré-selecionada do painel
+              </Text>
+            ) : null}
 
             <Text style={styles.label}>Propriedade *</Text>
             <View style={styles.chipRow}>

@@ -65,18 +65,22 @@ export async function requestPasswordReset(email: string): Promise<{
     const appUrl = process.env.APP_URL || 'https://afumobile.com';
     const emailResult = await sendPasswordResetEmail(email, token, appUrl);
 
+    const { safeLogger } = await import("./_core/safe-logger");
     if (emailResult.success) {
-      console.log('[PasswordReset] E-mail enviado com sucesso para:', email);
+      safeLogger.info("[PasswordReset] E-mail de recuperação enviado", {
+        emailDomain: email.split("@")[1] ?? "unknown",
+      });
     } else {
-      console.warn('[PasswordReset] Erro ao enviar e-mail:', emailResult.error);
-      // Não falhar a requisição se o e-mail não for enviado
-      // O usuário pode tentar novamente ou usar o link de desenvolvimento
+      safeLogger.warn("[PasswordReset] Falha ao enviar e-mail", {
+        error: emailResult.error,
+      });
     }
 
-    console.log('[PasswordReset] Token gerado para:', email);
-    console.log('[PasswordReset] Token:', token);
-    console.log('[PasswordReset] Expira em:', expiresAt);
-    console.log('[PasswordReset] SendGrid ready:', isSendGridReady());
+    // Etapa 9 — nunca logar o token/senha em claro
+    safeLogger.info("[PasswordReset] Token gerado", {
+      expiresAt: expiresAt.toISOString(),
+      sendGridReady: isSendGridReady(),
+    });
 
     return {
       success: true,
@@ -84,7 +88,10 @@ export async function requestPasswordReset(email: string): Promise<{
       token: isSendGridReady() ? undefined : token, // Retornar token apenas em desenvolvimento
     };
   } catch (error) {
-    console.error('[PasswordReset] Erro ao solicitar reset:', error);
+    const { safeLogger } = await import("./_core/safe-logger");
+    safeLogger.error("[PasswordReset] Erro ao solicitar reset", {
+      message: error instanceof Error ? error.message : "unknown",
+    });
     return {
       success: false,
       message: 'Erro ao processar solicitação de recuperação de senha.',

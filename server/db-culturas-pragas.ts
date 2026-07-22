@@ -21,6 +21,8 @@ export type CulturaFiltros = {
   busca?: string;
   status?: "planejado" | "em_andamento" | "colhido" | "perdido";
   propriedadeId?: number;
+  /** Etapa 4 — escopo obrigatório para não-admin */
+  organizationId?: number;
   limit?: number;
   offset?: number;
 };
@@ -29,9 +31,12 @@ export async function listarCulturasAdmin(filtros: CulturaFiltros = {}) {
   const db = await getDb();
   if (!db) return { items: [], total: 0 };
 
-  const { busca, status, propriedadeId, limit = 50, offset = 0 } = filtros;
+  const { busca, status, propriedadeId, organizationId, limit = 50, offset = 0 } = filtros;
 
   const conditions = [];
+  if (organizationId != null) {
+    conditions.push(eq(culturas.organizationId, organizationId));
+  }
   if (busca) {
     conditions.push(
       or(
@@ -117,14 +122,30 @@ export async function adminUpdateCultura(id: number, data: Partial<CulturaCreate
   if (data.dataPlantio !== undefined) updateData.dataPlantio = data.dataPlantio ? new Date(data.dataPlantio) : null;
   if (data.previsaoColheita !== undefined) updateData.previsaoColheita = data.previsaoColheita ? new Date(data.previsaoColheita) : null;
 
-  await db.update(culturas).set(updateData as any).where(eq(culturas.id, id));
+  // Etapa 5 — amarra ao organizationId do registro (nunca só id)
+  const existing = await getCulturaById(id);
+  if (!existing) throw new Error("Cultura não encontrada");
+  if (existing.organizationId == null) {
+    throw new Error("Cultura sem organizationId — rode backfill:organization-id");
+  }
+  await db
+    .update(culturas)
+    .set(updateData as any)
+    .where(and(eq(culturas.id, id), eq(culturas.organizationId, existing.organizationId)));
   return { success: true };
 }
 
 export async function adminDeleteCultura(id: number) {
   const db = await getDb();
   if (!db) throw new Error("DB não disponível");
-  await db.delete(culturas).where(eq(culturas.id, id));
+  const existing = await getCulturaById(id);
+  if (!existing) throw new Error("Cultura não encontrada");
+  if (existing.organizationId == null) {
+    throw new Error("Cultura sem organizationId — rode backfill:organization-id");
+  }
+  await db
+    .delete(culturas)
+    .where(and(eq(culturas.id, id), eq(culturas.organizationId, existing.organizationId)));
   return { success: true };
 }
 

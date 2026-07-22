@@ -8,7 +8,7 @@ export type SignUpData = {
   email: string;
   phone: string;
   password: string;
-  profile: 'produtor' | 'tecnico' | 'administrador';
+  profile: 'produtor' | 'tecnico';
 };
 
 export type SignUpResponse = {
