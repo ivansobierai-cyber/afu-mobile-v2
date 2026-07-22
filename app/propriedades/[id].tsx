@@ -46,6 +46,9 @@ import {
   squarePolygonAround,
   approxAreaHaFromGeoJson,
   validatePolygonGeoJson,
+  polygonRingToVertices,
+  verticesToPolygonGeoJson,
+  type LatLng,
 } from "@/lib/propriedades/geojson-helpers";
 import type { MapPolygon } from "@/components/property-map-types";
 import {
@@ -84,6 +87,12 @@ const TIPO_LABELS: Record<string, string> = {
 };
 
 type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores";
+type VertexDraft = { latitude: string; longitude: string };
+type VertexEditorState = {
+  terrenoId: number | null;
+  title: string;
+  vertices: VertexDraft[];
+};
 
 const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
   { id: "visao", label: "Visão", icon: "house.fill" },
@@ -119,6 +128,7 @@ export default function PropriedadeDetailScreen() {
   const [geoImportOpen, setGeoImportOpen] = useState(false);
   const [geoImportText, setGeoImportText] = useState("");
   const [geoImportTerrenoId, setGeoImportTerrenoId] = useState<number | null>(null);
+  const [vertexEditor, setVertexEditor] = useState<VertexEditorState | null>(null);
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
 
@@ -430,6 +440,86 @@ export default function PropriedadeDetailScreen() {
     });
   }
   const terrenosSemGeometria = terrenos.filter((t) => extractPolygonRings(t.geometriaGeoJson).length === 0);
+  const terrenosComGeometria = terrenos.filter((t) => extractPolygonRings(t.geometriaGeoJson).length > 0);
+  const toVertexDrafts = (vertices: LatLng[]): VertexDraft[] =>
+    vertices.map((p) => ({
+      latitude: String(p.latitude),
+      longitude: String(p.longitude),
+    }));
+  const openVertexEditor = (target: { terrenoId: number | null; title: string; geojson: string | null | undefined }) => {
+    const vertices = polygonRingToVertices(target.geojson);
+    if (vertices.length < 3) {
+      Alert.alert("Geometria inválida", "O polígono precisa de pelo menos 3 vértices editáveis.");
+      return;
+    }
+    setVertexEditor({
+      terrenoId: target.terrenoId,
+      title: target.title,
+      vertices: toVertexDrafts(vertices),
+    });
+  };
+  const updateVertexDraft = (index: number, field: keyof VertexDraft, value: string) => {
+    setVertexEditor((current) => {
+      if (!current) return current;
+      return {
+        ...current,
+        vertices: current.vertices.map((vertex, i) =>
+          i === index ? { ...vertex, [field]: value } : vertex,
+        ),
+      };
+    });
+  };
+  const addVertexDraft = () => {
+    setVertexEditor((current) => {
+      if (!current) return current;
+      const last = current.vertices.at(-1) ?? { latitude: "", longitude: "" };
+      return { ...current, vertices: [...current.vertices, { ...last }] };
+    });
+  };
+  const removeVertexDraft = (index: number) => {
+    setVertexEditor((current) => {
+      if (!current || current.vertices.length <= 3) return current;
+      return { ...current, vertices: current.vertices.filter((_, i) => i !== index) };
+    });
+  };
+  const saveVertexEditor = async () => {
+    if (!vertexEditor) return;
+    const vertices = vertexEditor.vertices.map((p) => ({
+      latitude: Number(p.latitude.replace(",", ".")),
+      longitude: Number(p.longitude.replace(",", ".")),
+    }));
+    if (vertices.some((p) => !Number.isFinite(p.latitude) || !Number.isFinite(p.longitude))) {
+      Alert.alert("Coordenadas inválidas", "Informe latitude e longitude numéricas para todos os vértices.");
+      return;
+    }
+    const valid = verticesToPolygonGeoJson(vertices);
+    if (!valid.ok) {
+      Alert.alert("Polígono inválido", valid.error);
+      return;
+    }
+    try {
+      if (vertexEditor.terrenoId) {
+        await setGeometriaTerreno.mutateAsync({
+          propriedadeId: propriedade.id,
+          terrenoId: vertexEditor.terrenoId,
+          geometriaGeoJson: valid.normalized,
+          areaGeometricaHa: valid.areaHa ?? undefined,
+          origem: "desenhada",
+        });
+      } else {
+        await setGeometria.mutateAsync({
+          propriedadeId: propriedade.id,
+          geometriaGeoJson: valid.normalized,
+          areaGeometricaHa: valid.areaHa ?? undefined,
+          origem: "desenhada",
+        });
+      }
+      setVertexEditor(null);
+      Alert.alert("Vértices salvos", "Geometria atualizada com sucesso.");
+    } catch (e: any) {
+      Alert.alert("Erro", e?.message ?? "Falha ao salvar vértices.");
+    }
+  };
   const openGeoImport = (terrenoId: number | null = null) => {
     setGeoImportTerrenoId(terrenoId);
     setGeoImportText("");
@@ -1159,6 +1249,29 @@ export default function PropriedadeDetailScreen() {
             )}
             {canWriteProperty && !isHistorical ? (
               <View style={{ marginTop: 12, gap: 10 }}>
+                {propGeo ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Editar vértices da propriedade"
+                    style={{
+                      minHeight: 44,
+                      borderRadius: 12,
+                      backgroundColor: colors.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 12,
+                    }}
+                    onPress={() =>
+                      openVertexEditor({
+                        terrenoId: null,
+                        title: "Editar vértices da propriedade",
+                        geojson: propGeo,
+                      })
+                    }
+                  >
+                    <Text style={{ color: "#FFF", fontWeight: "700" }}>Editar vértices</Text>
+                  </TouchableOpacity>
+                ) : null}
                 <TouchableOpacity
                   accessibilityRole="button"
                   accessibilityLabel="Importar GeoJSON"
@@ -1177,6 +1290,46 @@ export default function PropriedadeDetailScreen() {
                     Importar GeoJSON
                   </Text>
                 </TouchableOpacity>
+                {terrenosComGeometria.length > 0 ? (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 12,
+                      padding: 12,
+                      gap: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+                      Talhões com geometria
+                    </Text>
+                    {terrenosComGeometria.slice(0, 6).map((t) => (
+                      <View
+                        key={t.id}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+                      >
+                        <Text style={{ flex: 1, minWidth: 120, color: colors.foreground, fontSize: 12 }}>
+                          {t.nome}
+                        </Text>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Editar vértices de ${t.nome}`}
+                          onPress={() =>
+                            openVertexEditor({
+                              terrenoId: t.id,
+                              title: `Editar vértices · ${t.nome}`,
+                              geojson: t.geometriaGeoJson,
+                            })
+                          }
+                        >
+                          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                            Editar vértices
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
                 {terrenosSemGeometria.length > 0 ? (
                   <View
                     style={{
@@ -1672,6 +1825,148 @@ export default function PropriedadeDetailScreen() {
                 }}
               >
                 <Text style={{ color: "#FFF", fontWeight: "700" }}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        visible={vertexEditor != null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setVertexEditor(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              maxHeight: "88%",
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 6 }}>
+              {vertexEditor?.title ?? "Editar vértices"}
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10, lineHeight: 18 }}>
+              Ajuste os vértices do anel. O fechamento do polígono é feito automaticamente ao salvar.
+            </Text>
+            <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 420 }}>
+              {vertexEditor?.vertices.map((vertex, index) => (
+                <View
+                  key={index}
+                  style={{
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 12,
+                    padding: 10,
+                    marginBottom: 10,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>
+                      Vértice {index + 1}
+                    </Text>
+                    <TouchableOpacity
+                      accessibilityRole="button"
+                      accessibilityLabel={`Remover vértice ${index + 1}`}
+                      disabled={(vertexEditor?.vertices.length ?? 0) <= 3}
+                      onPress={() => removeVertexDraft(index)}
+                    >
+                      <Text
+                        style={{
+                          color: (vertexEditor?.vertices.length ?? 0) <= 3 ? colors.muted : "#C62828",
+                          fontWeight: "700",
+                          fontSize: 12,
+                        }}
+                      >
+                        Remover
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                  <View style={{ flexDirection: isWide ? "row" : "column", gap: 8, marginTop: 8 }}>
+                    <TextInput
+                      value={vertex.latitude}
+                      onChangeText={(value) => updateVertexDraft(index, "latitude", value)}
+                      placeholder="Latitude"
+                      placeholderTextColor={colors.muted}
+                      keyboardType="decimal-pad"
+                      style={{
+                        flex: 1,
+                        minHeight: 44,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        color: colors.foreground,
+                      }}
+                    />
+                    <TextInput
+                      value={vertex.longitude}
+                      onChangeText={(value) => updateVertexDraft(index, "longitude", value)}
+                      placeholder="Longitude"
+                      placeholderTextColor={colors.muted}
+                      keyboardType="decimal-pad"
+                      style={{
+                        flex: 1,
+                        minHeight: 44,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                        borderRadius: 10,
+                        paddingHorizontal: 12,
+                        color: colors.foreground,
+                      }}
+                    />
+                  </View>
+                </View>
+              ))}
+              <TouchableOpacity
+                onPress={addVertexDraft}
+                accessibilityRole="button"
+                accessibilityLabel="Adicionar vértice"
+                style={{
+                  minHeight: 44,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  marginBottom: 12,
+                }}
+              >
+                <Text style={{ color: colors.primary, fontWeight: "700" }}>Adicionar vértice</Text>
+              </TouchableOpacity>
+            </ScrollView>
+            <View style={{ flexDirection: "row", gap: 10, marginTop: 10 }}>
+              <TouchableOpacity
+                onPress={() => setVertexEditor(null)}
+                accessibilityRole="button"
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: "700" }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void saveVertexEditor()}
+                accessibilityRole="button"
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 12,
+                  backgroundColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#FFF", fontWeight: "700" }}>Salvar vértices</Text>
               </TouchableOpacity>
             </View>
           </View>

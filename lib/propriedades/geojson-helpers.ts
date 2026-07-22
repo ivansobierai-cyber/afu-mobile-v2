@@ -89,6 +89,36 @@ export type GeoJsonValidation =
   | { ok: true; normalized: string; areaHa: number | null }
   | { ok: false; error: string };
 
+function sameLatLng(a: LatLng, b: LatLng): boolean {
+  return (
+    Math.abs(a.latitude - b.latitude) <= 1e-9 &&
+    Math.abs(a.longitude - b.longitude) <= 1e-9
+  );
+}
+
+/** Retorna o primeiro anel como vértices editáveis, sem repetir o ponto de fechamento. */
+export function polygonRingToVertices(geojson: string | null | undefined): LatLng[] {
+  const ring = extractPolygonRings(geojson)[0] ?? [];
+  if (ring.length > 1 && sameLatLng(ring[0], ring[ring.length - 1])) {
+    return ring.slice(0, -1);
+  }
+  return ring;
+}
+
+/** Constrói GeoJSON Polygon a partir de vértices editáveis e valida o anel fechado. */
+export function verticesToPolygonGeoJson(vertices: LatLng[]): GeoJsonValidation {
+  if (vertices.length < 3) {
+    return { ok: false, error: "Polígono precisa de pelo menos 3 vértices." };
+  }
+  const closed = [...vertices, vertices[0]];
+  return validatePolygonGeoJson(
+    JSON.stringify({
+      type: "Polygon",
+      coordinates: [closed.map((p) => [p.longitude, p.latitude])],
+    }),
+  );
+}
+
 /**
  * Valida Polygon / Feature / FeatureCollection com anel fechado (≥4 pontos).
  * Normaliza para Geometry Polygon (primeiro anel).

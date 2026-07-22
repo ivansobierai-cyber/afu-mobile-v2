@@ -45,6 +45,13 @@
 
 ## Como continuar
 
-1. Edição visual por vértices no mapa
-2. Responsável/equipe com seletor de usuários na UI
-3. Seleção detalhada de consumos ao concluir tarefa
+Concluído nesta rodada:
+
+- Edição por vértices no mapa para propriedade e talhões com geometria.
+- Seletor de responsável/equipe na criação de tarefas.
+- Modal de consumos ao concluir tarefa.
+
+P3 restante:
+
+1. Desenho livre de polígono no mapa.
+2. Cadastro avançado de máquinas/equipamentos operacionais.
