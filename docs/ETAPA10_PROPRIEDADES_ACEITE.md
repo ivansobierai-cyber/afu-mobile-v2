@@ -1,8 +1,10 @@
 # Etapa 10 — Aceite e evidências (painel propriedades / PR #12)
 
-**Status:** suíte de aceite pronta · homologação preview manual pendente · merge pendente  
+**Status:** suíte de aceite OK · smoke local AVANÇAR · smoke preview parcial (tenantReady) · **API Railway pendente** · merge pendente  
 **Branch:** `cursor/security-multitenant-audit-fd64`  
 **PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12
+
+Ops pós-merge: `docs/MERGE_PR12_RAILWAY.md`
 
 ---
 
@@ -51,7 +53,9 @@ Login demo: `demo@afuagro.com.br` / `Demo@1234`
 - [x] Suíte `test:propriedades:etapa2` verde (unit)
 - [x] Smoke autenticado local (ver `docs/ETAPA10_SMOKE_HOMOLOGACAO.md`)
 - [x] CI `validate` verde no PR
-- [ ] Seed demo na API do preview Vercel (ops)
+- [x] Smoke preview lista/detalhe + banner parcial (`tenantReady`) — evidências em `docs/evidencias/smoke-preview-tenantready/`
+- [ ] Deploy API deste branch no Railway + safras/archive/seed (`docs/MERGE_PR12_RAILWAY.md`)
+- [ ] Re-smoke preview com Registrar/safras/admin completos
 - [ ] Aprovação / merge em `main`
 
 ---

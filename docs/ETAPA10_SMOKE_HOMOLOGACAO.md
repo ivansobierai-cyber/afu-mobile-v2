@@ -46,9 +46,10 @@ Screenshots: `docs/evidencias/smoke-preview/` e `/opt/cursor/artifacts/smoke-eta
 
 **Mitigação no cliente (este PR):** `resolveTenantReady` / `isLegacySessionWithoutOrgs` — se a sessão não traz o campo `organizations`, libera listagens para usuário autenticado (modo legado). Confirmado no preview: lista e detalhe carregam.
 
-**Ops para fechar 100% multi-tenant no preview/prod:**
-1. Deploy da API deste branch no Railway
-2. `npm run db:safras:apply && npm run db:archive:apply && npm run seed` no banco de produção (seed repara org + propriedades órfãs)
+**Ops para fechar 100% multi-tenant no preview/prod:** ver checklist completo em `docs/MERGE_PR12_RAILWAY.md`.
+
+1. Deploy da API deste branch no Railway (merge em `main` se auto-deploy, ou `railway up`)
+2. Boot já roda `db:safras:apply` + `db:archive:apply`; com `SEED_ON_START=1` também seed + `db:safras:backfill`
 3. Re-smoke: menu Registrar + safras + archive/export + dashboard.stats
 
 ---

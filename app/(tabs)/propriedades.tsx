@@ -74,7 +74,7 @@ export default function PropriedadesScreen() {
     safraId?: string;
   }>();
 
-  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady, fullTenantApi } = useTenantQueryScope();
   const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const activeRole = (session?.activeRole ?? null) as OrgRole | null;
   const canArchive = activeRole ? roleHasPermission(activeRole, "property.archive") : false;
@@ -90,7 +90,8 @@ export default function PropriedadesScreen() {
     isLoading: loadingArchived,
     refetch: refetchArchived,
   } = trpc.coreData.propriedades.listArchived.useQuery(cacheInput, {
-    enabled: tenantReady && canArchive,
+    enabled: fullTenantApi && canArchive,
+    retry: false,
   });
 
   const archiveMut = trpc.coreData.propriedades.archive.useMutation({

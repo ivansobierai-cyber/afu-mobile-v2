@@ -35,6 +35,12 @@ esac
 echo "[api] Running database migrations..."
 npx drizzle-kit migrate
 
+# 0020/0021 ainda não estão no journal completo do drizzle-kit em todos os ambientes;
+# apply idempotente garante safras + soft-archive no MySQL do Railway.
+echo "[api] Applying safras + property archive schema (idempotent)..."
+npm run db:safras:apply
+npm run db:archive:apply
+
 if [ "$SEED_ON_START" = "1" ]; then
   echo "[api] Running demo seeds..."
   npm run seed
@@ -42,6 +48,8 @@ if [ "$SEED_ON_START" = "1" ]; then
   npm run seed:comprador
   echo "[api] Running banco expansão 30–46..."
   npm run seed:banco-expansao
+  echo "[api] Backfill safras padrão (idempotente)..."
+  npm run db:safras:backfill || echo "[api] WARN: db:safras:backfill failed (non-fatal)"
 fi
 
 echo "[api] Starting server on port ${PORT:-3000}..."

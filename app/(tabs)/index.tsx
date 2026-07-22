@@ -62,7 +62,8 @@ export default function DashboardScreen() {
   const router = useRouter();
   const utils = trpc.useUtils();
   const { isAuthenticated, perfil } = useSession();
-  const { cacheInput, activeOrganizationId, tenantReady, withScope } = useTenantQueryScope();
+  const { cacheInput, activeOrganizationId, tenantReady, fullTenantApi, withScope } =
+    useTenantQueryScope();
   const { isOnline, pending } = useCoreOfflineSync();
   const { cards, moveCard, toggleVisible, resetCards } = useDashboardCards();
   const [refreshing, setRefreshing] = useState(false);
@@ -96,7 +97,9 @@ export default function DashboardScreen() {
     { enabled: tenantReady },
   );
   const { data: dashStats } = trpc.coreData.dashboard.stats.useQuery(cacheInput, {
-    enabled: tenantReady,
+    // Evita 404 na API Railway antiga (sem coreData.dashboard.stats)
+    enabled: fullTenantApi,
+    retry: false,
   });
   const { data: produtosMarketplace = [] } = trpc.secondaryData.marketplace.list.useQuery(
     { status: "disponivel", limit: 100 },
