@@ -127,6 +127,20 @@
       "when": 1784372000000,
       "tag": "0017_private_files_audit",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1784373000000,
+      "tag": "0018_sync_conflicts",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1784374000000,
+      "tag": "0019_ai_org_policy",
+      "breakpoints": true
     }
   ]
 }

@@ -18,11 +18,12 @@ CREATE TABLE IF NOT EXISTS `sync_conflicts` (
   `createdAt` timestamp NOT NULL DEFAULT (now()),
   CONSTRAINT `sync_conflicts_id` PRIMARY KEY(`id`)
 );
-
+--> statement-breakpoint
 CREATE INDEX `sync_conflicts_organization_idx` ON `sync_conflicts` (`organizationId`);
+--> statement-breakpoint
 CREATE INDEX `sync_conflicts_status_idx` ON `sync_conflicts` (`organizationId`, `syncConflictStatus`);
+--> statement-breakpoint
 CREATE INDEX `sync_conflicts_client_mutation_idx` ON `sync_conflicts` (`clientMutationId`);
-
+--> statement-breakpoint
 -- Versão de geometria também nos talhões (conflito offline)
-ALTER TABLE `terrenos`
-  ADD COLUMN `geometriaVersao` int DEFAULT 1;
+ALTER TABLE `terrenos` ADD COLUMN `geometriaVersao` int DEFAULT 1;

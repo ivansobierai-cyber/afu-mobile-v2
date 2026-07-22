@@ -8,6 +8,12 @@ O agente de cloud **não tem** token/MCP Railway neste ambiente. Deploy da API �
 
 ---
 
+**Fix 2026-07-22:** migração `0017_private_files_audit.sql` quebrava o boot (`drizzle-kit migrate`) porque havia dois `CREATE TABLE` sem `--> statement-breakpoint` (MySQL parse error). Corrigido no branch; também `0018` com breakpoints + journal até `0019`.
+
+Após push: **Redeploy** de novo no Railway (`SEED_ON_START=1`).
+
+---
+
 ## Status probe (2026-07-22)
 
 `SEED_ON_START=1` pode estar setado no Railway, mas o **serviço ainda serve a API antiga**:

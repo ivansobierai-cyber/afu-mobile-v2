@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS `private_files` (
   KEY `private_files_organization_idx` (`organizationId`),
   KEY `private_files_relatorio_idx` (`relatorioId`)
 );
-
+--> statement-breakpoint
 CREATE TABLE IF NOT EXISTS `audit_logs` (
   `id` int AUTO_INCREMENT NOT NULL,
   `organizationId` int,
