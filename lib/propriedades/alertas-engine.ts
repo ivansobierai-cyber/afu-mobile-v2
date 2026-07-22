@@ -14,6 +14,7 @@ export type AlertaPropriedade = {
   motivo: string;
   fonte: string;
   gravidade: AlertaGravidade;
+  tipo?: "medida" | "calculada" | "estimada";
   acaoRecomendada: string;
   entidadeTipo: "tarefa" | "cultivo" | "estoque" | "geometria" | "ocorrencia" | "custo";
   entidadeId?: number;
@@ -26,6 +27,8 @@ type TarefaLike = {
   status: string;
   prioridade: string;
   dataPrevista: Date | string;
+  tipoOperacao?: string | null;
+  updatedAt?: Date | string | null;
 };
 
 type CultivoLike = {
@@ -65,6 +68,7 @@ export type AlertasInput = {
   orcamentos: OrcamentoLike[];
   ocorrencias: OcorrenciaLike[];
   temGeometriaPropriedade: boolean;
+  weatherWarnings?: { code: string; title: string }[];
   now?: Date;
 };
 
@@ -74,10 +78,21 @@ function startOfDay(d: Date) {
   return x;
 }
 
+function isSameDay(a: Date, b: Date) {
+  return startOfDay(a).getTime() === startOfDay(b).getTime();
+}
+
+function hasRainOrWindWarning(warnings: { code: string; title: string }[] | undefined) {
+  return (warnings ?? []).some((w) =>
+    /(rain|chuva|wind|vento|temporal|storm)/i.test(`${w.code} ${w.title}`),
+  );
+}
+
 export function gerarAlertas(input: AlertasInput): AlertaPropriedade[] {
   const now = input.now ?? new Date();
   const today = startOfDay(now);
   const alertas: AlertaPropriedade[] = [];
+  const climaArriscado = hasRainOrWindWarning(input.weatherWarnings);
 
   for (const t of input.tarefas) {
     const status = t.status as TarefaStatus;
@@ -91,6 +106,24 @@ export function gerarAlertas(input: AlertasInput): AlertaPropriedade[] {
         fonte: "tarefas_operacionais.dataPrevista",
         gravidade: t.prioridade === "critica" ? "critico" : t.prioridade === "alta" ? "alto" : "atencao",
         acaoRecomendada: "Abrir Operações e iniciar ou reagendar a tarefa.",
+        entidadeTipo: "tarefa",
+        entidadeId: t.id,
+        createdAt: now.toISOString(),
+      });
+    }
+    if (
+      climaArriscado &&
+      isSameDay(data, now) &&
+      (t.tipoOperacao === "pulverizacao" || t.tipoOperacao === "adubacao")
+    ) {
+      alertas.push({
+        id: `clima-operacao-${t.id}`,
+        titulo: `Clima pode afetar: ${t.titulo}`,
+        motivo: "Há aviso de chuva/vento para hoje e a tarefa aberta depende de janela climática.",
+        fonte: "weatherWarnings + tarefas_operacionais",
+        gravidade: "atencao",
+        tipo: "estimada",
+        acaoRecomendada: "Revisar previsão antes de executar ou reagendar a operação.",
         entidadeTipo: "tarefa",
         entidadeId: t.id,
         createdAt: now.toISOString(),
@@ -124,6 +157,31 @@ export function gerarAlertas(input: AlertasInput): AlertaPropriedade[] {
         entidadeId: c.id,
         createdAt: now.toISOString(),
       });
+    }
+    if (c.status === "em_andamento") {
+      const limite = new Date(now);
+      limite.setDate(limite.getDate() - 14);
+      const temVistoriaRecente = input.tarefas.some((t) => {
+        const status = t.status as TarefaStatus;
+        if (status !== "concluida" && status !== "aprovada") return false;
+        if (t.tipoOperacao !== "monitoramento" && t.tipoOperacao !== "vistoria") return false;
+        const updatedAt = t.updatedAt ? new Date(t.updatedAt) : new Date(t.dataPrevista);
+        return updatedAt >= limite && updatedAt <= now;
+      });
+      if (!temVistoriaRecente) {
+        alertas.push({
+          id: `cultivo-vistoria-pendente-${c.id}`,
+          titulo: `Vistoria pendente: ${c.nomeCultura}`,
+          motivo: "Cultivo em andamento sem monitoramento/vistoria concluída nos últimos 14 dias.",
+          fonte: "culturas.status + tarefas_operacionais.updatedAt",
+          gravidade: "atencao",
+          tipo: "estimada",
+          acaoRecomendada: "Agendar uma vistoria ou monitoramento do cultivo.",
+          entidadeTipo: "cultivo",
+          entidadeId: c.id,
+          createdAt: now.toISOString(),
+        });
+      }
     }
   }
 
@@ -199,7 +257,9 @@ export function gerarAlertas(input: AlertasInput): AlertaPropriedade[] {
     atencao: 2,
     info: 3,
   };
-  return alertas.sort((a, b) => rank[a.gravidade] - rank[b.gravidade]);
+  return alertas
+    .map((a) => ({ tipo: "calculada" as const, ...a }))
+    .sort((a, b) => rank[a.gravidade] - rank[b.gravidade]);
 }
 
 /** Etapa 10 — catálogo mínimo de métricas com fórmula/fonte */

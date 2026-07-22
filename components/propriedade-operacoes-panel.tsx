@@ -81,7 +81,7 @@ export function PropriedadeOperacoesPanel({
   const [tipo, setTipo] = useState<(typeof TIPOS)[number]["id"]>("monitoramento");
   const [prioridade, setPrioridade] = useState<(typeof PRIORIDADES)[number]>("normal");
   const [dataPrevista, setDataPrevista] = useState(() => new Date().toISOString().slice(0, 10));
-  const [terrenoId, setTerrenoId] = useState<number | null>(null);
+  const [selectedTerrenoIds, setSelectedTerrenoIds] = useState<number[]>([]);
 
   const { data: tarefas = [], isLoading, isError, refetch } =
     trpc.coreData.tarefas.listByPropriedade.useQuery({
@@ -90,7 +90,7 @@ export function PropriedadeOperacoesPanel({
       safraId,
     });
 
-  const transition = trpc.coreData.tarefas.transition.useMutation({
+  const createBulk = trpc.coreData.tarefas.createBulk.useMutation({
     onSuccess: async () => {
       await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId });
       await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
@@ -138,16 +138,51 @@ export function PropriedadeOperacoesPanel({
     [colors],
   );
 
-  const runTransition = (id: number, status: TarefaStatus, extra?: { motivoCancelamento?: string }) => {
+  const invalidateOperacoes = async () => {
+    await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
+    await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
+    await utils.coreData.expansao.overview.invalidate({
+      propriedadeId,
+      safraId,
+    });
+  };
+
+  const runTransition = async (
+    tarefa: { id: number; status: string },
+    status: TarefaStatus,
+    extra?: { motivoCancelamento?: string; consumos?: { itemId: number; quantidade: number }[] },
+  ) => {
     if (readOnly) {
       Alert.alert("Somente leitura", "Safra encerrada — dados disponíveis somente para consulta.");
       return;
     }
-    transition.mutate(
-      { id, status, ...extra },
-      {
-        onError: (e) => Alert.alert("Erro", e.message),
-      },
+    try {
+      const result = await queueMutation("tarefa", "update", {
+        id: tarefa.id,
+        status,
+        expectedStatus: tarefa.status,
+        ...extra,
+      });
+      await invalidateOperacoes();
+      if (result.queued) {
+        Alert.alert("Fila offline", "Alteração salva localmente e será sincronizada ao reconectar.");
+      }
+    } catch (e: any) {
+      Alert.alert("Erro", e.message ?? "Não foi possível atualizar a tarefa.");
+    }
+  };
+
+  const concluirSemConsumo = (tarefa: { id: number; status: string }) => {
+    Alert.alert(
+      "Concluir tarefa",
+      "Deseja concluir sem registrar consumo de estoque?",
+      [
+        { text: "Voltar", style: "cancel" },
+        {
+          text: "Concluir sem consumo",
+          onPress: () => void runTransition(tarefa, "concluida", { consumos: [] }),
+        },
+      ],
     );
   };
 
@@ -159,27 +194,38 @@ export function PropriedadeOperacoesPanel({
     setSaving(true);
     try {
       const clientMutationId = `tarefa_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-      const result = await queueMutation("tarefa", "create", {
+      const payload = {
         propriedadeId,
         safraId,
-        terrenoId: terrenoId ?? undefined,
         tipoOperacao: tipo,
         titulo: titulo.trim(),
         instrucoes: instrucoes.trim() || undefined,
         prioridade,
         dataPrevista: new Date(dataPrevista + "T12:00:00").toISOString(),
         clientMutationId,
-      });
+      };
+      let result: { queued: boolean } = { queued: false };
+      if (selectedTerrenoIds.length > 1 && isOnline) {
+        await createBulk.mutateAsync({
+          ...payload,
+          terrenoIds: selectedTerrenoIds,
+        });
+      } else {
+        const ids = selectedTerrenoIds.length > 0 ? selectedTerrenoIds : [undefined];
+        for (let i = 0; i < ids.length; i += 1) {
+          const queuedResult = await queueMutation("tarefa", "create", {
+            ...payload,
+            terrenoId: ids[i],
+            clientMutationId: ids.length > 1 ? `${clientMutationId}_${i}` : clientMutationId,
+          });
+          result = queuedResult;
+        }
+      }
       setModalOpen(false);
       setTitulo("");
       setInstrucoes("");
-      setTerrenoId(null);
-      await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
-      await utils.coreData.tarefas.resumoHoje.invalidate({ propriedadeId });
-      await utils.coreData.expansao.overview.invalidate({
-        propriedadeId,
-        safraId,
-      });
+      setSelectedTerrenoIds([]);
+      await invalidateOperacoes();
       if (result.queued) {
         Alert.alert("Fila offline", "Tarefa salva localmente e será sincronizada ao reconectar.");
       }
@@ -321,7 +367,7 @@ export function PropriedadeOperacoesPanel({
                 {status === "planejada" || status === "liberada" ? (
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                    onPress={() => runTransition(t.id, "em_execucao")}
+                    onPress={() => void runTransition(t, "em_execucao")}
                     accessibilityRole="button"
                     accessibilityLabel="Iniciar tarefa"
                   >
@@ -332,7 +378,7 @@ export function PropriedadeOperacoesPanel({
                   <>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: "#EF6C00" }]}
-                      onPress={() => runTransition(t.id, "pausada")}
+                      onPress={() => void runTransition(t, "pausada")}
                       accessibilityRole="button"
                       accessibilityLabel="Pausar tarefa"
                     >
@@ -340,7 +386,7 @@ export function PropriedadeOperacoesPanel({
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: colors.success }]}
-                      onPress={() => runTransition(t.id, "concluida")}
+                      onPress={() => concluirSemConsumo(t)}
                       accessibilityRole="button"
                       accessibilityLabel="Concluir tarefa"
                     >
@@ -352,7 +398,7 @@ export function PropriedadeOperacoesPanel({
                   <>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: colors.primary }]}
-                      onPress={() => runTransition(t.id, "em_execucao")}
+                      onPress={() => void runTransition(t, "em_execucao")}
                       accessibilityRole="button"
                       accessibilityLabel="Retomar tarefa"
                     >
@@ -360,7 +406,7 @@ export function PropriedadeOperacoesPanel({
                     </TouchableOpacity>
                     <TouchableOpacity
                       style={[styles.actionBtn, { backgroundColor: colors.success }]}
-                      onPress={() => runTransition(t.id, "concluida")}
+                      onPress={() => concluirSemConsumo(t)}
                       accessibilityRole="button"
                       accessibilityLabel="Concluir tarefa"
                     >
@@ -371,7 +417,7 @@ export function PropriedadeOperacoesPanel({
                 {status === "concluida" ? (
                   <TouchableOpacity
                     style={[styles.actionBtn, { backgroundColor: "#1B5E20" }]}
-                    onPress={() => runTransition(t.id, "aprovada")}
+                    onPress={() => void runTransition(t, "aprovada")}
                     accessibilityRole="button"
                     accessibilityLabel="Aprovar tarefa"
                   >
@@ -388,7 +434,7 @@ export function PropriedadeOperacoesPanel({
                           text: "Cancelar",
                           style: "destructive",
                           onPress: () =>
-                            runTransition(t.id, "cancelada", {
+                            void runTransition(t, "cancelada", {
                               motivoCancelamento: "Cancelada pelo usuário",
                             }),
                         },
@@ -471,38 +517,53 @@ export function PropriedadeOperacoesPanel({
               </View>
               {terrenos.length > 0 ? (
                 <>
-                  <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Talhão (opcional)</Text>
+                  <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>
+                    Talhões (opcional)
+                  </Text>
                   <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8 }}>
                     <TouchableOpacity
-                      onPress={() => setTerrenoId(null)}
+                      onPress={() => setSelectedTerrenoIds([])}
                       style={[
                         styles.chip,
                         {
-                          backgroundColor: terrenoId === null ? colors.primary : colors.surface,
-                          borderColor: terrenoId === null ? colors.primary : colors.border,
+                          backgroundColor: selectedTerrenoIds.length === 0 ? colors.primary : colors.surface,
+                          borderColor: selectedTerrenoIds.length === 0 ? colors.primary : colors.border,
                         },
                       ]}
                     >
-                      <Text style={{ color: terrenoId === null ? "#FFF" : colors.foreground, fontSize: 12 }}>Geral</Text>
+                      <Text style={{ color: selectedTerrenoIds.length === 0 ? "#FFF" : colors.foreground, fontSize: 12 }}>
+                        Geral
+                      </Text>
                     </TouchableOpacity>
                     {terrenos.map((t) => (
                       <TouchableOpacity
                         key={t.id}
-                        onPress={() => setTerrenoId(t.id)}
+                        onPress={() =>
+                          setSelectedTerrenoIds((current) =>
+                            current.includes(t.id)
+                              ? current.filter((id) => id !== t.id)
+                              : [...current, t.id],
+                          )
+                        }
                         style={[
                           styles.chip,
                           {
-                            backgroundColor: terrenoId === t.id ? colors.primary : colors.surface,
-                            borderColor: terrenoId === t.id ? colors.primary : colors.border,
+                            backgroundColor: selectedTerrenoIds.includes(t.id) ? colors.primary : colors.surface,
+                            borderColor: selectedTerrenoIds.includes(t.id) ? colors.primary : colors.border,
                           },
                         ]}
                       >
-                        <Text style={{ color: terrenoId === t.id ? "#FFF" : colors.foreground, fontSize: 12 }}>
+                        <Text style={{ color: selectedTerrenoIds.includes(t.id) ? "#FFF" : colors.foreground, fontSize: 12 }}>
                           {t.nome}
                         </Text>
                       </TouchableOpacity>
                     ))}
                   </View>
+                  {selectedTerrenoIds.length > 1 ? (
+                    <Text style={{ fontSize: 11, color: colors.muted, marginTop: -4, marginBottom: 8 }}>
+                      Será criada uma tarefa para cada talhão selecionado.
+                    </Text>
+                  ) : null}
                 </>
               ) : null}
               <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Data prevista</Text>

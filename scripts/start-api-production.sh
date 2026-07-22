@@ -65,6 +65,7 @@ echo "[api] Applying sync/ai + safras + archive schema (idempotent)..."
 npm run db:sync-ai:apply || echo "[api] WARN: db:sync-ai:apply failed (non-fatal)"
 npm run db:safras:apply || echo "[api] WARN: db:safras:apply failed (non-fatal)"
 npm run db:archive:apply || echo "[api] WARN: db:archive:apply failed (non-fatal)"
+npm run db:tarefas-responsavel:apply || echo "[api] WARN: db:tarefas-responsavel:apply failed (non-fatal)"
 
 run_seeds() {
   echo "[api] Running demo seeds (background)..."

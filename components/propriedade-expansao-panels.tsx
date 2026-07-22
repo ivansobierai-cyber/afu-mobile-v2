@@ -11,6 +11,14 @@ import {
 import { ScreenState } from "@/components/screen-state";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
+import {
+  DEFAULT_ALERTA_PREFS,
+  filtrarAlertasPorPreferencias,
+  loadAlertaPreferencias,
+  saveAlertaPreferencias,
+  type AlertaPreferencias,
+} from "@/lib/propriedades/alerta-preferencias";
+import type { AlertaGravidade } from "@/lib/propriedades/alertas-engine";
 
 const GRAVIDADE_COLOR: Record<string, string> = {
   critico: "#B71C1C",
@@ -26,6 +34,10 @@ type AlertasFeedProps = {
 
 export function PropriedadeAlertasFeed({ propriedadeId, onOpenOperacoes }: AlertasFeedProps) {
   const colors = useColors();
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const userId = session?.user?.id;
+  const organizationId = session?.activeOrganizationId;
+  const [prefs, setPrefs] = useState<AlertaPreferencias>(DEFAULT_ALERTA_PREFS);
   const { data: alertas = [], isLoading, isError, refetch } = trpc.coreData.expansao.alertas.useQuery({
     propriedadeId,
   });
@@ -33,6 +45,29 @@ export function PropriedadeAlertasFeed({ propriedadeId, onOpenOperacoes }: Alert
     propriedadeId,
     limit: 8,
   });
+
+  useEffect(() => {
+    if (!userId || !organizationId) return;
+    let mounted = true;
+    void loadAlertaPreferencias(userId, organizationId).then((loaded) => {
+      if (mounted) setPrefs(loaded);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, [userId, organizationId]);
+
+  const updatePrefs = (next: AlertaPreferencias) => {
+    setPrefs(next);
+    if (userId && organizationId) {
+      void saveAlertaPreferencias(userId, organizationId, next);
+    }
+  };
+
+  const alertasFiltrados = useMemo(
+    () => filtrarAlertasPorPreferencias(alertas, prefs),
+    [alertas, prefs],
+  );
 
   if (isLoading) return <ScreenState status="loading" compact message="Carregando alertas…" />;
   if (isError) {
@@ -55,12 +90,39 @@ export function PropriedadeAlertasFeed({ propriedadeId, onOpenOperacoes }: Alert
         <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
           Atenção necessária
         </Text>
-        {alertas.length === 0 ? (
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8 }}>
+          {(["info", "atencao", "alto"] as AlertaGravidade[]).map((g) => {
+            const active = prefs.gravidadeMinima === g;
+            return (
+              <TouchableOpacity
+                key={g}
+                onPress={() => updatePrefs({ ...prefs, gravidadeMinima: g })}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                style={{
+                  borderWidth: 1,
+                  borderColor: active ? colors.primary : colors.border,
+                  backgroundColor: active ? colors.primary : colors.surface,
+                  borderRadius: 999,
+                  paddingHorizontal: 10,
+                  paddingVertical: 5,
+                  marginRight: 6,
+                  marginBottom: 6,
+                }}
+              >
+                <Text style={{ color: active ? "#FFF" : colors.foreground, fontSize: 11, fontWeight: "700" }}>
+                  Min. {g}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+        {alertasFiltrados.length === 0 ? (
           <Text style={{ fontSize: 13, color: colors.muted }}>
             Nenhum alerta ativo. Propriedade em dia.
           </Text>
         ) : (
-          alertas.slice(0, 8).map((a) => (
+          alertasFiltrados.slice(0, 8).map((a) => (
             <View
               key={a.id}
               style={{
@@ -86,6 +148,23 @@ export function PropriedadeAlertasFeed({ propriedadeId, onOpenOperacoes }: Alert
               <Text style={{ fontSize: 12, color: colors.foreground, marginTop: 4 }}>
                 → {a.acaoRecomendada}
               </Text>
+              {a.gravidade !== "critico" ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    updatePrefs({
+                      ...prefs,
+                      snoozedIds: Array.from(new Set([...prefs.snoozedIds, a.id])),
+                    })
+                  }
+                  accessibilityRole="button"
+                  accessibilityLabel={`Adiar alerta ${a.titulo}`}
+                  style={{ marginTop: 6, alignSelf: "flex-start" }}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                    Adiar
+                  </Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
           ))
         )}

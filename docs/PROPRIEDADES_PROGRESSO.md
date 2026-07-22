@@ -31,14 +31,20 @@
 
 ## Adiado / dívida
 
-- Preferências de painel por perfil (4.6)
-- Desenho livre de polígono no mapa (import GeoJSON manual / edição por vértices)
-- Máquinas, equipe e ações em massa (Etapa 3/8 avançado)
-- IA preditiva de alertas (apenas regras determinísticas)
-- Sync de transições de status offline (create já na fila)
+- Desenho livre de polígono no mapa (edição por vértices)
+- Máquinas e equipe operacional (Etapa 3/8 avançado)
+
+## Dívidas Plano Mestre 1–6 — concluídas
+
+- **Dívida 1 — importação de mapa:** aba Mapa importa GeoJSON para propriedade/talhões, valida Polygon/Feature e gera geometria GPS para talhões sem perímetro.
+- **Dívida 2 — preferências de alertas:** feed carrega preferências por usuário/organização, filtra por gravidade mínima e permite adiar alertas não críticos.
+- **Dívida 3 — auto estoque ao concluir:** transição para concluída aceita consumos idempotentes por tarefa/item e bloqueia saldo insuficiente.
+- **Dívida 4 — bulk + responsável:** `responsavelUserId`, migração/apply 0022 e `tarefas.createBulk` para criar uma tarefa por talhão.
+- **Dívida 5 — transições offline:** botões de operação usam `queueMutation` com `expectedStatus`, `clientMutationId` e `deviceId`.
+- **Dívida 6 — regras preditivas:** alertas estimados para clima em pulverização/adubação e vistoria pendente em cultivo ativo.
 
 ## Como continuar
 
-1. Desenho/importação avançada de talhões no mapa
-2. Preferências de alertas por usuário
-3. Consumo de estoque automático ao concluir operação
+1. Edição visual por vértices no mapa
+2. Responsável/equipe com seletor de usuários na UI
+3. Seleção detalhada de consumos ao concluir tarefa

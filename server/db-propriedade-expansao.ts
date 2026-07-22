@@ -111,6 +111,23 @@ export async function getEstoqueItem(id: number) {
   return rows[0];
 }
 
+export async function findConsumoEstoqueByTarefaItem(tarefaId: number, itemId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db
+    .select()
+    .from(estoqueMovimentos)
+    .where(
+      and(
+        eq(estoqueMovimentos.tarefaId, tarefaId),
+        eq(estoqueMovimentos.itemId, itemId),
+        eq(estoqueMovimentos.tipo, "consumo"),
+      ),
+    )
+    .limit(1);
+  return rows[0];
+}
+
 export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");

@@ -12,13 +12,19 @@ import {
   createApontamento,
   getApontamentosByTarefa,
 } from "../db";
-import { findTarefaByClientMutationId } from "../db-propriedade-expansao";
+import {
+  findConsumoEstoqueByTarefaItem,
+  findTarefaByClientMutationId,
+  listEstoque,
+  registrarMovimentoEstoque,
+} from "../db-propriedade-expansao";
 import {
   getCtxTenant,
   requireOrgPermission,
   requirePropertyInTenant,
   requireTarefaInTenant,
   assertRelatedIdsInTenant,
+  type TenantContext,
 } from "../tenant-access";
 import {
   assertTransition,
@@ -57,6 +63,7 @@ const tarefaInput = z.object({
   safraId: z.number().int().positive().optional(),
   terrenoId: z.number().int().positive().optional(),
   culturaId: z.number().int().positive().optional(),
+  responsavelUserId: z.number().int().positive().optional(),
   tipoOperacao: tipoOperacaoSchema,
   titulo: z.string().min(1).max(200),
   instrucoes: z.string().optional(),
@@ -65,6 +72,85 @@ const tarefaInput = z.object({
   areaPlanejada: z.number().positive().optional(),
   clientMutationId: z.string().min(8).max(64).optional(),
 });
+
+const consumosInput = z
+  .array(
+    z.object({
+      itemId: z.number().int().positive(),
+      quantidade: z.number().positive(),
+    }),
+  )
+  .max(20)
+  .optional();
+
+const tarefaBulkInput = tarefaInput.omit({ terrenoId: true }).extend({
+  terrenoIds: z.array(z.number().int().positive()).min(1).max(50),
+});
+
+async function resolveSafraIdForCreate(
+  tenant: TenantContext,
+  input: { propriedadeId: number; safraId?: number },
+) {
+  if (input.safraId) {
+    const { requireWritableSafraInProperty } = await import("../db-safras");
+    await requireWritableSafraInProperty(
+      tenant.organizationId,
+      input.propriedadeId,
+      input.safraId,
+    );
+    return input.safraId;
+  }
+  const { ensureDefaultSafra } = await import("../db-safras");
+  return (
+    await ensureDefaultSafra({
+      organizationId: tenant.organizationId,
+      propriedadeId: input.propriedadeId,
+      createdByUserId: tenant.userId,
+    })
+  ).id;
+}
+
+async function createTarefaForTenant(
+  tenant: TenantContext,
+  input: z.infer<typeof tarefaInput>,
+  options?: { terrenoId?: number; clientMutationId?: string },
+) {
+  const terrenoId = options?.terrenoId ?? input.terrenoId;
+  await assertRelatedIdsInTenant(tenant, {
+    propriedadeId: input.propriedadeId,
+    terrenoId,
+    culturaId: input.culturaId,
+  });
+  const safraId = await resolveSafraIdForCreate(tenant, input);
+  const clientMutationId = options?.clientMutationId ?? input.clientMutationId;
+  if (clientMutationId) {
+    const existing = await findTarefaByClientMutationId(clientMutationId);
+    if (existing) {
+      if (existing.organizationId !== tenant.organizationId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+      }
+      return existing.id;
+    }
+  }
+  return createTarefa({
+    usuarioId: tenant.perfilId,
+    organizationId: tenant.organizationId,
+    propriedadeId: input.propriedadeId,
+    safraId,
+    terrenoId,
+    culturaId: input.culturaId,
+    responsavelUserId: input.responsavelUserId,
+    tipoOperacao: input.tipoOperacao,
+    titulo: input.titulo,
+    instrucoes: input.instrucoes,
+    prioridade: input.prioridade ?? "normal",
+    status: "planejada",
+    dataPrevista: new Date(input.dataPrevista),
+    areaPlanejada: input.areaPlanejada?.toString(),
+    origem: "manual",
+    clientMutationId,
+  } as any);
+}
 
 export const tarefasRouter = router({
   listByPropriedade: organizationProcedure
@@ -161,55 +247,28 @@ export const tarefasRouter = router({
     .input(tarefaInput)
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await assertRelatedIdsInTenant(tenant, {
-        propriedadeId: input.propriedadeId,
-        terrenoId: input.terrenoId,
-        culturaId: input.culturaId,
-      });
-      let safraId = input.safraId;
-      if (safraId) {
-        const { requireWritableSafraInProperty } = await import("../db-safras");
-        await requireWritableSafraInProperty(
-          tenant.organizationId,
-          input.propriedadeId,
-          safraId,
+      return createTarefaForTenant(tenant, input);
+    }),
+
+  createBulk: orgPermissionProcedure("operations.write")
+    .input(tarefaBulkInput)
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const ids: number[] = [];
+      const { terrenoIds, ...baseInput } = input;
+      for (const terrenoId of terrenoIds) {
+        const clientMutationId = input.clientMutationId
+          ? `${input.clientMutationId.slice(0, 48)}_${terrenoId}`
+          : undefined;
+        ids.push(
+          await createTarefaForTenant(
+            tenant,
+            { ...baseInput, terrenoId },
+            { terrenoId, clientMutationId },
+          ),
         );
-      } else {
-        const { ensureDefaultSafra } = await import("../db-safras");
-        safraId = (
-          await ensureDefaultSafra({
-            organizationId: tenant.organizationId,
-            propriedadeId: input.propriedadeId,
-            createdByUserId: tenant.userId,
-          })
-        ).id;
       }
-      if (input.clientMutationId) {
-        const existing = await findTarefaByClientMutationId(input.clientMutationId);
-        if (existing) {
-          if (existing.organizationId !== tenant.organizationId) {
-            throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
-          }
-          return existing.id;
-        }
-      }
-      return createTarefa({
-        usuarioId: tenant.perfilId,
-        organizationId: tenant.organizationId,
-        propriedadeId: input.propriedadeId,
-        safraId,
-        terrenoId: input.terrenoId,
-        culturaId: input.culturaId,
-        tipoOperacao: input.tipoOperacao,
-        titulo: input.titulo,
-        instrucoes: input.instrucoes,
-        prioridade: input.prioridade ?? "normal",
-        status: "planejada",
-        dataPrevista: new Date(input.dataPrevista),
-        areaPlanejada: input.areaPlanejada?.toString(),
-        origem: "manual",
-        clientMutationId: input.clientMutationId,
-      } as any);
+      return ids;
     }),
 
   transition: orgPermissionProcedure("operations.write")
@@ -224,6 +283,7 @@ export const tarefasRouter = router({
         expectedStatus: statusSchema.optional(),
         clientMutationId: z.string().min(8).max(64).optional(),
         deviceId: z.string().max(80).optional(),
+        consumos: consumosInput,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -332,6 +392,39 @@ export const tarefasRouter = router({
           areaExecutada: input.areaExecutada?.toString(),
           resultado: "ok",
         } as any);
+
+        const consumos = input.consumos ?? [];
+        if (consumos.length > 0) {
+          const estoque = await listEstoque(tarefa.propriedadeId);
+          for (const consumo of consumos) {
+            const existing = await findConsumoEstoqueByTarefaItem(tarefa.id, consumo.itemId);
+            if (existing) continue;
+
+            const item = estoque.find((e) => e.id === consumo.itemId);
+            if (
+              !item ||
+              item.propriedadeId !== tarefa.propriedadeId ||
+              (item.organizationId != null && item.organizationId !== tenant.organizationId)
+            ) {
+              throw new TRPCError({ code: "NOT_FOUND", message: "Item de estoque não encontrado" });
+            }
+            const saldo = Number(item.saldo);
+            if (!Number.isFinite(saldo) || saldo < consumo.quantidade) {
+              throw new TRPCError({
+                code: "BAD_REQUEST",
+                message: `Saldo insuficiente para ${item.nome}`,
+              });
+            }
+            await registrarMovimentoEstoque({
+              itemId: consumo.itemId,
+              usuarioId: tenant.perfilId,
+              tipo: "consumo",
+              quantidade: consumo.quantidade.toString(),
+              motivo: `Consumo automático da tarefa ${tarefa.id}`,
+              tarefaId: tarefa.id,
+            } as any);
+          }
+        }
       }
 
       await updateTarefa(

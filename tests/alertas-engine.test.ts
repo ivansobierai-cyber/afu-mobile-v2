@@ -42,6 +42,107 @@ describe("alertas-engine", () => {
     expect(alertas.some((a) => a.id === "geometria-ausente")).toBe(true);
   });
 
+  it("gera alerta estimado para pulverização com aviso de chuva ou vento hoje", () => {
+    const alertas = gerarAlertas({
+      tarefas: [
+        {
+          id: 20,
+          titulo: "Pulverizar talhão norte",
+          status: "liberada",
+          prioridade: "normal",
+          tipoOperacao: "pulverizacao",
+          dataPrevista: "2026-07-14T09:00:00Z",
+        },
+      ],
+      cultivos: [],
+      estoque: [],
+      orcamentos: [],
+      ocorrencias: [],
+      weatherWarnings: [{ code: "rain", title: "Chuva moderada" }],
+      temGeometriaPropriedade: true,
+      now,
+    });
+    expect(alertas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "clima-operacao-20",
+          tipo: "estimada",
+          entidadeTipo: "tarefa",
+        }),
+      ]),
+    );
+  });
+
+  it("gera alerta estimado de vistoria quando cultivo ativo não tem monitoramento recente", () => {
+    const alertas = gerarAlertas({
+      tarefas: [
+        {
+          id: 30,
+          titulo: "Vistoria antiga",
+          status: "concluida",
+          prioridade: "normal",
+          tipoOperacao: "vistoria",
+          dataPrevista: "2026-06-01T12:00:00Z",
+          updatedAt: "2026-06-20T12:00:00Z",
+        },
+      ],
+      cultivos: [
+        {
+          id: 9,
+          nomeCultura: "Soja",
+          status: "em_andamento",
+          terrenoId: 1,
+          faseAtual: "vegetativo",
+        },
+      ],
+      estoque: [],
+      orcamentos: [],
+      ocorrencias: [],
+      temGeometriaPropriedade: true,
+      now,
+    });
+    expect(alertas).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "cultivo-vistoria-pendente-9",
+          tipo: "estimada",
+          entidadeTipo: "cultivo",
+        }),
+      ]),
+    );
+  });
+
+  it("não gera vistoria pendente quando há monitoramento concluído nos últimos 14 dias", () => {
+    const alertas = gerarAlertas({
+      tarefas: [
+        {
+          id: 31,
+          titulo: "Monitoramento recente",
+          status: "concluida",
+          prioridade: "normal",
+          tipoOperacao: "monitoramento",
+          dataPrevista: "2026-07-10T12:00:00Z",
+          updatedAt: "2026-07-10T12:00:00Z",
+        },
+      ],
+      cultivos: [
+        {
+          id: 10,
+          nomeCultura: "Milho",
+          status: "em_andamento",
+          terrenoId: 1,
+          faseAtual: "vegetativo",
+        },
+      ],
+      estoque: [],
+      orcamentos: [],
+      ocorrencias: [],
+      temGeometriaPropriedade: true,
+      now,
+    });
+    expect(alertas.some((a) => a.id === "cultivo-vistoria-pendente-10")).toBe(false);
+  });
+
   it("expõe catálogo de métricas da etapa 10", () => {
     expect(METRICAS_CATALOGO.length).toBeGreaterThanOrEqual(5);
     expect(METRICAS_CATALOGO.every((m) => m.formula && m.fonte)).toBe(true);

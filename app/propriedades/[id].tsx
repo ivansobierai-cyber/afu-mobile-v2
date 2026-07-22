@@ -8,6 +8,8 @@ import {
   useWindowDimensions,
   Alert,
   Share,
+  Modal,
+  TextInput,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -39,7 +41,12 @@ import {
   PropriedadeCustosPanel,
   PropriedadeMetricasPanel,
 } from "@/components/propriedade-expansao-panels";
-import { extractPolygonRings, squarePolygonAround, approxAreaHaFromGeoJson } from "@/lib/propriedades/geojson-helpers";
+import {
+  extractPolygonRings,
+  squarePolygonAround,
+  approxAreaHaFromGeoJson,
+  validatePolygonGeoJson,
+} from "@/lib/propriedades/geojson-helpers";
 import type { MapPolygon } from "@/components/property-map-types";
 import {
   buildCultivoDetailHref,
@@ -109,6 +116,9 @@ export default function PropriedadeDetailScreen() {
   const [openOcorrenciaNonce, setOpenOcorrenciaNonce] = useState(0);
   const [cultivoModalOpen, setCultivoModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [geoImportOpen, setGeoImportOpen] = useState(false);
+  const [geoImportText, setGeoImportText] = useState("");
+  const [geoImportTerrenoId, setGeoImportTerrenoId] = useState<number | null>(null);
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
 
@@ -224,6 +234,20 @@ export default function PropriedadeDetailScreen() {
   const setGeometria = trpc.coreData.expansao.setGeometriaPropriedade.useMutation({
     onSuccess: async () => {
       await utils.coreData.propriedades.get.invalidate({ id: propId });
+      await utils.coreData.expansao.overview.invalidate({
+        propriedadeId: propId,
+        safraId: activeSafraId ?? undefined,
+        cacheScope: orgScope,
+      });
+      await utils.coreData.expansao.alertas.invalidate({
+        propriedadeId: propId,
+        cacheScope: orgScope,
+      });
+    },
+  });
+  const setGeometriaTerreno = trpc.coreData.expansao.setGeometriaTerreno.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.terrenos.listByPropriedade.invalidate({ propriedadeId: propId });
       await utils.coreData.expansao.overview.invalidate({
         propriedadeId: propId,
         safraId: activeSafraId ?? undefined,
@@ -405,6 +429,63 @@ export default function PropriedadeDetailScreen() {
       });
     });
   }
+  const terrenosSemGeometria = terrenos.filter((t) => extractPolygonRings(t.geometriaGeoJson).length === 0);
+  const openGeoImport = (terrenoId: number | null = null) => {
+    setGeoImportTerrenoId(terrenoId);
+    setGeoImportText("");
+    setGeoImportOpen(true);
+  };
+  const saveGeoImport = async () => {
+    const valid = validatePolygonGeoJson(geoImportText);
+    if (!valid.ok) {
+      Alert.alert("GeoJSON inválido", valid.error);
+      return;
+    }
+    try {
+      if (geoImportTerrenoId) {
+        await setGeometriaTerreno.mutateAsync({
+          propriedadeId: propriedade.id,
+          terrenoId: geoImportTerrenoId,
+          geometriaGeoJson: valid.normalized,
+          areaGeometricaHa: valid.areaHa ?? undefined,
+          origem: "importada",
+        });
+      } else {
+        await setGeometria.mutateAsync({
+          propriedadeId: propriedade.id,
+          geometriaGeoJson: valid.normalized,
+          areaGeometricaHa: valid.areaHa ?? undefined,
+          origem: "importada",
+        });
+      }
+      setGeoImportOpen(false);
+      setGeoImportText("");
+      setGeoImportTerrenoId(null);
+      Alert.alert("GeoJSON importado", "Geometria salva com sucesso.");
+    } catch (e: any) {
+      Alert.alert("Erro", e?.message ?? "Falha ao salvar geometria");
+    }
+  };
+  const gerarGeometriaTerrenoGps = async (terrenoId: number) => {
+    if (!hasGps) {
+      Alert.alert("Sem GPS", "Cadastre latitude e longitude da propriedade antes de gerar.");
+      return;
+    }
+    const geo = squarePolygonAround(latitude!, longitude!, 0.004);
+    const area = approxAreaHaFromGeoJson(geo);
+    try {
+      await setGeometriaTerreno.mutateAsync({
+        propriedadeId: propriedade.id,
+        terrenoId,
+        geometriaGeoJson: geo,
+        areaGeometricaHa: area ?? undefined,
+        origem: "gps",
+      });
+      Alert.alert("Talhão atualizado", "Geometria aproximada registrada.");
+    } catch (e: any) {
+      Alert.alert("Erro", e?.message ?? "Falha ao salvar geometria do talhão");
+    }
+  };
   const updatedAt = propriedade.updatedAt
     ? new Date(propriedade.updatedAt).toLocaleString("pt-BR", {
         day: "2-digit",
@@ -1076,6 +1157,71 @@ export default function PropriedadeDetailScreen() {
                 }
               />
             )}
+            {canWriteProperty && !isHistorical ? (
+              <View style={{ marginTop: 12, gap: 10 }}>
+                <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Importar GeoJSON"
+                  style={{
+                    minHeight: 44,
+                    borderRadius: 12,
+                    borderWidth: 1,
+                    borderColor: colors.primary,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    paddingHorizontal: 12,
+                  }}
+                  onPress={() => openGeoImport(null)}
+                >
+                  <Text style={{ color: colors.primary, fontWeight: "700" }}>
+                    Importar GeoJSON
+                  </Text>
+                </TouchableOpacity>
+                {terrenosSemGeometria.length > 0 ? (
+                  <View
+                    style={{
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 12,
+                      padding: 12,
+                      gap: 8,
+                    }}
+                  >
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+                      Talhões sem geometria
+                    </Text>
+                    {terrenosSemGeometria.slice(0, 6).map((t) => (
+                      <View
+                        key={t.id}
+                        style={{ flexDirection: "row", alignItems: "center", gap: 8, flexWrap: "wrap" }}
+                      >
+                        <Text style={{ flex: 1, minWidth: 120, color: colors.foreground, fontSize: 12 }}>
+                          {t.nome}
+                        </Text>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Gerar geometria GPS para ${t.nome}`}
+                          onPress={() => void gerarGeometriaTerrenoGps(t.id)}
+                        >
+                          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                            Gerar GPS
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          accessibilityRole="button"
+                          accessibilityLabel={`Importar GeoJSON para ${t.nome}`}
+                          onPress={() => openGeoImport(t.id)}
+                        >
+                          <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                            Importar
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
           </View>
         )}
 
@@ -1458,6 +1604,79 @@ export default function PropriedadeDetailScreen() {
           </>
         )}
       </ScrollView>
+      <Modal
+        visible={geoImportOpen}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setGeoImportOpen(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              maxHeight: "85%",
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 6 }}>
+              {geoImportTerrenoId ? "Importar GeoJSON do talhão" : "Importar GeoJSON da propriedade"}
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10 }}>
+              Cole um Polygon, Feature ou FeatureCollection com anel fechado.
+            </Text>
+            <TextInput
+              value={geoImportText}
+              onChangeText={setGeoImportText}
+              placeholder='{"type":"Polygon","coordinates":[...]}'
+              placeholderTextColor={colors.muted}
+              multiline
+              textAlignVertical="top"
+              style={{
+                minHeight: 180,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 12,
+                padding: 12,
+                color: colors.foreground,
+                marginBottom: 12,
+              }}
+            />
+            <View style={{ flexDirection: "row", gap: 10 }}>
+              <TouchableOpacity
+                onPress={() => setGeoImportOpen(false)}
+                accessibilityRole="button"
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 12,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: colors.foreground, fontWeight: "700" }}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => void saveGeoImport()}
+                accessibilityRole="button"
+                style={{
+                  flex: 1,
+                  minHeight: 44,
+                  borderRadius: 12,
+                  backgroundColor: colors.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text style={{ color: "#FFF", fontWeight: "700" }}>Salvar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenContainer>
     </PropertyWorkspaceProvider>
   );

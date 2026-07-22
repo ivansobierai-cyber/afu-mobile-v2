@@ -526,6 +526,7 @@ export const tarefasOperacionais = mysqlTable(
   {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId").notNull(), // criador — usuarios_afu.id
+  responsavelUserId: int("responsavelUserId"),
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId").notNull(),
   safraId: int("safraId"),
@@ -579,6 +580,7 @@ export const tarefasOperacionais = mysqlTable(
     index("tarefas_organization_idx").on(t.organizationId),
     index("tarefas_org_prop_idx").on(t.organizationId, t.propriedadeId),
     index("tarefas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("tarefas_responsavel_idx").on(t.responsavelUserId),
   ],
 );
 

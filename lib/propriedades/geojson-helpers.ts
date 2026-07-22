@@ -84,3 +84,53 @@ export function approxAreaHaFromGeoJson(geojson: string): number | null {
   const m2 = Math.abs(area / 2);
   return Math.round((m2 / 10_000) * 100) / 100;
 }
+
+export type GeoJsonValidation =
+  | { ok: true; normalized: string; areaHa: number | null }
+  | { ok: false; error: string };
+
+/**
+ * Valida Polygon / Feature / FeatureCollection com anel fechado (≥4 pontos).
+ * Normaliza para Geometry Polygon (primeiro anel).
+ */
+export function validatePolygonGeoJson(raw: string): GeoJsonValidation {
+  const text = raw.trim();
+  if (!text) return { ok: false, error: "Cole um GeoJSON de polígono." };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "JSON inválido." };
+  }
+  const rings = extractPolygonRings(text);
+  if (rings.length === 0) {
+    return { ok: false, error: "Nenhum Polygon encontrado no GeoJSON." };
+  }
+  const ring = rings[0];
+  if (ring.length < 4) {
+    return { ok: false, error: "Polígono precisa de pelo menos 4 posições (anel fechado)." };
+  }
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (
+    Math.abs(first.latitude - last.latitude) > 1e-9 ||
+    Math.abs(first.longitude - last.longitude) > 1e-9
+  ) {
+    return { ok: false, error: "Anel do polígono não está fechado (primeiro ≠ último)." };
+  }
+  for (const p of ring) {
+    if (
+      !Number.isFinite(p.latitude) ||
+      !Number.isFinite(p.longitude) ||
+      p.latitude < -90 ||
+      p.latitude > 90 ||
+      p.longitude < -180 ||
+      p.longitude > 180
+    ) {
+      return { ok: false, error: "Coordenadas fora do intervalo WGS84." };
+    }
+  }
+  const coords = ring.map((p) => [p.longitude, p.latitude]);
+  const normalized = JSON.stringify({ type: "Polygon", coordinates: [coords] });
+  return { ok: true, normalized, areaHa: approxAreaHaFromGeoJson(normalized) };
+}
