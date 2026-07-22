@@ -84,3 +84,83 @@ export function approxAreaHaFromGeoJson(geojson: string): number | null {
   const m2 = Math.abs(area / 2);
   return Math.round((m2 / 10_000) * 100) / 100;
 }
+
+export type GeoJsonValidation =
+  | { ok: true; normalized: string; areaHa: number | null }
+  | { ok: false; error: string };
+
+function sameLatLng(a: LatLng, b: LatLng): boolean {
+  return (
+    Math.abs(a.latitude - b.latitude) <= 1e-9 &&
+    Math.abs(a.longitude - b.longitude) <= 1e-9
+  );
+}
+
+/** Retorna o primeiro anel como vértices editáveis, sem repetir o ponto de fechamento. */
+export function polygonRingToVertices(geojson: string | null | undefined): LatLng[] {
+  const ring = extractPolygonRings(geojson)[0] ?? [];
+  if (ring.length > 1 && sameLatLng(ring[0], ring[ring.length - 1])) {
+    return ring.slice(0, -1);
+  }
+  return ring;
+}
+
+/** Constrói GeoJSON Polygon a partir de vértices editáveis e valida o anel fechado. */
+export function verticesToPolygonGeoJson(vertices: LatLng[]): GeoJsonValidation {
+  if (vertices.length < 3) {
+    return { ok: false, error: "Polígono precisa de pelo menos 3 vértices." };
+  }
+  const closed = [...vertices, vertices[0]];
+  return validatePolygonGeoJson(
+    JSON.stringify({
+      type: "Polygon",
+      coordinates: [closed.map((p) => [p.longitude, p.latitude])],
+    }),
+  );
+}
+
+/**
+ * Valida Polygon / Feature / FeatureCollection com anel fechado (≥4 pontos).
+ * Normaliza para Geometry Polygon (primeiro anel).
+ */
+export function validatePolygonGeoJson(raw: string): GeoJsonValidation {
+  const text = raw.trim();
+  if (!text) return { ok: false, error: "Cole um GeoJSON de polígono." };
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    return { ok: false, error: "JSON inválido." };
+  }
+  const rings = extractPolygonRings(text);
+  if (rings.length === 0) {
+    return { ok: false, error: "Nenhum Polygon encontrado no GeoJSON." };
+  }
+  const ring = rings[0];
+  if (ring.length < 4) {
+    return { ok: false, error: "Polígono precisa de pelo menos 4 posições (anel fechado)." };
+  }
+  const first = ring[0];
+  const last = ring[ring.length - 1];
+  if (
+    Math.abs(first.latitude - last.latitude) > 1e-9 ||
+    Math.abs(first.longitude - last.longitude) > 1e-9
+  ) {
+    return { ok: false, error: "Anel do polígono não está fechado (primeiro ≠ último)." };
+  }
+  for (const p of ring) {
+    if (
+      !Number.isFinite(p.latitude) ||
+      !Number.isFinite(p.longitude) ||
+      p.latitude < -90 ||
+      p.latitude > 90 ||
+      p.longitude < -180 ||
+      p.longitude > 180
+    ) {
+      return { ok: false, error: "Coordenadas fora do intervalo WGS84." };
+    }
+  }
+  const coords = ring.map((p) => [p.longitude, p.latitude]);
+  const normalized = JSON.stringify({ type: "Polygon", coordinates: [coords] });
+  return { ok: true, normalized, areaHa: approxAreaHaFromGeoJson(normalized) };
+}

@@ -44,6 +44,8 @@
     "db:safras:apply": "tsx scripts/apply-0020-safras.ts",
     "db:safras:backfill": "tsx scripts/backfill-safras.ts",
     "db:archive:apply": "tsx scripts/apply-0021-property-archive.ts",
+    "db:tarefas-responsavel:apply": "tsx scripts/apply-0022-tarefas-responsavel.ts",
+    "db:maquinas:apply": "tsx scripts/apply-0023-maquinas.ts",
     "db:sync-ai:apply": "tsx scripts/apply-0018-0019-sync-ai.ts",
     "backfill:organizations": "tsx scripts/backfill-organizations.ts",
     "backfill:organization-id": "tsx scripts/backfill-organization-id.ts",

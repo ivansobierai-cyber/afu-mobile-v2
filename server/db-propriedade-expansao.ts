@@ -13,6 +13,8 @@ import {
   InsertCustoOperacao,
   atividadePropriedade,
   InsertAtividadePropriedade,
+  maquinasOperacionais,
+  InsertMaquinaOperacional,
   propriedades,
   terrenos,
 } from "../drizzle/schema";
@@ -108,6 +110,23 @@ export async function getEstoqueItem(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   const rows = await db.select().from(estoqueItens).where(eq(estoqueItens.id, id)).limit(1);
+  return rows[0];
+}
+
+export async function findConsumoEstoqueByTarefaItem(tarefaId: number, itemId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db
+    .select()
+    .from(estoqueMovimentos)
+    .where(
+      and(
+        eq(estoqueMovimentos.tarefaId, tarefaId),
+        eq(estoqueMovimentos.itemId, itemId),
+        eq(estoqueMovimentos.tipo, "consumo"),
+      ),
+    )
+    .limit(1);
   return rows[0];
 }
 
@@ -323,6 +342,86 @@ export async function updateGeometriaTerreno(
     throw new Error("Talhão não encontrado no tenant");
   }
   return { geometriaVersao: serverVersion + 1 };
+}
+
+export async function listMaquinasOperacionais(
+  propriedadeId: number,
+  organizationId: number,
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(maquinasOperacionais)
+    .where(
+      and(
+        eq(maquinasOperacionais.propriedadeId, propriedadeId),
+        eq(maquinasOperacionais.organizationId, organizationId),
+      ),
+    )
+    .orderBy(desc(maquinasOperacionais.createdAt));
+}
+
+export async function getMaquinaOperacional(id: number, organizationId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db
+    .select()
+    .from(maquinasOperacionais)
+    .where(
+      and(
+        eq(maquinasOperacionais.id, id),
+        eq(maquinasOperacionais.organizationId, organizationId),
+      ),
+    )
+    .limit(1);
+  return rows[0];
+}
+
+export async function createMaquinaOperacional(data: InsertMaquinaOperacional) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const organizationId = requireOrgId(data, data.organizationId);
+  const result = await db.insert(maquinasOperacionais).values({ ...data, organizationId });
+  return result[0].insertId;
+}
+
+export async function updateMaquinaOperacional(
+  id: number,
+  data: Partial<InsertMaquinaOperacional>,
+  organizationId: number,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const { organizationId: _dropOrg, propriedadeId: _dropProp, ...safe } = data as any;
+  const result = await db
+    .update(maquinasOperacionais)
+    .set(safe)
+    .where(
+      and(
+        eq(maquinasOperacionais.id, id),
+        eq(maquinasOperacionais.organizationId, organizationId),
+      ),
+    );
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Máquina não encontrada no tenant");
+  }
+}
+
+export async function removeMaquinaOperacional(id: number, organizationId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const result = await db
+    .delete(maquinasOperacionais)
+    .where(
+      and(
+        eq(maquinasOperacionais.id, id),
+        eq(maquinasOperacionais.organizationId, organizationId),
+      ),
+    );
+  if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
+    throw new Error("Máquina não encontrada no tenant");
+  }
 }
 
 export async function findTarefaByClientMutationId(clientMutationId: string) {

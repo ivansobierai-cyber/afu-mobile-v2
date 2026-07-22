@@ -6,18 +6,18 @@
 
 ## Status por etapa
 
-| Etapa | Nome | Status | Notas |
-|-------|------|--------|-------|
-| 1 | Fundação | **feita** | SessionGate, ScreenState, ownership, a11y base |
-| 2 | Painel com abas + safra | **feita** | Shell com `?tab=` |
-| 3 | Agenda → tarefas/operações | **feita (P0/P1)** | `tarefas_operacionais`, apontamentos, aba Operações |
-| 4 | Hoje / Atenção necessária | **feita (P0/P1)** | `alertas-engine`, feed de atividade, Visão com alertas |
-| 5 | Mapa polígonos | **feita (P0/P1)** | GeoJSON propriedade/talhão, PropertyMap + gerar perímetro |
-| 6 | Ocorrência → diagnóstico → tarefa | **feita (P0/P1)** | `ocorrencias_campo` + criar tarefa a partir da ocorrência |
-| 7 | Estoque agrícola | **feita (P0/P1)** | Itens + movimentos (≠ marketplace) |
-| 8 | Custos / orçamento | **feita (P0/P1)** | `orcamentos_safra` + `custos_operacao` |
-| 9 | Offline / sync | **feita (P0/P1)** | `tarefa` na fila core + `clientMutationId` |
-| 10 | Métricas | **feita (P0/P1)** | Catálogo com fórmula/fonte + painel Indicadores |
+| Etapa | Nome                              | Status            | Notas                                                     |
+| ----- | --------------------------------- | ----------------- | --------------------------------------------------------- |
+| 1     | Fundação                          | **feita**         | SessionGate, ScreenState, ownership, a11y base            |
+| 2     | Painel com abas + safra           | **feita**         | Shell com `?tab=`                                         |
+| 3     | Agenda → tarefas/operações        | **feita (P0/P1)** | `tarefas_operacionais`, apontamentos, aba Operações       |
+| 4     | Hoje / Atenção necessária         | **feita (P0/P1)** | `alertas-engine`, feed de atividade, Visão com alertas    |
+| 5     | Mapa polígonos                    | **feita (P0/P1)** | GeoJSON propriedade/talhão, PropertyMap + gerar perímetro |
+| 6     | Ocorrência → diagnóstico → tarefa | **feita (P0/P1)** | `ocorrencias_campo` + criar tarefa a partir da ocorrência |
+| 7     | Estoque agrícola                  | **feita (P0/P1)** | Itens + movimentos (≠ marketplace)                        |
+| 8     | Custos / orçamento                | **feita (P0/P1)** | `orcamentos_safra` + `custos_operacao`                    |
+| 9     | Offline / sync                    | **feita (P0/P1)** | `tarefa` na fila core + `clientMutationId`                |
+| 10    | Métricas                          | **feita (P0/P1)** | Catálogo com fórmula/fonte + painel Indicadores           |
 
 ## Entregue nas Etapas 4–10
 
@@ -29,16 +29,27 @@
 - Offline: entity `tarefa` em `core-mutation-queue` + create idempotente
 - Testes: `tests/alertas-engine.test.ts`
 
-## Adiado / dívida
+## Adiado / dívida (P3)
 
-- Preferências de painel por perfil (4.6)
-- Desenho livre de polígono no mapa (import GeoJSON manual / edição por vértices)
-- Máquinas, equipe e ações em massa (Etapa 3/8 avançado)
-- IA preditiva de alertas (apenas regras determinísticas)
-- Sync de transições de status offline (create já na fila)
+- **Concluído:** desenho livre de polígono no mapa com `PolygonDrawPad`.
+- **Concluído:** cadastro de máquinas/equipamentos operacionais em Mais → Máquinas e equipamentos.
+
+## Dívidas Plano Mestre 1–6 — concluídas
+
+- **Dívida 1 — importação de mapa:** aba Mapa importa GeoJSON para propriedade/talhões, valida Polygon/Feature e gera geometria GPS para talhões sem perímetro.
+- **Dívida 2 — preferências de alertas:** feed carrega preferências por usuário/organização, filtra por gravidade mínima e permite adiar alertas não críticos.
+- **Dívida 3 — auto estoque ao concluir:** transição para concluída aceita consumos idempotentes por tarefa/item e bloqueia saldo insuficiente.
+- **Dívida 4 — bulk + responsável:** `responsavelUserId`, migração/apply 0022 e `tarefas.createBulk` para criar uma tarefa por talhão.
+- **Dívida 5 — transições offline:** botões de operação usam `queueMutation` com `expectedStatus`, `clientMutationId` e `deviceId`.
+- **Dívida 6 — regras preditivas:** alertas estimados para clima em pulverização/adubação e vistoria pendente em cultivo ativo.
 
 ## Como continuar
 
-1. Desenho/importação avançada de talhões no mapa
-2. Preferências de alertas por usuário
-3. Consumo de estoque automático ao concluir operação
+Concluído nesta rodada:
+
+- Edição por vértices no mapa para propriedade e talhões com geometria.
+- Seletor de responsável/equipe na criação de tarefas.
+- Modal de consumos ao concluir tarefa.
+- Desenho livre de perímetro para propriedade/talhões e cadastro de máquinas/equipamentos.
+
+P3 restante: apenas polimento fino de UX após testes de campo.

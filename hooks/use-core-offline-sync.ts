@@ -97,6 +97,9 @@ export function useCoreOfflineSync() {
             notasApontamento: payload.notasApontamento as string | undefined,
             areaExecutada: payload.areaExecutada as number | undefined,
             expectedStatus: payload.expectedStatus as any,
+            clientMutationId: item.clientMutationId,
+            deviceId: item.deviceId,
+            consumos: payload.consumos as any,
           });
         }
       }

@@ -526,6 +526,7 @@ export const tarefasOperacionais = mysqlTable(
   {
   id: int("id").autoincrement().primaryKey(),
   usuarioId: int("usuarioId").notNull(), // criador — usuarios_afu.id
+  responsavelUserId: int("responsavelUserId"),
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId").notNull(),
   safraId: int("safraId"),
@@ -579,6 +580,7 @@ export const tarefasOperacionais = mysqlTable(
     index("tarefas_organization_idx").on(t.organizationId),
     index("tarefas_org_prop_idx").on(t.organizationId, t.propriedadeId),
     index("tarefas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("tarefas_responsavel_idx").on(t.responsavelUserId),
   ],
 );
 
@@ -1245,6 +1247,44 @@ export const atividadePropriedade = mysqlTable(
 
 export type AtividadePropriedade = typeof atividadePropriedade.$inferSelect;
 export type InsertAtividadePropriedade = typeof atividadePropriedade.$inferInsert;
+
+/** P3 — máquinas e equipamentos operacionais */
+export const maquinasOperacionais = mysqlTable(
+  "maquinas_operacionais",
+  {
+  id: int("id").autoincrement().primaryKey(),
+  organizationId: int("organizationId"),
+  propriedadeId: int("propriedadeId").notNull(),
+  nome: varchar("nome", { length: 120 }).notNull(),
+  tipo: mysqlEnum("tipoMaquinaOperacional", [
+    "trator",
+    "pulverizador",
+    "colheitadeira",
+    "implemento",
+    "irrigacao",
+    "outro",
+  ]).default("outro").notNull(),
+  identificador: varchar("identificador", { length: 80 }),
+  status: mysqlEnum("statusMaquinaOperacional", [
+    "disponivel",
+    "em_uso",
+    "manutencao",
+    "inativa",
+  ]).default("disponivel").notNull(),
+  horasUso: decimal("horasUso", { precision: 12, scale: 1 }),
+  notas: text("notas"),
+  createdByUserId: int("createdByUserId"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+},
+  (t) => [
+    index("maquinas_operacionais_org_idx").on(t.organizationId),
+    index("maquinas_operacionais_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type MaquinaOperacional = typeof maquinasOperacionais.$inferSelect;
+export type InsertMaquinaOperacional = typeof maquinasOperacionais.$inferInsert;
 
 // ─────────────────────────────────────────────
 // SEGURANÇA ETAPA 2 — organizações e memberships
