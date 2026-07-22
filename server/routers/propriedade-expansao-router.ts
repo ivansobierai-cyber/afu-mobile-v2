@@ -33,6 +33,11 @@ import {
   registrarAtividade,
   updateGeometriaPropriedade,
   updateGeometriaTerreno,
+  listMaquinasOperacionais,
+  getMaquinaOperacional,
+  createMaquinaOperacional,
+  updateMaquinaOperacional,
+  removeMaquinaOperacional,
 } from "../db-propriedade-expansao";
 import { gerarAlertas, METRICAS_CATALOGO } from "../../lib/propriedades/alertas-engine";
 import { STATUS_ABERTOS, type TarefaStatus } from "../../lib/propriedades/tarefa-status";
@@ -47,6 +52,17 @@ import {
 } from "../tenant-access";
 import { createTenantDb } from "../tenant-db";
 import { safraLabelsMatch } from "../../lib/propriedades/safra-label";
+
+const maquinaTipoSchema = z.enum([
+  "trator",
+  "pulverizador",
+  "colheitadeira",
+  "implemento",
+  "irrigacao",
+  "outro",
+]);
+
+const maquinaStatusSchema = z.enum(["disponivel", "em_uso", "manutencao", "inativa"]);
 
 async function assertPropertyInTenant(tenant: TenantContext, propriedadeId: number) {
   requireOrgPermission(tenant, "property.read");
@@ -635,6 +651,102 @@ export const propriedadeExpansaoRouter = router({
           gravidade: "info",
         });
         return id;
+      }),
+  }),
+
+  // ── P3: máquinas e equipamentos operacionais ─────────────────────────────
+  maquinas: router({
+    list: organizationProcedure
+      .input(z.object({ propriedadeId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await assertPropertyInTenant(tenant, input.propriedadeId);
+        return listMaquinasOperacionais(input.propriedadeId, tenant.organizationId);
+      }),
+
+    create: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          nome: z.string().min(1).max(120),
+          tipo: maquinaTipoSchema.optional(),
+          identificador: z.string().max(80).optional(),
+          status: maquinaStatusSchema.optional(),
+          horasUso: z.number().nonnegative().optional(),
+          notas: z.string().max(2_000).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        const id = await createMaquinaOperacional({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          nome: input.nome.trim(),
+          tipo: input.tipo ?? "outro",
+          identificador: input.identificador?.trim() || undefined,
+          status: input.status ?? "disponivel",
+          horasUso: input.horasUso != null ? input.horasUso.toFixed(1) : undefined,
+          notas: input.notas?.trim() || undefined,
+          createdByUserId: tenant.userId,
+        } as any);
+        await registrarAtividade({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          usuarioId: tenant.perfilId,
+          tipo: "maquina",
+          titulo: `Máquina cadastrada: ${input.nome.trim()}`,
+          detalhe: input.tipo ?? "outro",
+          gravidade: "info",
+        });
+        return id;
+      }),
+
+    update: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          id: z.number().int().positive(),
+          nome: z.string().min(1).max(120).optional(),
+          tipo: maquinaTipoSchema.optional(),
+          identificador: z.string().max(80).optional().nullable(),
+          status: maquinaStatusSchema.optional(),
+          horasUso: z.number().nonnegative().optional().nullable(),
+          notas: z.string().max(2_000).optional().nullable(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.id, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        const patch: Record<string, unknown> = {};
+        if (input.nome != null) patch.nome = input.nome.trim();
+        if (input.tipo != null) patch.tipo = input.tipo;
+        if (input.identificador !== undefined) patch.identificador = input.identificador?.trim() || null;
+        if (input.status != null) patch.status = input.status;
+        if (input.horasUso !== undefined) {
+          patch.horasUso = input.horasUso == null ? null : input.horasUso.toFixed(1);
+        }
+        if (input.notas !== undefined) patch.notas = input.notas?.trim() || null;
+        if (Object.keys(patch).length > 0) {
+          await updateMaquinaOperacional(input.id, patch as any, tenant.organizationId);
+        }
+        return { success: true };
+      }),
+
+    remove: orgPermissionProcedure("property.write")
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.id, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await removeMaquinaOperacional(input.id, tenant.organizationId);
+        return { success: true };
       }),
   }),
 

@@ -27,6 +27,38 @@ const GRAVIDADE_COLOR: Record<string, string> = {
   info: "#1565C0",
 };
 
+const MAQUINA_TIPOS = [
+  "trator",
+  "pulverizador",
+  "colheitadeira",
+  "implemento",
+  "irrigacao",
+  "outro",
+] as const;
+
+const MAQUINA_TIPO_LABEL: Record<(typeof MAQUINA_TIPOS)[number], string> = {
+  trator: "Trator",
+  pulverizador: "Pulverizador",
+  colheitadeira: "Colheitadeira",
+  implemento: "Implemento",
+  irrigacao: "Irrigação",
+  outro: "Outro",
+};
+
+const MAQUINA_STATUS_LABEL: Record<string, string> = {
+  disponivel: "Disponível",
+  em_uso: "Em uso",
+  manutencao: "Manutenção",
+  inativa: "Inativa",
+};
+
+const MAQUINA_STATUS_COLOR: Record<string, string> = {
+  disponivel: "#2E7D32",
+  em_uso: "#1565C0",
+  manutencao: "#EF6C00",
+  inativa: "#6B7280",
+};
+
 type AlertasFeedProps = {
   propriedadeId: number;
   onOpenOperacoes?: () => void;
@@ -964,6 +996,260 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: C
           </Text>
         </View>
       ))}
+    </View>
+  );
+}
+
+type MaquinasPanelProps = {
+  propriedadeId: number;
+  readOnly?: boolean;
+};
+
+export function PropriedadeMaquinasPanel({
+  propriedadeId,
+  readOnly = false,
+}: MaquinasPanelProps) {
+  const colors = useColors();
+  const utils = trpc.useUtils();
+  const [nome, setNome] = useState("");
+  const [tipo, setTipo] = useState<(typeof MAQUINA_TIPOS)[number]>("trator");
+  const [identificador, setIdentificador] = useState("");
+  const { data: maquinas = [], isLoading, isError, refetch } =
+    trpc.coreData.expansao.maquinas.list.useQuery({ propriedadeId });
+
+  const create = trpc.coreData.expansao.maquinas.create.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
+  const update = trpc.coreData.expansao.maquinas.update.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
+  const remove = trpc.coreData.expansao.maquinas.remove.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
+
+  const salvar = () => {
+    if (!nome.trim()) {
+      Alert.alert("Informe o nome", "Dê um nome para a máquina ou equipamento.");
+      return;
+    }
+    void create
+      .mutateAsync({
+        propriedadeId,
+        nome: nome.trim(),
+        tipo,
+        identificador: identificador.trim() || undefined,
+      })
+      .then(() => {
+        setNome("");
+        setIdentificador("");
+        setTipo("trator");
+      })
+      .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao salvar máquina"));
+  };
+
+  const excluir = (id: number, machineName: string) => {
+    Alert.alert("Excluir máquina", `Remover ${machineName}?`, [
+      { text: "Cancelar", style: "cancel" },
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: () =>
+          void remove
+            .mutateAsync({ id })
+            .catch((e) => Alert.alert("Erro", e?.message ?? "Falha ao excluir")),
+      },
+    ]);
+  };
+
+  if (isLoading) return <ScreenState status="loading" compact message="Carregando máquinas…" />;
+  if (isError) return <ScreenState status="error" compact onAction={() => void refetch()} />;
+
+  return (
+    <View style={{ gap: 12 }}>
+      {!readOnly ? (
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 14,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
+            Nova máquina/equipamento
+          </Text>
+          <TextInput
+            value={nome}
+            onChangeText={setNome}
+            placeholder="Nome (ex.: Trator Massey 4292)"
+            placeholderTextColor={colors.muted}
+            style={{
+              minHeight: 44,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              color: colors.foreground,
+              marginBottom: 8,
+            }}
+          />
+          <TextInput
+            value={identificador}
+            onChangeText={setIdentificador}
+            placeholder="Placa ou série (opcional)"
+            placeholderTextColor={colors.muted}
+            style={{
+              minHeight: 44,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: 10,
+              paddingHorizontal: 12,
+              color: colors.foreground,
+              marginBottom: 8,
+            }}
+          />
+          <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
+            {MAQUINA_TIPOS.map((item) => {
+              const active = tipo === item;
+              return (
+                <TouchableOpacity
+                  key={item}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: active }}
+                  onPress={() => setTipo(item)}
+                  style={{
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    borderColor: active ? colors.primary : colors.border,
+                    backgroundColor: active ? colors.primary : colors.surface,
+                    paddingHorizontal: 10,
+                    paddingVertical: 6,
+                  }}
+                >
+                  <Text style={{ color: active ? "#FFF" : colors.foreground, fontSize: 12, fontWeight: "700" }}>
+                    {MAQUINA_TIPO_LABEL[item]}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <TouchableOpacity
+            accessibilityRole="button"
+            onPress={salvar}
+            disabled={create.isPending}
+            style={{
+              minHeight: 44,
+              borderRadius: 12,
+              backgroundColor: colors.primary,
+              alignItems: "center",
+              justifyContent: "center",
+              opacity: create.isPending ? 0.7 : 1,
+            }}
+          >
+            <Text style={{ color: "#FFF", fontWeight: "700" }}>
+              {create.isPending ? "Salvando…" : "Cadastrar máquina"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      {maquinas.length === 0 ? (
+        <ScreenState
+          status="empty"
+          compact
+          title="Nenhuma máquina cadastrada"
+          message="Cadastre tratores, pulverizadores, colheitadeiras e implementos da propriedade."
+        />
+      ) : (
+        maquinas.map((m) => {
+          const statusColor = MAQUINA_STATUS_COLOR[m.status] ?? colors.muted;
+          return (
+            <View
+              key={m.id}
+              style={{
+                backgroundColor: colors.surface,
+                borderRadius: 12,
+                padding: 14,
+                borderWidth: 1,
+                borderColor: colors.border,
+                gap: 8,
+              }}
+            >
+              <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 10 }}>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground }}>
+                    {m.nome}
+                  </Text>
+                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                    {MAQUINA_TIPO_LABEL[m.tipo as (typeof MAQUINA_TIPOS)[number]] ?? m.tipo}
+                    {m.identificador ? ` · ${m.identificador}` : ""}
+                    {m.horasUso ? ` · ${Number(m.horasUso).toFixed(1)} h` : ""}
+                  </Text>
+                </View>
+                <View
+                  style={{
+                    borderRadius: 999,
+                    backgroundColor: statusColor + "20",
+                    paddingHorizontal: 10,
+                    paddingVertical: 5,
+                    alignSelf: "flex-start",
+                  }}
+                >
+                  <Text style={{ color: statusColor, fontSize: 11, fontWeight: "800" }}>
+                    {MAQUINA_STATUS_LABEL[m.status] ?? m.status}
+                  </Text>
+                </View>
+              </View>
+              {m.notas ? (
+                <Text style={{ fontSize: 12, color: colors.muted, lineHeight: 18 }}>{m.notas}</Text>
+              ) : null}
+              {!readOnly ? (
+                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() =>
+                      void update
+                        .mutateAsync({ id: m.id, status: "manutencao" })
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
+                    }
+                  >
+                    <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 12 }}>
+                      Marcar manutenção
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() =>
+                      void update
+                        .mutateAsync({ id: m.id, status: "disponivel" })
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
+                    }
+                  >
+                    <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                      Disponível
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() => excluir(m.id, m.nome)}
+                  >
+                    <Text style={{ color: "#C62828", fontWeight: "700", fontSize: 12 }}>
+                      Excluir
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null}
+            </View>
+          );
+        })
+      )}
     </View>
   );
 }

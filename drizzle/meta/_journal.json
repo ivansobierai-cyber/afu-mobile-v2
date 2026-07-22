@@ -148,6 +148,13 @@
       "when": 1784375000000,
       "tag": "0022_tarefas_bulk_responsavel",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "5",
+      "when": 1784376000000,
+      "tag": "0023_maquinas_operacionais",
+      "breakpoints": true
     }
   ]
 }

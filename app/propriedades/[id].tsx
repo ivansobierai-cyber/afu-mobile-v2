@@ -15,6 +15,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { ScreenState } from "@/components/screen-state";
 import { PropertyMap } from "@/components/property-map";
+import { PolygonDrawPad } from "@/components/polygon-draw-pad";
 import { WeatherCard } from "@/components/weather-card";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -40,6 +41,7 @@ import {
   PropriedadeEstoquePanel,
   PropriedadeCustosPanel,
   PropriedadeMetricasPanel,
+  PropriedadeMaquinasPanel,
 } from "@/components/propriedade-expansao-panels";
 import {
   extractPolygonRings,
@@ -86,12 +88,17 @@ const TIPO_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
-type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores";
+type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores" | "maquinas";
 type VertexDraft = { latitude: string; longitude: string };
 type VertexEditorState = {
   terrenoId: number | null;
   title: string;
   vertices: VertexDraft[];
+};
+type PolygonDrawState = {
+  terrenoId: number | null;
+  title: string;
+  center: LatLng;
 };
 
 const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
@@ -102,6 +109,20 @@ const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
   { id: "cultivos", label: "Cultivos", icon: "leaf.fill" },
   { id: "mais", label: "Mais", icon: "ellipsis" },
 ];
+
+function centroidFromRing(ring: LatLng[]): LatLng | null {
+  const points =
+    ring.length > 1 &&
+    Math.abs(ring[0].latitude - ring[ring.length - 1].latitude) <= 1e-9 &&
+    Math.abs(ring[0].longitude - ring[ring.length - 1].longitude) <= 1e-9
+      ? ring.slice(0, -1)
+      : ring;
+  if (points.length === 0) return null;
+  return {
+    latitude: points.reduce((sum, p) => sum + p.latitude, 0) / points.length,
+    longitude: points.reduce((sum, p) => sum + p.longitude, 0) / points.length,
+  };
+}
 
 export default function PropriedadeDetailScreen() {
   const { id, tab: tabParam, safraId: safraIdParam } = useLocalSearchParams<{
@@ -129,6 +150,7 @@ export default function PropriedadeDetailScreen() {
   const [geoImportText, setGeoImportText] = useState("");
   const [geoImportTerrenoId, setGeoImportTerrenoId] = useState<number | null>(null);
   const [vertexEditor, setVertexEditor] = useState<VertexEditorState | null>(null);
+  const [polygonDraw, setPolygonDraw] = useState<PolygonDrawState | null>(null);
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
 
@@ -441,6 +463,9 @@ export default function PropriedadeDetailScreen() {
   }
   const terrenosSemGeometria = terrenos.filter((t) => extractPolygonRings(t.geometriaGeoJson).length === 0);
   const terrenosComGeometria = terrenos.filter((t) => extractPolygonRings(t.geometriaGeoJson).length > 0);
+  const propertyDrawCenter = hasGps
+    ? { latitude: latitude!, longitude: longitude! }
+    : centroidFromRing(propRings[0] ?? []);
   const toVertexDrafts = (vertices: LatLng[]): VertexDraft[] =>
     vertices.map((p) => ({
       latitude: String(p.latitude),
@@ -554,6 +579,43 @@ export default function PropriedadeDetailScreen() {
       Alert.alert("GeoJSON importado", "Geometria salva com sucesso.");
     } catch (e: any) {
       Alert.alert("Erro", e?.message ?? "Falha ao salvar geometria");
+    }
+  };
+  const openPolygonDraw = (target: { terrenoId: number | null; title: string }) => {
+    if (!propertyDrawCenter) {
+      Alert.alert("Sem referência GPS", "Cadastre o GPS da propriedade ou importe um perímetro antes de desenhar.");
+      return;
+    }
+    setPolygonDraw({
+      terrenoId: target.terrenoId,
+      title: target.title,
+      center: propertyDrawCenter,
+    });
+  };
+  const savePolygonDraw = async (geoJson: string) => {
+    if (!polygonDraw) return;
+    const area = approxAreaHaFromGeoJson(geoJson);
+    try {
+      if (polygonDraw.terrenoId) {
+        await setGeometriaTerreno.mutateAsync({
+          propriedadeId: propriedade.id,
+          terrenoId: polygonDraw.terrenoId,
+          geometriaGeoJson: geoJson,
+          areaGeometricaHa: area ?? undefined,
+          origem: "desenhada",
+        });
+      } else {
+        await setGeometria.mutateAsync({
+          propriedadeId: propriedade.id,
+          geometriaGeoJson: geoJson,
+          areaGeometricaHa: area ?? undefined,
+          origem: "desenhada",
+        });
+      }
+      setPolygonDraw(null);
+      Alert.alert("Perímetro salvo", "Desenho livre registrado com sucesso.");
+    } catch (e: any) {
+      Alert.alert("Erro", e?.message ?? "Falha ao salvar perímetro desenhado");
     }
   };
   const gerarGeometriaTerrenoGps = async (terrenoId: number) => {
@@ -1249,6 +1311,28 @@ export default function PropriedadeDetailScreen() {
             )}
             {canWriteProperty && !isHistorical ? (
               <View style={{ marginTop: 12, gap: 10 }}>
+                {propertyDrawCenter ? (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    accessibilityLabel="Desenhar perímetro"
+                    style={{
+                      minHeight: 44,
+                      borderRadius: 12,
+                      backgroundColor: colors.primary,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      paddingHorizontal: 12,
+                    }}
+                    onPress={() =>
+                      openPolygonDraw({
+                        terrenoId: null,
+                        title: "Desenhar perímetro da propriedade",
+                      })
+                    }
+                  >
+                    <Text style={{ color: "#FFF", fontWeight: "700" }}>Desenhar perímetro</Text>
+                  </TouchableOpacity>
+                ) : null}
                 {propGeo ? (
                   <TouchableOpacity
                     accessibilityRole="button"
@@ -1326,6 +1410,22 @@ export default function PropriedadeDetailScreen() {
                             Editar vértices
                           </Text>
                         </TouchableOpacity>
+                        {hasGps ? (
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={`Desenhar geometria para ${t.nome}`}
+                            onPress={() =>
+                              openPolygonDraw({
+                                terrenoId: t.id,
+                                title: `Desenhar talhão · ${t.nome}`,
+                              })
+                            }
+                          >
+                            <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                              Desenhar
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
                       </View>
                     ))}
                   </View>
@@ -1360,6 +1460,22 @@ export default function PropriedadeDetailScreen() {
                             Gerar GPS
                           </Text>
                         </TouchableOpacity>
+                        {hasGps ? (
+                          <TouchableOpacity
+                            accessibilityRole="button"
+                            accessibilityLabel={`Desenhar geometria para ${t.nome}`}
+                            onPress={() =>
+                              openPolygonDraw({
+                                terrenoId: t.id,
+                                title: `Desenhar talhão · ${t.nome}`,
+                              })
+                            }
+                          >
+                            <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
+                              Desenhar
+                            </Text>
+                          </TouchableOpacity>
+                        ) : null}
                         <TouchableOpacity
                           accessibilityRole="button"
                           accessibilityLabel={`Importar GeoJSON para ${t.nome}`}
@@ -1626,6 +1742,12 @@ export default function PropriedadeDetailScreen() {
                       icon: "tray" as const,
                     },
                     {
+                      id: "maquinas" as const,
+                      title: "Máquinas e equipamentos",
+                      subtitle: "Tratores, implementos e status operacional",
+                      icon: "tractor.fill" as const,
+                    },
+                    {
                       id: "custos" as const,
                       title: "Custos e resultados",
                       subtitle: "Orçamento da safra e lançamentos",
@@ -1740,6 +1862,12 @@ export default function PropriedadeDetailScreen() {
             {maisSection === "estoque" && (
               <PropriedadeEstoquePanel propriedadeId={propriedade.id} />
             )}
+            {maisSection === "maquinas" && (
+              <PropriedadeMaquinasPanel
+                propriedadeId={propriedade.id}
+                readOnly={isHistorical}
+              />
+            )}
             {maisSection === "custos" && (
               <PropriedadeCustosPanel
                 propriedadeId={propriedade.id}
@@ -1757,6 +1885,40 @@ export default function PropriedadeDetailScreen() {
           </>
         )}
       </ScrollView>
+      <Modal
+        visible={polygonDraw != null}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setPolygonDraw(null)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.45)", justifyContent: "flex-end" }}>
+          <View
+            style={{
+              backgroundColor: colors.background,
+              borderTopLeftRadius: 20,
+              borderTopRightRadius: 20,
+              padding: 20,
+              maxHeight: "92%",
+            }}
+          >
+            <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 6 }}>
+              {polygonDraw?.title ?? "Desenhar perímetro"}
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 12, lineHeight: 18 }}>
+              Toque no quadro para criar vértices ou adicione pontos por coordenadas. O anel é fechado
+              automaticamente ao concluir.
+            </Text>
+            {polygonDraw ? (
+              <PolygonDrawPad
+                center={polygonDraw.center}
+                height={isWide ? 340 : 260}
+                onCancel={() => setPolygonDraw(null)}
+                onComplete={(geoJson) => void savePolygonDraw(geoJson)}
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
       <Modal
         visible={geoImportOpen}
         animationType="slide"

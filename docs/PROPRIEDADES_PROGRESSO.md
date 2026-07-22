@@ -6,18 +6,18 @@
 
 ## Status por etapa
 
-| Etapa | Nome | Status | Notas |
-|-------|------|--------|-------|
-| 1 | Fundação | **feita** | SessionGate, ScreenState, ownership, a11y base |
-| 2 | Painel com abas + safra | **feita** | Shell com `?tab=` |
-| 3 | Agenda → tarefas/operações | **feita (P0/P1)** | `tarefas_operacionais`, apontamentos, aba Operações |
-| 4 | Hoje / Atenção necessária | **feita (P0/P1)** | `alertas-engine`, feed de atividade, Visão com alertas |
-| 5 | Mapa polígonos | **feita (P0/P1)** | GeoJSON propriedade/talhão, PropertyMap + gerar perímetro |
-| 6 | Ocorrência → diagnóstico → tarefa | **feita (P0/P1)** | `ocorrencias_campo` + criar tarefa a partir da ocorrência |
-| 7 | Estoque agrícola | **feita (P0/P1)** | Itens + movimentos (≠ marketplace) |
-| 8 | Custos / orçamento | **feita (P0/P1)** | `orcamentos_safra` + `custos_operacao` |
-| 9 | Offline / sync | **feita (P0/P1)** | `tarefa` na fila core + `clientMutationId` |
-| 10 | Métricas | **feita (P0/P1)** | Catálogo com fórmula/fonte + painel Indicadores |
+| Etapa | Nome                              | Status            | Notas                                                     |
+| ----- | --------------------------------- | ----------------- | --------------------------------------------------------- |
+| 1     | Fundação                          | **feita**         | SessionGate, ScreenState, ownership, a11y base            |
+| 2     | Painel com abas + safra           | **feita**         | Shell com `?tab=`                                         |
+| 3     | Agenda → tarefas/operações        | **feita (P0/P1)** | `tarefas_operacionais`, apontamentos, aba Operações       |
+| 4     | Hoje / Atenção necessária         | **feita (P0/P1)** | `alertas-engine`, feed de atividade, Visão com alertas    |
+| 5     | Mapa polígonos                    | **feita (P0/P1)** | GeoJSON propriedade/talhão, PropertyMap + gerar perímetro |
+| 6     | Ocorrência → diagnóstico → tarefa | **feita (P0/P1)** | `ocorrencias_campo` + criar tarefa a partir da ocorrência |
+| 7     | Estoque agrícola                  | **feita (P0/P1)** | Itens + movimentos (≠ marketplace)                        |
+| 8     | Custos / orçamento                | **feita (P0/P1)** | `orcamentos_safra` + `custos_operacao`                    |
+| 9     | Offline / sync                    | **feita (P0/P1)** | `tarefa` na fila core + `clientMutationId`                |
+| 10    | Métricas                          | **feita (P0/P1)** | Catálogo com fórmula/fonte + painel Indicadores           |
 
 ## Entregue nas Etapas 4–10
 
@@ -31,8 +31,8 @@
 
 ## Adiado / dívida (P3)
 
-- Desenho livre de polígono no mapa (toque no mapa / Leaflet draw)
-- Cadastro avançado de máquinas/equipamentos operacionais
+- **Concluído:** desenho livre de polígono no mapa com `PolygonDrawPad`.
+- **Concluído:** cadastro de máquinas/equipamentos operacionais em Mais → Máquinas e equipamentos.
 
 ## Dívidas Plano Mestre 1–6 — concluídas
 
@@ -50,8 +50,6 @@ Concluído nesta rodada:
 - Edição por vértices no mapa para propriedade e talhões com geometria.
 - Seletor de responsável/equipe na criação de tarefas.
 - Modal de consumos ao concluir tarefa.
+- Desenho livre de perímetro para propriedade/talhões e cadastro de máquinas/equipamentos.
 
-P3 restante:
-
-1. Desenho livre de polígono no mapa.
-2. Cadastro avançado de máquinas/equipamentos operacionais.
+P3 restante: apenas polimento fino de UX após testes de campo.
