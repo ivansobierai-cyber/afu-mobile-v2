@@ -26,6 +26,23 @@ Screenshots: `docs/evidencias/smoke-preview/` e `/opt/cursor/artifacts/smoke-eta
 
 ## Preview Vercel vs API Railway
 
+### Re-smoke pós-deploy Railway (2026-07-22)
+
+**API:** `https://afu-mobile-v2-production.up.railway.app` — multi-tenant **OK**  
+**Evidências:** `docs/evidencias/railway-api-post-deploy-latest.json` + `smoke-etapa10-pos-railway-latest.json`  
+**Decisão:** **AVANÇAR**
+
+| # | Item | Resultado |
+|---|------|-----------|
+| 1 | Health / login demo | PASS |
+| 2 | Session com `organizations` + `activeOrganizationId` | PASS |
+| 3 | `safras.list` → Safra 2026/27 | PASS |
+| 4 | `dashboard.stats` / `listArchived` | PASS |
+| 5 | UI PR: chip Safra + `+ Registrar` + admin Exportar/Arquivar/Excluir | PASS (smoke `localhost:8081` = branch PR + API Railway) |
+| 6 | `afu-mobile-web.vercel.app` (main) | API nova OK; UI sem `+ Registrar` até merge do PR |
+
+`SEED_ON_START=0` no Railway após seed.
+
 ### Re-smoke `tenantReady` (2026-07-21, commit `19af667`)
 
 **URL:** `https://afu-mobile-o8asm2ep2-ivansobierai-8642s-projects.vercel.app/?_vercel_share=…`  
