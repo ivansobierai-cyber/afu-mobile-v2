@@ -6,6 +6,21 @@
 
 O agente de cloud **não tem** token/MCP Railway neste ambiente. Deploy da API é passo humano (ou merge em `main` se o serviço Docker estiver ligado ao repositório).
 
+## Deploy Railway OK (2026-07-22)
+
+- Deploy `f77796e7` (código `51c8cfe`) via `railway up` — **SUCCESS**
+- Health 200; session com `organizations` + `activeOrganizationId=1` + role `proprietario`
+- `safras.list` → Safra 2026/27; `dashboard.stats` OK; `listArchived` OK
+- `SEED_ON_START` voltou para **0**
+- Evidência: `docs/evidencias/railway-api-post-deploy-latest.json`
+
+
+---
+
+**Fix 2026-07-22 (boot):** com `SEED_ON_START=1` o seed bloqueava a abertura da porta → Railway 502. Agora seeds rodam em **background** após o listen; `drizzle-kit migrate` não aborta o boot (apply idempotente 0018–0021); produção escuta **exatamente** `PORT`.
+
+API ainda 502 no probe → **Redeploy** commit deste fix. Depois: health 200 → session com orgs → `SEED_ON_START=0`.
+
 ---
 
 **Fix 2026-07-22:** migração `0017_private_files_audit.sql` quebrava o boot (`drizzle-kit migrate`) porque havia dois `CREATE TABLE` sem `--> statement-breakpoint` (MySQL parse error). Corrigido no branch; também `0018` com breakpoints + journal até `0019`.
