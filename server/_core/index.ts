@@ -96,6 +96,6 @@ async function startServer() {
     console.log(`[api] server listening on port ${port}`);
     startWeatherAlertsScheduler();
   });
-
+}
 
 startServer().catch(console.error);
