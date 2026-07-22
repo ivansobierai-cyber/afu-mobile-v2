@@ -29,10 +29,10 @@
 - Offline: entity `tarefa` em `core-mutation-queue` + create idempotente
 - Testes: `tests/alertas-engine.test.ts`
 
-## Adiado / dívida
+## Adiado / dívida (P3)
 
-- Desenho livre de polígono no mapa (edição por vértices)
-- Máquinas e equipe operacional (Etapa 3/8 avançado)
+- Desenho livre de polígono no mapa (toque no mapa / Leaflet draw)
+- Cadastro avançado de máquinas/equipamentos operacionais
 
 ## Dívidas Plano Mestre 1–6 — concluídas
 
