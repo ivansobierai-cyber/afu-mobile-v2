@@ -97,22 +97,26 @@ CREATE TABLE sync_conflicts (
       console.log("[skip] terrenos.geometriaVersao");
     }
 
-    if (!(await columnExists(conn, "organizations", "aiAllowModelImprovement"))) {
-      await conn.query(
-        "ALTER TABLE organizations ADD COLUMN aiAllowModelImprovement tinyint(1) NOT NULL DEFAULT 0",
-      );
-      console.log("+ organizations.aiAllowModelImprovement");
+    if (!(await tableExists(conn, "organizations"))) {
+      console.log("[skip] organizations table missing — ai columns deferred");
     } else {
-      console.log("[skip] organizations.aiAllowModelImprovement");
-    }
+      if (!(await columnExists(conn, "organizations", "aiAllowModelImprovement"))) {
+        await conn.query(
+          "ALTER TABLE organizations ADD COLUMN aiAllowModelImprovement tinyint(1) NOT NULL DEFAULT 0",
+        );
+        console.log("+ organizations.aiAllowModelImprovement");
+      } else {
+        console.log("[skip] organizations.aiAllowModelImprovement");
+      }
 
-    if (!(await columnExists(conn, "organizations", "aiShareAggregatedInsights"))) {
-      await conn.query(
-        "ALTER TABLE organizations ADD COLUMN aiShareAggregatedInsights tinyint(1) NOT NULL DEFAULT 0",
-      );
-      console.log("+ organizations.aiShareAggregatedInsights");
-    } else {
-      console.log("[skip] organizations.aiShareAggregatedInsights");
+      if (!(await columnExists(conn, "organizations", "aiShareAggregatedInsights"))) {
+        await conn.query(
+          "ALTER TABLE organizations ADD COLUMN aiShareAggregatedInsights tinyint(1) NOT NULL DEFAULT 0",
+        );
+        console.log("+ organizations.aiShareAggregatedInsights");
+      } else {
+        console.log("[skip] organizations.aiShareAggregatedInsights");
+      }
     }
 
     console.log("0018/0019 sync+ai OK");

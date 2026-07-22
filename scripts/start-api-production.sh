@@ -33,13 +33,18 @@ case "$DATABASE_URL" in
 esac
 
 echo "[api] Running database migrations..."
-npx drizzle-kit migrate
+# Timeout evita hang infinito no MySQL (Railway healthcheck / 502).
+# Se falhar ou estourar tempo, os apply idempotentes tentam recuperar.
+if ! timeout 90 npx drizzle-kit migrate; then
+  echo "[api] WARN: drizzle-kit migrate failed or timed out — continuing with idempotent schema applies"
+fi
 
 # Idempotente: cobre casos em que o journal falhou no meio (0018/0019/0020/0021)
+# Nunca derrubar o boot aqui — Railway precisa do listen em PORT.
 echo "[api] Applying sync/ai + safras + archive schema (idempotent)..."
-npm run db:sync-ai:apply
-npm run db:safras:apply
-npm run db:archive:apply
+timeout 60 npm run db:sync-ai:apply || echo "[api] WARN: db:sync-ai:apply failed (non-fatal)"
+timeout 60 npm run db:safras:apply || echo "[api] WARN: db:safras:apply failed (non-fatal)"
+timeout 60 npm run db:archive:apply || echo "[api] WARN: db:archive:apply failed (non-fatal)"
 
 run_seeds() {
   echo "[api] Running demo seeds (background)..."
