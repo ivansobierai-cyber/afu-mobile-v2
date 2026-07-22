@@ -35,14 +35,14 @@ esac
 echo "[api] Running database migrations..."
 npx drizzle-kit migrate
 
-# 0020/0021 ainda não estão no journal completo do drizzle-kit em todos os ambientes;
-# apply idempotente garante safras + soft-archive no MySQL do Railway.
-echo "[api] Applying safras + property archive schema (idempotent)..."
+# Idempotente: cobre casos em que o journal falhou no meio (0018/0019/0020/0021)
+echo "[api] Applying sync/ai + safras + archive schema (idempotent)..."
+npm run db:sync-ai:apply
 npm run db:safras:apply
 npm run db:archive:apply
 
-if [ "$SEED_ON_START" = "1" ]; then
-  echo "[api] Running demo seeds..."
+run_seeds() {
+  echo "[api] Running demo seeds (background)..."
   npm run seed
   npm run seed:marketplace
   npm run seed:comprador
@@ -50,6 +50,17 @@ if [ "$SEED_ON_START" = "1" ]; then
   npm run seed:banco-expansao
   echo "[api] Backfill safras padrão (idempotente)..."
   npm run db:safras:backfill || echo "[api] WARN: db:safras:backfill failed (non-fatal)"
+  echo "[api] Seeds finished."
+}
+
+# Railway healthcheck exige PORT aberto cedo. Seed longo NÃO pode bloquear o listen.
+if [ "$SEED_ON_START" = "1" ]; then
+  echo "[api] SEED_ON_START=1 — seeds em background após abrir a porta"
+  (
+    # pequena folga para o HTTP subir
+    sleep 3
+    run_seeds
+  ) &
 fi
 
 echo "[api] Starting server on port ${PORT:-3000}..."

@@ -81,8 +81,12 @@ async function startServer() {
     }),
   );
 
-  const preferredPort = parseInt(process.env.PORT || "3000");
-  const port = await findAvailablePort(preferredPort);
+  const preferredPort = parseInt(process.env.PORT || "3000", 10);
+  // Em PaaS (Railway/etc) PORT é obrigatório — não procurar porta alternativa.
+  const port =
+    process.env.PORT && process.env.NODE_ENV === "production"
+      ? preferredPort
+      : await findAvailablePort(preferredPort);
 
   if (port !== preferredPort) {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
@@ -92,6 +96,6 @@ async function startServer() {
     console.log(`[api] server listening on port ${port}`);
     startWeatherAlertsScheduler();
   });
-}
+
 
 startServer().catch(console.error);
