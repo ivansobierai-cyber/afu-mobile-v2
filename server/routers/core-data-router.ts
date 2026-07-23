@@ -604,6 +604,17 @@ const cultivosRouter = router({
         .orderBy(desc(diagnosticosIa.dataDiagnostico));
     }),
 
+  /** Mapa do cultivo (Cultivos V2 Etapa 6) */
+  mapa: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { buildCultivoMapa } = await import("../db-cultivo-mapa");
+      return buildCultivoMapa(tenant.organizationId, cultura);
+    }),
+
   delete: orgPermissionProcedure("property.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

@@ -20,6 +20,7 @@ import {
   CultivoDiagnosticosTab,
   CultivoMonitoramentoTab,
 } from "@/components/cultivos/cultivo-monitoramento-tab";
+import { CultivoMapaTab } from "@/components/cultivos/cultivo-mapa-tab";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import {
@@ -257,6 +258,7 @@ export default function CultivoDetailScreen() {
             terrenos={terrenosDaProp}
           />
         )}
+        {tab === "mapa" && <CultivoMapaTab culturaId={cultivo.id} />}
         {tab === "diagnosticos" && (
           <CultivoDiagnosticosTab
             culturaId={cultivo.id}

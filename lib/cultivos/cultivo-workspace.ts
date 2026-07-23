@@ -7,6 +7,7 @@ export type CultivoWorkspaceTab =
   | "visao"
   | "operacoes"
   | "monitoramento"
+  | "mapa"
   | "diagnosticos"
   | "ia"
   | "custos"
@@ -21,6 +22,7 @@ export const CULTIVO_WORKSPACE_TABS: {
   { id: "visao", label: "Visão Geral", icon: "leaf.fill" },
   { id: "operacoes", label: "Operações", icon: "wrench.fill" },
   { id: "monitoramento", label: "Monitoramento", icon: "eye.fill" },
+  { id: "mapa", label: "Mapa", icon: "map.fill" },
   { id: "diagnosticos", label: "Diagnósticos", icon: "cross.case.fill" },
   { id: "ia", label: "IA", icon: "sparkles" },
   { id: "custos", label: "Custos", icon: "dollarsign.circle.fill" },

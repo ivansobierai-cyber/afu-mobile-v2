@@ -11,7 +11,7 @@ describe("cultivo-workspace helpers (Etapa 2)", () => {
     expect(resolveCultivoTab(undefined)).toBe("visao");
     expect(resolveCultivoTab("invalid")).toBe("visao");
     expect(resolveCultivoTab("historico")).toBe("historico");
-    expect(CULTIVO_WORKSPACE_TABS).toHaveLength(8);
+    expect(CULTIVO_WORKSPACE_TABS).toHaveLength(9);
   });
 
   it("nextCultivoFase avança e respeita última fase", () => {
