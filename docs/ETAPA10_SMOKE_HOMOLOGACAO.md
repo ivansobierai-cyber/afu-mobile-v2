@@ -53,6 +53,22 @@ Screenshots: `docs/evidencias/smoke-plano-auxiliar/`.
 Evidência: `docs/evidencias/smoke-plano-auxiliar-railway-probe-latest.json`  
 Runbook: `docs/MERGE_PR20_RAILWAY.md`.
 
+### Smoke UI produção web (2026-07-23)
+
+**URL:** https://afu-mobile-web.vercel.app  
+**Decisão:** **AVANÇAR**
+
+| # | Item | Resultado |
+|---|------|-----------|
+| 1 | Login Demo Produtor | PASS |
+| 2 | Dashboard com propriedades | PASS |
+| 3 | Estoque com `Valor R$` | PASS |
+| 4 | Cultivo → Custos → colheita real | PASS |
+| 5 | Sem crash/tela em branco | PASS |
+
+Screenshots: `docs/evidencias/smoke-prod-ui/`.  
+Release: `docs/RELEASE_PLANO_AUXILIAR_2026-07-23.md`.
+
 ---
 
 ## Preview Vercel vs API Railway

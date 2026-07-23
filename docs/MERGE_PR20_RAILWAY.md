@@ -20,8 +20,11 @@
 - [x] Redeploy Railway automático (serviço `afu-mobile-v2` Online)
 - [x] Smoke read-only **AVANÇAR** (endpoints novos presentes)
 - [x] Smoke write **AVANÇAR** (`SMOKE_WRITE=1`) — CMP + produtividade real
+- [x] Smoke UI web produção **AVANÇAR** (`https://afu-mobile-web.vercel.app`)
 
-Evidência: `docs/evidencias/smoke-plano-auxiliar-railway-probe-latest.json`
+Evidência API: `docs/evidencias/smoke-plano-auxiliar-railway-probe-latest.json`  
+Evidência UI: `docs/evidencias/smoke-prod-ui/`  
+Release: `docs/RELEASE_PLANO_AUXILIAR_2026-07-23.md`
 
 | Check | Resultado |
 |-------|-----------|
