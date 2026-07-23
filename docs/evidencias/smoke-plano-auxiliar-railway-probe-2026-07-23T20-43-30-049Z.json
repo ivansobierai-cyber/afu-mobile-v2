@@ -1,15 +1,15 @@
 {
   "suite": "smoke-plano-auxiliar",
-  "at": "2026-07-23T20:44:03.197Z",
+  "at": "2026-07-23T20:43:30.049Z",
   "environment": "railway",
   "api": "https://afu-mobile-v2-production.up.railway.app",
-  "readOnly": false,
+  "readOnly": true,
   "branch": "cursor/etapa7-estoque-inteligente-fd64",
   "decision": "AVANCAR",
-  "durationMs": 22508,
+  "durationMs": 13487,
   "timingsMs": {
-    "estoque": 7034,
-    "produtividade": 11094
+    "estoque": 3048,
+    "produtividade": 6200
   },
   "passed": 8,
   "total": 8,
@@ -48,30 +48,34 @@
       "ok": true,
       "detail": {
         "valorDisponivel": true,
-        "valorTotalEstoque": 1200
+        "valorTotalEstoque": 0,
+        "readOnly": true
       }
     },
     {
       "id": "estoque.valorTotalEstoque",
       "ok": true,
       "detail": {
-        "valorTotalEstoque": 1200
+        "valorTotalEstoque": 0,
+        "readOnly": true
       }
     },
     {
-      "id": "cultivo.produtividade",
+      "id": "propriedade.indicadores.endpoint",
       "ok": true,
       "detail": {
-        "fonte": "real",
-        "produtividade": 550
+        "fonte": null,
+        "produtividade": null,
+        "readOnly": true
       }
     },
     {
-      "id": "propriedade.produtividadeFonte",
+      "id": "cultivo.indicadores.endpoint",
       "ok": true,
       "detail": {
-        "fonte": "real",
-        "produtividade": 550
+        "fonte": "estimada",
+        "produtividade": 3.56,
+        "readOnly": true
       }
     }
   ]
