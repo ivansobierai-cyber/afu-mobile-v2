@@ -2,67 +2,46 @@
 
 **Branch:** `cursor/etapa7-estoque-inteligente-fd64`  
 **PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/20  
-**API:** `https://afu-mobile-v2-production.up.railway.app`
-
-O agente de cloud **não faz merge** nem redeploy Railway sozinho. Este runbook é o passo humano pós-aprovação.
+**API:** `https://afu-mobile-v2-production.up.railway.app`  
+**Merge:** `557921f` em `main` — **2026-07-23T20:37:49Z**
 
 ## Pré-merge (já ok — 2026-07-23)
 
 - [x] CI `validate` verde
 - [x] Vercel previews verdes (`afu-mobile`, `afu-mobile-web`, `dist`)
-- [x] PR **MERGEABLE**
+- [x] PR **MERGEABLE** (saiu de draft → ready → merged)
 - [x] Smoke local API+UI **AVANÇAR** (`npm run smoke:plano-auxiliar`)
 - [x] E2E `tests/etapa10-fluxo-plano-auxiliar.test.ts` (CMP + produtividade)
 - [x] Boot produção aplica `db:cultivo-fase`, `db:estoque-custo`, `db:producao-real`
 
-## Gap atual em produção (probe 2026-07-23)
+## Pós-merge — produção (2026-07-23)
 
-Railway ainda serve API **sem** o código deste PR:
+- [x] Merge em `main` (`557921f`)
+- [x] Redeploy Railway automático (serviço `afu-mobile-v2` Online)
+- [x] Smoke read-only **AVANÇAR** (endpoints novos presentes)
+- [x] Smoke write **AVANÇAR** (`SMOKE_WRITE=1`) — CMP + produtividade real
+
+Evidência: `docs/evidencias/smoke-plano-auxiliar-railway-probe-latest.json`
 
 | Check | Resultado |
 |-------|-----------|
-| Health / login demo | OK |
-| `coreData.expansao.estoque.dashboard` | **NOT_FOUND** |
-| Custo médio / `valorDisponivel` | ausente até deploy |
-| `producaoReal` / produtividade nos indicadores | ausente até deploy |
-
-Conclusão: **merge + redeploy** é o próximo passo operacional.
-
-## Após merge
-
-### 1. Deploy API
-
-- Se Railway auto-deploy em `main`: aguardar rebuild
-- Senão: `railway up` / Redeploy apontando para `main` (commit do merge)
-
-Logs esperados no boot:
-
-```
-Applying sync/ai + safras + archive schema...
-db:cultivo-fase:apply
-db:estoque-custo:apply
-db:producao-real:apply
-Starting server on port...
-```
-
-Variáveis: manter `SEED_ON_START=0` (já seedado). `DATABASE_URL` e `JWT_SECRET` intactos.
-
-### 2. Re-smoke produção
+| Health / login demo | PASS |
+| `estoque.dashboard` + `valorDisponivel` | PASS |
+| `valorTotalEstoque` após entrada com custo | PASS (> 0) |
+| `cultivos.indicadores` + `produtividadeFonte=real` | PASS |
+| Indicadores da propriedade (fonte real) | PASS |
 
 ```bash
+# read-only (padrão remoto)
 EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app \
+  npm run smoke:plano-auxiliar
+
+# write completo (opcional)
+SMOKE_WRITE=1 EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app \
   npm run smoke:plano-auxiliar
 ```
 
-Critério: `decision: AVANCAR` em `docs/evidencias/smoke-plano-auxiliar-latest.json`.
-
-Checklist manual UI (preview Vercel `main` ou app):
-
-1. Login demo
-2. Propriedade → Mais → Recursos e estoque → item com custo → `Valor R$`
-3. Cultivo → Custos → Registrar colheita real → produtividade `/ha (colheita real)`
-
-### 3. Cultivos V2 em bancos antigos (se necessário)
+## Cultivos V2 em bancos antigos (se necessário)
 
 Se ainda existirem cultivos sem talhão/safra:
 

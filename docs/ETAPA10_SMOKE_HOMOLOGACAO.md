@@ -43,10 +43,15 @@ Screenshots: `docs/evidencias/smoke-plano-auxiliar/`.
 
 ### Probe Railway (mesmo dia)
 
-`EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app npm run smoke:plano-auxiliar`  
-→ **BLOQUEADO** (`estoque.dashboard` / `cultivos.indicadores` NOT_FOUND) — API prod ainda sem o código do PR #20.  
+`EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app npm run smoke:plano-auxiliar`
+
+| Momento | Resultado |
+|---------|-----------|
+| Pré-merge | **BLOQUEADO** (`estoque.dashboard` NOT_FOUND) |
+| Pós-merge + redeploy (`557921f`) | **AVANÇAR** (read-only e `SMOKE_WRITE=1`) |
+
 Evidência: `docs/evidencias/smoke-plano-auxiliar-railway-probe-latest.json`  
-Runbook pós-merge: `docs/MERGE_PR20_RAILWAY.md`.
+Runbook: `docs/MERGE_PR20_RAILWAY.md`.
 
 ---
 
