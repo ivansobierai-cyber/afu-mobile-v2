@@ -14,9 +14,11 @@
 
 ## Critérios ainda abertos (próximos)
 
-- Formulários completos do `+ Registrar` (Etapa 6) — **feito** em `registrar-flow` + painéis contextuais
-- Exportação auditada + exclusão com digitação do nome na UI + lista de arquivadas (Etapa 7)
-- E2E multitenant + homologação preview autenticada
+- ~~Formulários completos do `+ Registrar` (Etapa 6)~~ — **feito**
+- ~~Exportação auditada + exclusão com digitação do nome na UI + lista de arquivadas (Etapa 7)~~ — **núcleo feito**
+- ~~Escritas em propriedade arquivada / custos em safra histórica~~ — **feito** (`requireWritablePropertyInTenant` + `requireWritableSafra` em custos/estoque/cultivo/talhão/máquinas)
+- E2E multitenant + homologação preview autenticada (residual)
+- Export com artefato temporário / rate limit (P2)
 
 ## Como validar
 
