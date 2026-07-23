@@ -61,4 +61,4 @@ Auditoria de movimentos/atividades e logs de API já existentes; rollback rehear
 - ~~Valor monetário do estoque~~ **resolvido** — `custoMedio`/`custoUnitario` + `npm run db:estoque-custo:apply`
 - ~~Produtividade (kg/ha)~~ **resolvido** — `producaoReal` no cultivo + agregação nos indicadores (`npm run db:producao-real:apply`)
 - ~~Smoke local das entregas finais~~ **resolvido** — `npm run smoke:plano-auxiliar` + UI (`docs/evidencias/smoke-plano-auxiliar/`)
-- ~~Deploy produção Railway~~ **resolvido** — PR #20 merged (`557921f`); smoke prod **AVANÇAR** (`docs/MERGE_PR20_RAILWAY.md`)
+- ~~Deploy produção Railway~~ **resolvido** — PR #20 merged (`557921f`); smoke API + UI prod **AVANÇAR** (`docs/MERGE_PR20_RAILWAY.md`, `docs/RELEASE_PLANO_AUXILIAR_2026-07-23.md`)
