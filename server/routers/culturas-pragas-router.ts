@@ -51,6 +51,7 @@ const culturaCreateSchema = z.object({
   areaPlantada: z.string().optional().nullable(),
   previsaoColheita: z.string().optional().nullable(),
   producaoEstimada: z.string().optional().nullable(),
+  producaoReal: z.string().optional().nullable(),
   unidadeProducao: z.string().max(30).optional().nullable(),
   status: statusCulturaSchema.default("em_andamento"),
   observacoes: z.string().optional().nullable(),

@@ -45,6 +45,7 @@ type FormData = {
   areaPlantada: string;
   previsaoColheita: string;
   producaoEstimada: string;
+  producaoReal: string;
   unidadeProducao: string;
   status: StatusCultura;
   observacoes: string;
@@ -60,7 +61,8 @@ const FORM_VAZIO: FormData = {
   areaPlantada: "",
   previsaoColheita: "",
   producaoEstimada: "",
-  unidadeProducao: "ton/ha",
+  producaoReal: "",
+  unidadeProducao: "kg",
   status: "em_andamento",
   observacoes: "",
 };
@@ -141,7 +143,8 @@ function AdminCulturasContent() {
       areaPlantada: item.areaPlantada ?? "",
       previsaoColheita: item.previsaoColheita ? String(item.previsaoColheita).split("T")[0] : "",
       producaoEstimada: item.producaoEstimada ?? "",
-      unidadeProducao: item.unidadeProducao ?? "ton/ha",
+      producaoReal: item.producaoReal ?? "",
+      unidadeProducao: item.unidadeProducao ?? "kg",
       status: item.status ?? "em_andamento",
       observacoes: item.observacoes ?? "",
     });
@@ -183,6 +186,7 @@ function AdminCulturasContent() {
       areaPlantada: form.areaPlantada || null,
       previsaoColheita: form.previsaoColheita || null,
       producaoEstimada: form.producaoEstimada || null,
+      producaoReal: form.producaoReal || null,
       unidadeProducao: form.unidadeProducao || null,
       status: form.status,
       observacoes: form.observacoes || null,
@@ -400,7 +404,8 @@ function AdminCulturasContent() {
               { label: "Data de Plantio (AAAA-MM-DD)", key: "dataPlantio", placeholder: "Ex: 2025-10-15" },
               { label: "Previsão de Colheita (AAAA-MM-DD)", key: "previsaoColheita", placeholder: "Ex: 2026-03-20" },
               { label: "Produção Estimada", key: "producaoEstimada", placeholder: "Ex: 3600" },
-              { label: "Unidade de Produção", key: "unidadeProducao", placeholder: "Ex: ton/ha, sacas/ha" },
+              { label: "Produção Real (colheita)", key: "producaoReal", placeholder: "Ex: 3480" },
+              { label: "Unidade de Produção", key: "unidadeProducao", placeholder: "Ex: kg, sacas" },
               { label: "ID da Propriedade", key: "propriedadeId", placeholder: "Ex: 1" },
               { label: "ID do Talhão *", key: "terrenoId", placeholder: "Ex: 1" },
               { label: "Observações", key: "observacoes", placeholder: "Informações adicionais..." },

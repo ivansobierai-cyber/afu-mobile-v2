@@ -39,6 +39,7 @@ export type CultivoDashboard = {
     dataPlantio: string | null;
     previsaoColheita: string | null;
     producaoEstimada: number | null;
+    producaoReal: number | null;
     unidadeProducao: string | null;
     safraId: number | null;
     terrenoId: number | null;
@@ -223,6 +224,7 @@ export async function buildCultivoDashboard(
         : null,
       producaoEstimada:
         cultura.producaoEstimada != null ? Number(cultura.producaoEstimada) : null,
+      producaoReal: cultura.producaoReal != null ? Number(cultura.producaoReal) : null,
       unidadeProducao: cultura.unidadeProducao,
       safraId: cultura.safraId,
       terrenoId: cultura.terrenoId,

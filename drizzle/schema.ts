@@ -258,6 +258,8 @@ export const culturas = mysqlTable(
   areaPlantada: decimal("areaPlantada", { precision: 12, scale: 2 }),
   previsaoColheita: date("previsaoColheita"),
   producaoEstimada: decimal("producaoEstimada", { precision: 12, scale: 2 }),
+  /** Produção real colhida (mesma unidade de `unidadeProducao`, tipicamente kg) */
+  producaoReal: decimal("producaoReal", { precision: 12, scale: 2 }),
   unidadeProducao: varchar("unidadeProducao", { length: 30 }),
   status: mysqlEnum("status", [
     "planejado",

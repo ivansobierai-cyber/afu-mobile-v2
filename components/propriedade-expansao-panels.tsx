@@ -1746,6 +1746,14 @@ export function PropriedadeMetricasPanel({ propriedadeId, nomeSafra, safraId }: 
           <Text style={{ fontSize: 12, color: colors.muted }}>
             Lucro R$ {ind.lucro.toFixed(2)} · Margem {ind.margemPct.toFixed(1)}% · ROI {ind.roiPct.toFixed(1)}%
           </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            Produtividade{" "}
+            {ind.produtividade != null
+              ? `${ind.produtividade}/ha${
+                  ind.produtividadeFonte === "real" ? " (colheita real)" : ""
+                }`
+              : "— (registre produção real nos cultivos)"}
+          </Text>
         </View>
       ) : null}
       <View

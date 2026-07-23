@@ -72,6 +72,9 @@ npm run db:centros-custo:apply || echo "[api] WARN: db:centros-custo:apply faile
 npm run db:financeiro:apply || echo "[api] WARN: db:financeiro:apply failed (non-fatal)"
 npm run db:maquinas-controle:apply || echo "[api] WARN: db:maquinas-controle:apply failed (non-fatal)"
 npm run db:equipe:apply || echo "[api] WARN: db:equipe:apply failed (non-fatal)"
+npm run db:cultivo-fase:apply || echo "[api] WARN: db:cultivo-fase:apply failed (non-fatal)"
+npm run db:estoque-custo:apply || echo "[api] WARN: db:estoque-custo:apply failed (non-fatal)"
+npm run db:producao-real:apply || echo "[api] WARN: db:producao-real:apply failed (non-fatal)"
 
 run_seeds() {
   echo "[api] Running demo seeds (background)..."

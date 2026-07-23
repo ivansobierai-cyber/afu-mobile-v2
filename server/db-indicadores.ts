@@ -4,7 +4,8 @@
 import { getDb } from "./db";
 import { listCustos, listFinanceiroLancamentos } from "./db-propriedade-expansao";
 import { calcularIndicadores } from "../lib/propriedades/indicadores-financeiros";
-import { propriedades, terrenos } from "../drizzle/schema";
+import { calcularProdutividadeAgregada } from "../lib/propriedades/produtividade";
+import { culturas, propriedades, terrenos } from "../drizzle/schema";
 import { and, eq } from "drizzle-orm";
 
 export async function getIndicadoresFinanceiros(opts: {
@@ -26,6 +27,7 @@ export async function getIndicadoresFinanceiros(opts: {
   }
 
   let areaHa = 0;
+  let produtividadeAgg = calcularProdutividadeAgregada([]);
   if (db) {
     const prop = await db
       .select()
@@ -55,6 +57,23 @@ export async function getIndicadoresFinanceiros(opts: {
         0,
       );
     }
+
+    const cultivoConds = [
+      eq(culturas.propriedadeId, opts.propriedadeId),
+      eq(culturas.organizationId, opts.organizationId),
+    ];
+    if (opts.safraId != null) {
+      cultivoConds.push(eq(culturas.safraId, opts.safraId));
+    }
+    const cults = await db
+      .select({
+        areaPlantada: culturas.areaPlantada,
+        producaoEstimada: culturas.producaoEstimada,
+        producaoReal: culturas.producaoReal,
+      })
+      .from(culturas)
+      .where(and(...cultivoConds));
+    produtividadeAgg = calcularProdutividadeAgregada(cults);
   }
 
   const indicadores = calcularIndicadores({
@@ -70,11 +89,13 @@ export async function getIndicadoresFinanceiros(opts: {
       tipo: l.tipo,
       valor: l.valor,
     })),
-    produtividade: null,
+    produtividade: produtividadeAgg.produtividade,
   });
 
   return {
     ...indicadores,
+    produtividadeFonte: produtividadeAgg.fonte,
+    producaoUsada: produtividadeAgg.producaoUsada,
     scope: {
       organizationId: opts.organizationId,
       propriedadeId: opts.propriedadeId,

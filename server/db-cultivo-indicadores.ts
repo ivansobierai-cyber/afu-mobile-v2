@@ -3,6 +3,7 @@
  */
 import { listCustos, listFinanceiroLancamentos } from "./db-propriedade-expansao";
 import { calcularIndicadores } from "../lib/propriedades/indicadores-financeiros";
+import { calcularProdutividadeCultivo } from "../lib/propriedades/produtividade";
 import type { Cultura } from "../drizzle/schema";
 
 export async function buildCultivoIndicadores(opts: {
@@ -26,20 +27,14 @@ export async function buildCultivoIndicadores(opts: {
   );
   const lancamentos = lancamentosAll.filter((l) => l.culturaId === cultura.id);
 
-  const areaHa =
-    cultura.areaPlantada != null && Number(cultura.areaPlantada) > 0
-      ? Number(cultura.areaPlantada)
-      : 0;
-
-  const produtividade =
-    areaHa > 0 && cultura.producaoEstimada != null
-      ? Number(cultura.producaoEstimada) / areaHa
-      : cultura.producaoEstimada != null
-        ? Number(cultura.producaoEstimada)
-        : null;
+  const prod = calcularProdutividadeCultivo({
+    areaPlantada: cultura.areaPlantada,
+    producaoEstimada: cultura.producaoEstimada,
+    producaoReal: cultura.producaoReal,
+  });
 
   const indicadores = calcularIndicadores({
-    areaHa,
+    areaHa: prod.areaHa,
     custos: custos.map((c) => ({
       valor: c.valor,
       safraId: c.safraId,
@@ -51,11 +46,13 @@ export async function buildCultivoIndicadores(opts: {
       tipo: l.tipo as "despesa" | "receita" | "custo" | "investimento",
       valor: l.valor,
     })),
-    produtividade,
+    produtividade: prod.produtividade,
   });
 
   return {
     ...indicadores,
+    produtividadeFonte: prod.fonte,
+    producaoUsada: prod.producaoUsada,
     scope: {
       organizationId,
       propriedadeId: cultura.propriedadeId,

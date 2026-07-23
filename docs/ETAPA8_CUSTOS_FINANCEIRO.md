@@ -61,6 +61,7 @@
 - Evita dupla contagem custos_operacao × lançamentos tipo custo
 - UI no painel de métricas (sem remover `metricas`)
 - Testes `tests/indicadores-passo5.test.ts`
+- **Produtividade:** `culturas.producaoReal` (colheita) → kg/ha no cultivo e na propriedade (`produtividadeFonte: real|estimada`); apply `npm run db:producao-real:apply`
 
 ## Passo 6 — entregue
 

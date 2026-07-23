@@ -80,6 +80,8 @@ const cultivoInput = z.object({
   areaPlantada: z.number().positive().optional(),
   previsaoColheita: z.string().optional(),
   producaoEstimada: z.number().positive().optional(),
+  /** Produção real colhida (mesma unidade de unidadeProducao) */
+  producaoReal: z.number().min(0).optional(),
   unidadeProducao: z.string().max(30).optional(),
   status: z.enum(["planejado", "em_andamento", "colhido", "perdido"]).optional(),
   observacoes: z.string().optional(),
@@ -466,6 +468,7 @@ const cultivosRouter = router({
         organizationId: tenant.organizationId,
         areaPlantada: input.areaPlantada?.toString(),
         producaoEstimada: input.producaoEstimada?.toString(),
+        producaoReal: input.producaoReal?.toString(),
       } as any);
       if (input.faseAtual) {
         const { recordFaseChangeIfNeeded } = await import("../db-cultivo-fase");
@@ -505,6 +508,10 @@ const cultivosRouter = router({
           ...input.data,
           areaPlantada: input.data.areaPlantada?.toString(),
           producaoEstimada: input.data.producaoEstimada?.toString(),
+          producaoReal:
+            input.data.producaoReal !== undefined
+              ? input.data.producaoReal?.toString()
+              : undefined,
         } as any,
         tenant.organizationId,
       );

@@ -43,5 +43,5 @@ Reuso das evidências/suites existentes de isolamento multitenant e RBAC (não r
 ## Pendências conhecidas (não bloqueantes do aceite local)
 
 - ~~Valor monetário do estoque~~ **resolvido** — `custoMedio`/`custoUnitario` + `npm run db:estoque-custo:apply`
-- Produtividade (kg/ha) ainda não ligada a colheita real nos indicadores
+- ~~Produtividade (kg/ha)~~ **resolvido** — `producaoReal` no cultivo + agregação nos indicadores (`npm run db:producao-real:apply`)
 - Deploy produção / smoke Railway-Vercel fica para o checklist operacional existente em `ETAPA10_SMOKE_HOMOLOGACAO.md`

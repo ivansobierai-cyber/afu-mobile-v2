@@ -82,6 +82,7 @@ export type CulturaCreateInput = {
   areaPlantada?: string | null;
   previsaoColheita?: string | null;
   producaoEstimada?: string | null;
+  producaoReal?: string | null;
   unidadeProducao?: string | null;
   status?: "planejado" | "em_andamento" | "colhido" | "perdido";
   observacoes?: string | null;
@@ -114,6 +115,7 @@ export async function adminCreateCultura(data: CulturaCreateInput) {
     areaPlantada: data.areaPlantada ?? null,
     previsaoColheita: data.previsaoColheita ? new Date(data.previsaoColheita) : null,
     producaoEstimada: data.producaoEstimada ?? null,
+    producaoReal: data.producaoReal ?? null,
     unidadeProducao: data.unidadeProducao ?? null,
     status: data.status ?? "em_andamento",
     observacoes: data.observacoes ?? null,
@@ -130,6 +132,7 @@ export async function adminUpdateCultura(id: number, data: Partial<CulturaCreate
   if (data.faseAtual !== undefined) updateData.faseAtual = data.faseAtual;
   if (data.areaPlantada !== undefined) updateData.areaPlantada = data.areaPlantada;
   if (data.producaoEstimada !== undefined) updateData.producaoEstimada = data.producaoEstimada;
+  if (data.producaoReal !== undefined) updateData.producaoReal = data.producaoReal;
   if (data.unidadeProducao !== undefined) updateData.unidadeProducao = data.unidadeProducao;
   if (data.status !== undefined) updateData.status = data.status;
   if (data.observacoes !== undefined) updateData.observacoes = data.observacoes;
