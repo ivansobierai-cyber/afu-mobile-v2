@@ -37,6 +37,7 @@ type StatusCultura = "planejado" | "em_andamento" | "colhido" | "perdido";
 
 type FormData = {
   propriedadeId: string;
+  terrenoId: string;
   nomeCultura: string;
   variedade: string;
   dataPlantio: string;
@@ -51,6 +52,7 @@ type FormData = {
 
 const FORM_VAZIO: FormData = {
   propriedadeId: "1",
+  terrenoId: "",
   nomeCultura: "",
   variedade: "",
   dataPlantio: "",
@@ -131,6 +133,7 @@ function AdminCulturasContent() {
     setEditandoId(item.id);
     setForm({
       propriedadeId: String(item.propriedadeId),
+      terrenoId: item.terrenoId != null ? String(item.terrenoId) : "",
       nomeCultura: item.nomeCultura ?? "",
       variedade: item.variedade ?? "",
       dataPlantio: item.dataPlantio ? String(item.dataPlantio).split("T")[0] : "",
@@ -165,8 +168,14 @@ function AdminCulturasContent() {
       Alert.alert("Atenção", "O nome da cultura é obrigatório.");
       return;
     }
+    const terrenoId = parseInt(form.terrenoId, 10);
+    if (!editandoId && (!Number.isFinite(terrenoId) || terrenoId <= 0)) {
+      Alert.alert("Atenção", "Informe o ID do talhão (terrenoId).");
+      return;
+    }
     const payload = {
       propriedadeId: parseInt(form.propriedadeId) || 1,
+      ...(Number.isFinite(terrenoId) && terrenoId > 0 ? { terrenoId } : {}),
       nomeCultura: form.nomeCultura.trim(),
       variedade: form.variedade || null,
       dataPlantio: form.dataPlantio || null,
@@ -182,7 +191,7 @@ function AdminCulturasContent() {
     if (editandoId) {
       updateMutation.mutate({ id: editandoId, ...payload });
     } else {
-      createMutation.mutate(payload);
+      createMutation.mutate({ ...payload, terrenoId });
     }
   }
 
@@ -393,6 +402,7 @@ function AdminCulturasContent() {
               { label: "Produção Estimada", key: "producaoEstimada", placeholder: "Ex: 3600" },
               { label: "Unidade de Produção", key: "unidadeProducao", placeholder: "Ex: ton/ha, sacas/ha" },
               { label: "ID da Propriedade", key: "propriedadeId", placeholder: "Ex: 1" },
+              { label: "ID do Talhão *", key: "terrenoId", placeholder: "Ex: 1" },
               { label: "Observações", key: "observacoes", placeholder: "Informações adicionais..." },
             ].map(({ label, key, placeholder }) => (
               <View key={key}>

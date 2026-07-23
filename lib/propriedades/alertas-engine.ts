@@ -64,6 +64,21 @@ type ReservaLike = {
   tarefaId?: number | null;
 };
 
+type OrcamentoLike = {
+  id: number;
+  nomeSafra: string;
+  orcamentoPrevisto: string | number;
+  custoRealizado: string | number;
+};
+
+type OcorrenciaLike = {
+  id: number;
+  titulo: string;
+  status: string;
+  severidade?: string | null;
+  createdAt?: Date | string | null;
+};
+
 export type AlertasInput = {
   tarefas: TarefaLike[];
   cultivos: CultivoLike[];

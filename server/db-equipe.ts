@@ -34,7 +34,7 @@ export function mapOrgRoleToPapelEquipe(role: string): PapelEquipe {
 export async function listEquipeOrganizacao(organizationId: number) {
   const members = await listMembers(organizationId);
   return members
-    .filter((m) => m.status === "ativo" || m.status === "active")
+    .filter((m) => m.status === "ativo")
     .map((m) => ({
       userId: m.userId,
       membershipId: m.id,
