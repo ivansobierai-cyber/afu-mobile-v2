@@ -67,6 +67,7 @@ describe("tenant-access helpers (Etapa 4)", () => {
     expect(typeof mod.requireTerrenoInTenant).toBe("function");
     expect(typeof mod.requireCulturaInTenant).toBe("function");
     expect(typeof mod.assertRelatedIdsInTenant).toBe("function");
+    expect(typeof mod.requireOrgMemberUserId).toBe("function");
   });
 
   it("trpc exporta organizationProcedure e propertyProcedure", async () => {

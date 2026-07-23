@@ -228,6 +228,37 @@ describe.skipIf(!hasDb)("Etapa 10 — cross-tenant attack suite", () => {
     }
   });
 
+  it("A tenta criar tarefa com responsavelUserId de B → NOT_FOUND", async () => {
+    const msg = await expectTenantDenied(
+      a.caller.coreData.tarefas.create({
+        propriedadeId: a.propriedadeId,
+        terrenoId: a.terrenoId,
+        culturaId: a.cultivoId,
+        tipoOperacao: "monitoramento",
+        titulo: "Responsavel cross-tenant",
+        dataPrevista: new Date().toISOString(),
+        prioridade: "normal",
+        responsavelUserId: b.userId,
+      }),
+    );
+    evidence.push({ case: "A_tarefa_responsavel_B", result: msg });
+  });
+
+  it("A cria tarefa com responsavelUserId próprio (membro ativo) → OK", async () => {
+    const id = await a.caller.coreData.tarefas.create({
+      propriedadeId: a.propriedadeId,
+      terrenoId: a.terrenoId,
+      culturaId: a.cultivoId,
+      tipoOperacao: "monitoramento",
+      titulo: "Responsavel membro ok",
+      dataPrevista: new Date().toISOString(),
+      prioridade: "normal",
+      responsavelUserId: a.userId,
+    });
+    expect(id).toBeGreaterThan(0);
+    evidence.push({ case: "A_tarefa_responsavel_self", result: "PASS" });
+  });
+
   it("IA: A solicita contexto com propriedadeId de B → NOT_FOUND", async () => {
     // Sem chamar LLM real se não houver forge key — a validação de tenant ocorre antes
     const msg = await expectTenantDenied(

@@ -223,6 +223,22 @@ export async function getProdutorIdForTenant(tenant: TenantContext): Promise<num
   return result[0].insertId;
 }
 
+/**
+ * Responsável da tarefa deve ser usuário com membership ativo na org.
+ * Cross-org / inexistente → NOT_FOUND (sem vazar existência).
+ */
+export async function requireOrgMemberUserId(
+  tenant: TenantContext,
+  userId: number,
+) {
+  const m = await getActiveMembership(userId, tenant.organizationId);
+  if (!m) {
+    await auditTenantDenied(tenant, "org_member", userId, "not_active_member");
+    throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+  }
+  return m;
+}
+
 /** Valida relações internas de um create operacional */
 export async function assertRelatedIdsInTenant(
   tenant: TenantContext,
@@ -230,6 +246,7 @@ export async function assertRelatedIdsInTenant(
     propriedadeId?: number;
     terrenoId?: number;
     culturaId?: number;
+    responsavelUserId?: number;
   },
 ) {
   if (refs.propriedadeId != null) {
@@ -240,6 +257,9 @@ export async function assertRelatedIdsInTenant(
   }
   if (refs.culturaId != null) {
     await requireCulturaInTenant(tenant, refs.culturaId, refs.propriedadeId);
+  }
+  if (refs.responsavelUserId != null) {
+    await requireOrgMemberUserId(tenant, refs.responsavelUserId);
   }
 }
 
