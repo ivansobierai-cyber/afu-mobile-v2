@@ -1,15 +1,14 @@
 {
   "suite": "smoke-plano-auxiliar",
-  "at": "2026-07-23T19:48:21.328Z",
+  "at": "2026-07-23T19:45:25.941Z",
   "environment": "railway",
   "api": "https://afu-mobile-v2-production.up.railway.app",
-  "readOnly": true,
   "branch": "cursor/etapa7-estoque-inteligente-fd64",
   "decision": "BLOQUEADO",
-  "durationMs": 956,
+  "durationMs": 1396,
   "timingsMs": {
-    "estoque": 100,
-    "produtividade": 235
+    "estoque": 321,
+    "produtividade": 353
   },
   "passed": 4,
   "total": 6,
@@ -51,7 +50,7 @@
     {
       "id": "produtividade",
       "ok": false,
-      "detail": "No procedure found on path \"coreData.expansao.indicadores\""
+      "detail": "No procedure found on path \"coreData.cultivos.indicadores\""
     }
   ]
 }

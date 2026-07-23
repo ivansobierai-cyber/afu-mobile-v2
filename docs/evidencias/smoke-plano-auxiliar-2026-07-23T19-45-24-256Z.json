@@ -1,14 +1,13 @@
 {
   "suite": "smoke-plano-auxiliar",
-  "at": "2026-07-23T19:48:28.705Z",
+  "at": "2026-07-23T19:45:24.256Z",
   "environment": "local",
   "api": "http://localhost:3000",
-  "readOnly": false,
   "branch": "cursor/etapa7-estoque-inteligente-fd64",
   "decision": "AVANCAR",
-  "durationMs": 182,
+  "durationMs": 199,
   "timingsMs": {
-    "estoque": 34,
+    "estoque": 33,
     "produtividade": 39
   },
   "passed": 8,
@@ -48,14 +47,14 @@
       "ok": true,
       "detail": {
         "valorDisponivel": true,
-        "valorTotalEstoque": 22200
+        "valorTotalEstoque": 18600
       }
     },
     {
       "id": "estoque.valorTotalEstoque",
       "ok": true,
       "detail": {
-        "valorTotalEstoque": 22200
+        "valorTotalEstoque": 18600
       }
     },
     {
@@ -71,7 +70,7 @@
       "ok": true,
       "detail": {
         "fonte": "real",
-        "produtividade": 406.06
+        "produtividade": 323.81
       }
     }
   ]

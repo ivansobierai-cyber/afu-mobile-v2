@@ -4,7 +4,8 @@
  *
  * Uso:
  *   npm run smoke:plano-auxiliar
- *   EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app npm run smoke:plano-auxiliar
+ *   SMOKE_API_URL=https://... npm run smoke:plano-auxiliar
+ *   # remoto é read-only por padrão; force write com SMOKE_WRITE=1
  */
 import "dotenv/config";
 import fs from "fs";
@@ -17,8 +18,18 @@ const API =
   process.env.SMOKE_API_URL ??
   process.env.EXPO_PUBLIC_API_BASE_URL ??
   "http://localhost:3000";
+const IS_LOCAL = /localhost|127\.0\.0\.1/.test(API);
+const READ_ONLY =
+  process.env.SMOKE_READ_ONLY === "1" ||
+  (!IS_LOCAL && process.env.SMOKE_WRITE !== "1");
 const DEMO_EMAIL = "demo@afuagro.com.br";
 const DEMO_PASSWORD = "Demo@1234";
+
+function envLabel(api: string) {
+  if (/railway\.app/.test(api)) return "railway";
+  if (/localhost|127\.0\.0\.1/.test(api)) return "local";
+  return "custom";
+}
 
 function makeClient(token?: string) {
   return createTRPCProxyClient<AppRouter>({
@@ -41,14 +52,15 @@ function writeEvidence(evidence: Record<string, unknown>) {
   fs.mkdirSync(outDir, { recursive: true });
   const at = String(evidence.at ?? new Date().toISOString());
   const stamp = at.replace(/[:.]/g, "-");
-  fs.writeFileSync(
-    path.join(outDir, `smoke-plano-auxiliar-${stamp}.json`),
-    JSON.stringify(evidence, null, 2),
-  );
-  fs.writeFileSync(
-    path.join(outDir, "smoke-plano-auxiliar-latest.json"),
-    JSON.stringify(evidence, null, 2),
-  );
+  const isRailway = evidence.environment === "railway";
+  const latest = isRailway
+    ? "smoke-plano-auxiliar-railway-probe-latest.json"
+    : "smoke-plano-auxiliar-latest.json";
+  const stamped = isRailway
+    ? `smoke-plano-auxiliar-railway-probe-${stamp}.json`
+    : `smoke-plano-auxiliar-${stamp}.json`;
+  fs.writeFileSync(path.join(outDir, stamped), JSON.stringify(evidence, null, 2));
+  fs.writeFileSync(path.join(outDir, latest), JSON.stringify(evidence, null, 2));
 }
 
 async function main() {
@@ -58,6 +70,9 @@ async function main() {
     checks.push({ id, ok, detail });
     console.log(`${ok ? "✓" : "✗"} ${id}`, detail ?? "");
   };
+
+  let estoqueMs = 0;
+  let prodMs = 0;
 
   try {
     const health = await fetch(`${API}/api/health`);
@@ -85,82 +100,130 @@ async function main() {
     const terreno = terrenos[0];
     push("talhao", Boolean(terreno), { id: terreno?.id });
 
-    const t0 = Date.now();
-    let estoqueMs = 0;
+    const tEstoque = Date.now();
     try {
-      const itemId = await client.coreData.expansao.estoque.createItem.mutate({
-        propriedadeId: prop.id,
-        nome: `Smoke CMP ${Date.now()}`,
-        categoria: "fertilizante",
-        unidadeBase: "kg",
-        saldoInicial: 100,
-        custoMedio: 5,
-      });
-      await client.coreData.expansao.estoque.movimento.mutate({
-        itemId,
-        propriedadeId: prop.id,
-        tipo: "entrada",
-        quantidade: 100,
-        custoUnitario: 7,
-        motivo: "Smoke CMP",
-      });
-      const estDash = await client.coreData.expansao.estoque.dashboard.query({
-        propriedadeId: prop.id,
-      });
-      estoqueMs = Date.now() - t0;
-      push("estoque.valorDisponivel", estDash.valorDisponivel === true, {
-        valorDisponivel: estDash.valorDisponivel,
-        valorTotalEstoque: estDash.valorTotalEstoque,
-      });
-      push("estoque.valorTotalEstoque", Number(estDash.valorTotalEstoque) > 0, {
-        valorTotalEstoque: estDash.valorTotalEstoque,
-      });
+      if (READ_ONLY) {
+        const estDash = await client.coreData.expansao.estoque.dashboard.query({
+          propriedadeId: prop.id,
+        });
+        estoqueMs = Date.now() - tEstoque;
+        push("estoque.valorDisponivel", estDash.valorDisponivel === true, {
+          valorDisponivel: estDash.valorDisponivel,
+          valorTotalEstoque: estDash.valorTotalEstoque,
+          readOnly: true,
+        });
+        push(
+          "estoque.valorTotalEstoque",
+          typeof estDash.valorTotalEstoque === "number",
+          { valorTotalEstoque: estDash.valorTotalEstoque, readOnly: true },
+        );
+      } else {
+        const itemId = await client.coreData.expansao.estoque.createItem.mutate({
+          propriedadeId: prop.id,
+          nome: `Smoke CMP ${Date.now()}`,
+          categoria: "fertilizante",
+          unidadeBase: "kg",
+          saldoInicial: 100,
+          custoMedio: 5,
+        });
+        await client.coreData.expansao.estoque.movimento.mutate({
+          itemId,
+          propriedadeId: prop.id,
+          tipo: "entrada",
+          quantidade: 100,
+          custoUnitario: 7,
+          motivo: "Smoke CMP",
+        });
+        const estDash = await client.coreData.expansao.estoque.dashboard.query({
+          propriedadeId: prop.id,
+        });
+        estoqueMs = Date.now() - tEstoque;
+        push("estoque.valorDisponivel", estDash.valorDisponivel === true, {
+          valorDisponivel: estDash.valorDisponivel,
+          valorTotalEstoque: estDash.valorTotalEstoque,
+        });
+        push("estoque.valorTotalEstoque", Number(estDash.valorTotalEstoque) > 0, {
+          valorTotalEstoque: estDash.valorTotalEstoque,
+        });
+      }
     } catch (e) {
-      estoqueMs = Date.now() - t0;
+      estoqueMs = Date.now() - tEstoque;
       push("estoque.dashboard", false, e instanceof Error ? e.message : String(e));
     }
 
-    const t1 = Date.now();
-    let prodMs = 0;
+    const tProd = Date.now();
     if (!terreno) {
       push("produtividade", false, "sem talhão");
+      prodMs = Date.now() - tProd;
     } else {
       try {
-        const cultivoId = await client.coreData.cultivos.create.mutate({
-          propriedadeId: prop.id,
-          terrenoId: terreno.id,
-          nomeCultura: `Smoke Prod ${Date.now()}`,
-          areaPlantada: 20,
-          producaoEstimada: 12000,
-          unidadeProducao: "kg",
-        });
-        await client.coreData.cultivos.update.mutate({
-          id: cultivoId,
-          data: { producaoReal: 11000, status: "colhido" },
-        });
-        const indCultivo = await client.coreData.cultivos.indicadores.query({
-          id: cultivoId,
-        });
-        push(
-          "cultivo.produtividade",
-          indCultivo.produtividadeFonte === "real" &&
-            indCultivo.produtividade === 550,
-          {
-            fonte: indCultivo.produtividadeFonte,
-            produtividade: indCultivo.produtividade,
-          },
-        );
-        const ind = await client.coreData.expansao.indicadores.query({
-          propriedadeId: prop.id,
-        });
-        push("propriedade.produtividadeFonte", ind.produtividadeFonte === "real", {
-          fonte: ind.produtividadeFonte,
-          produtividade: ind.produtividade,
-        });
+        if (READ_ONLY) {
+          const cults = await client.coreData.cultivos.listByPropriedade.query({
+            propriedadeId: prop.id,
+          });
+          const ind = await client.coreData.expansao.indicadores.query({
+            propriedadeId: prop.id,
+          });
+          push("propriedade.indicadores.endpoint", ind != null, {
+            fonte: (ind as { produtividadeFonte?: string | null }).produtividadeFonte ?? null,
+            produtividade: ind.produtividade,
+            readOnly: true,
+          });
+          const any = cults[0];
+          if (any) {
+            const indCultivo = await client.coreData.cultivos.indicadores.query({
+              id: any.id,
+            });
+            push("cultivo.indicadores.endpoint", indCultivo != null, {
+              fonte:
+                (indCultivo as { produtividadeFonte?: string | null }).produtividadeFonte ??
+                null,
+              produtividade: indCultivo.produtividade,
+              readOnly: true,
+            });
+          } else {
+            push("cultivo.indicadores.endpoint", false, {
+              readOnly: true,
+              reason: "nenhum cultivo",
+            });
+          }
+        } else {
+          const cultivoId = await client.coreData.cultivos.create.mutate({
+            propriedadeId: prop.id,
+            terrenoId: terreno.id,
+            nomeCultura: `Smoke Prod ${Date.now()}`,
+            areaPlantada: 20,
+            producaoEstimada: 12000,
+            unidadeProducao: "kg",
+          });
+          await client.coreData.cultivos.update.mutate({
+            id: cultivoId,
+            data: { producaoReal: 11000, status: "colhido" },
+          });
+          const indCultivo = await client.coreData.cultivos.indicadores.query({
+            id: cultivoId,
+          });
+          push(
+            "cultivo.produtividade",
+            indCultivo.produtividadeFonte === "real" &&
+              indCultivo.produtividade === 550,
+            {
+              fonte: indCultivo.produtividadeFonte,
+              produtividade: indCultivo.produtividade,
+            },
+          );
+          const ind = await client.coreData.expansao.indicadores.query({
+            propriedadeId: prop.id,
+          });
+          push("propriedade.produtividadeFonte", ind.produtividadeFonte === "real", {
+            fonte: ind.produtividadeFonte,
+            produtividade: ind.produtividade,
+          });
+        }
       } catch (e) {
         push("produtividade", false, e instanceof Error ? e.message : String(e));
       }
-      prodMs = Date.now() - t1;
+      prodMs = Date.now() - tProd;
     }
 
     const passed = checks.filter((c) => c.ok).length;
@@ -168,8 +231,9 @@ async function main() {
     const evidence = {
       suite: "smoke-plano-auxiliar",
       at: new Date().toISOString(),
-      environment: API.includes("railway") ? "railway" : API.includes("localhost") ? "local" : "custom",
+      environment: envLabel(API),
       api: API,
+      readOnly: READ_ONLY,
       branch: "cursor/etapa7-estoque-inteligente-fd64",
       decision: failed.length === 0 ? "AVANCAR" : "BLOQUEADO",
       durationMs: Date.now() - started,
@@ -182,7 +246,13 @@ async function main() {
     console.log(
       "\n" +
         JSON.stringify(
-          { decision: evidence.decision, passed, total: checks.length, api: API },
+          {
+            decision: evidence.decision,
+            passed,
+            total: checks.length,
+            api: API,
+            readOnly: READ_ONLY,
+          },
           null,
           2,
         ),
@@ -190,12 +260,13 @@ async function main() {
     if (failed.length) process.exit(1);
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    push("fatal", false, msg);
+    if (!checks.some((c) => c.id === "fatal")) push("fatal", false, msg);
     const evidence = {
       suite: "smoke-plano-auxiliar",
       at: new Date().toISOString(),
-      environment: API.includes("railway") ? "railway" : "custom",
+      environment: envLabel(API),
       api: API,
+      readOnly: READ_ONLY,
       branch: "cursor/etapa7-estoque-inteligente-fd64",
       decision: "BLOQUEADO",
       durationMs: Date.now() - started,
