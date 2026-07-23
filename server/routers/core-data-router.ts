@@ -547,6 +547,17 @@ const cultivosRouter = router({
       return buildCultivoDashboard(tenant.organizationId, cultura);
     }),
 
+  /** Timeline unificada (Cultivos V2 Etapa 4) */
+  timeline: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { buildCultivoTimeline } = await import("../db-cultivo-timeline");
+      return buildCultivoTimeline(tenant.organizationId, cultura);
+    }),
+
   delete: orgPermissionProcedure("property.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

@@ -15,6 +15,7 @@ import { CultivoHeader } from "@/components/cultivos/cultivo-header";
 import { CultivoVisaoGeral } from "@/components/cultivos/cultivo-visao-geral";
 import { CultivoTabPlaceholder } from "@/components/cultivos/cultivo-tab-placeholder";
 import { CultivoDashboardCards } from "@/components/cultivos/cultivo-dashboard";
+import { TimelineCultivo } from "@/components/cultivos/timeline-cultivo";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import {
@@ -85,6 +86,16 @@ export default function CultivoDetailScreen() {
   const { data: dashboard } = trpc.coreData.cultivos.dashboard.useQuery(
     { id: cultivoId },
     { enabled: tenantReady && Number.isFinite(cultivoId) && cultivoId > 0 },
+  );
+  const { data: timeline = [] } = trpc.coreData.cultivos.timeline.useQuery(
+    { id: cultivoId },
+    {
+      enabled:
+        tenantReady &&
+        Number.isFinite(cultivoId) &&
+        cultivoId > 0 &&
+        (tab === "historico" || tab === "visao"),
+    },
   );
 
   const advanceFase = async () => {
@@ -246,12 +257,7 @@ export default function CultivoDetailScreen() {
             message="KPIs e lançamentos financeiros do cultivo (Etapa 9)."
           />
         )}
-        {tab === "historico" && (
-          <CultivoTabPlaceholder
-            title="Histórico / Timeline"
-            message="Linha do tempo unificada de eventos do cultivo (Etapa 4)."
-          />
-        )}
+        {tab === "historico" && <TimelineCultivo events={timeline} />}
         {tab === "arquivos" && (
           <CultivoTabPlaceholder
             title="Arquivos"
