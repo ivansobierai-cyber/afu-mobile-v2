@@ -477,8 +477,13 @@ export const propriedadeExpansaoRouter = router({
               "ferramenta",
               "outro",
             ])
-            .optional(),
-          unidadeBase: z.string().min(1).max(30).optional(),
+            .default("outro"),
+          unidadeBase: z
+            .string()
+            .trim()
+            .min(1, "Unidade padrão é obrigatória")
+            .max(30)
+            .default("kg"),
           saldoInicial: z.number().min(0).optional(),
           estoqueMinimo: z.number().min(0).optional(),
           fabricante: z.string().max(120).optional(),
@@ -489,13 +494,20 @@ export const propriedadeExpansaoRouter = router({
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
         await requirePropertyInTenant(tenant, input.propriedadeId);
+        const unidadeBase = input.unidadeBase.trim();
+        if (!unidadeBase) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unidade padrão é obrigatória",
+          });
+        }
         const id = await createEstoqueItem({
           propriedadeId: input.propriedadeId,
           organizationId: tenant.organizationId,
           depositoId: input.depositoId,
-          nome: input.nome,
-          categoria: input.categoria ?? "outro",
-          unidadeBase: input.unidadeBase?.trim() || "kg",
+          nome: input.nome.trim(),
+          categoria: input.categoria,
+          unidadeBase,
           saldo: "0",
           estoqueMinimo: (input.estoqueMinimo ?? 0).toFixed(3),
           fabricante: input.fabricante?.trim() || undefined,

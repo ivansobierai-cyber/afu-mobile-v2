@@ -579,12 +579,68 @@ export function PropriedadeMonitoramentoPanel({
 
 type EstoqueProps = { propriedadeId: number };
 
+const ESTOQUE_CATEGORIAS = [
+  "fertilizante",
+  "defensivo",
+  "herbicida",
+  "fungicida",
+  "inseticida",
+  "semente",
+  "combustivel",
+  "peca",
+  "ferramenta",
+  "outro",
+] as const;
+
+const ESTOQUE_CATEGORIA_LABEL: Record<(typeof ESTOQUE_CATEGORIAS)[number], string> = {
+  fertilizante: "Fertilizante",
+  defensivo: "Defensivo",
+  herbicida: "Herbicida",
+  fungicida: "Fungicida",
+  inseticida: "Inseticida",
+  semente: "Semente",
+  combustivel: "Combustível",
+  peca: "Peça",
+  ferramenta: "Ferramenta",
+  outro: "Diversos",
+};
+
+const ESTOQUE_UNIDADES = ["kg", "L", "un", "sc", "t", "mL", "g"] as const;
+
 export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const [nome, setNome] = useState("");
+  const [categoria, setCategoria] = useState<(typeof ESTOQUE_CATEGORIAS)[number]>("fertilizante");
+  const [unidadeBase, setUnidadeBase] = useState<(typeof ESTOQUE_UNIDADES)[number]>("kg");
   const [saldo, setSaldo] = useState("0");
   const [minimo, setMinimo] = useState("0");
+  const [fabricante, setFabricante] = useState("");
+  const [observacoes, setObservacoes] = useState("");
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        input: {
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: 10,
+          padding: 10,
+          marginBottom: 8,
+          color: colors.foreground,
+          minHeight: 44,
+        },
+        chip: {
+          borderWidth: 1,
+          borderRadius: 999,
+          paddingHorizontal: 10,
+          paddingVertical: 6,
+          marginRight: 6,
+          marginBottom: 6,
+        },
+      }),
+    [colors.border, colors.foreground],
+  );
 
   const { data: itens = [], isLoading, isError, refetch } =
     trpc.coreData.expansao.estoque.list.useQuery({ propriedadeId });
@@ -620,81 +676,128 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
           Novo item de estoque agrícola
         </Text>
         <TextInput
-          style={{
-            borderWidth: 1,
-            borderColor: colors.border,
-            borderRadius: 10,
-            padding: 10,
-            marginBottom: 8,
-            color: colors.foreground,
-            minHeight: 44,
-          }}
-          placeholder="Nome (ex.: Ureia)"
+          style={styles.input}
+          placeholder="Nome (ex.: Ureia 45%)"
           placeholderTextColor={colors.muted}
           value={nome}
           onChangeText={setNome}
+          accessibilityLabel="Nome do insumo"
         />
+        <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Categoria</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 4 }}>
+          {ESTOQUE_CATEGORIAS.map((c) => (
+            <TouchableOpacity
+              key={c}
+              style={[
+                styles.chip,
+                {
+                  borderColor: categoria === c ? colors.primary : colors.border,
+                  backgroundColor: categoria === c ? colors.primary + "18" : "transparent",
+                },
+              ]}
+              onPress={() => setCategoria(c)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: categoria === c }}
+            >
+              <Text style={{ fontSize: 12, color: colors.foreground }}>{ESTOQUE_CATEGORIA_LABEL[c]}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>Unidade padrão</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 4 }}>
+          {ESTOQUE_UNIDADES.map((u) => (
+            <TouchableOpacity
+              key={u}
+              style={[
+                styles.chip,
+                {
+                  borderColor: unidadeBase === u ? colors.primary : colors.border,
+                  backgroundColor: unidadeBase === u ? colors.primary + "18" : "transparent",
+                },
+              ]}
+              onPress={() => setUnidadeBase(u)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: unidadeBase === u }}
+            >
+              <Text style={{ fontSize: 12, color: colors.foreground }}>{u}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
         <View style={{ flexDirection: "row", gap: 8 }}>
           <TextInput
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 10,
-              padding: 10,
-              color: colors.foreground,
-              minHeight: 44,
-            }}
+            style={[styles.input, { flex: 1 }]}
             placeholder="Saldo inicial"
             placeholderTextColor={colors.muted}
             keyboardType="decimal-pad"
             value={saldo}
             onChangeText={setSaldo}
+            accessibilityLabel="Saldo inicial"
           />
           <TextInput
-            style={{
-              flex: 1,
-              borderWidth: 1,
-              borderColor: colors.border,
-              borderRadius: 10,
-              padding: 10,
-              color: colors.foreground,
-              minHeight: 44,
-            }}
-            placeholder="Mínimo"
+            style={[styles.input, { flex: 1 }]}
+            placeholder="Estoque mínimo"
             placeholderTextColor={colors.muted}
             keyboardType="decimal-pad"
             value={minimo}
             onChangeText={setMinimo}
+            accessibilityLabel="Estoque mínimo"
           />
         </View>
+        <TextInput
+          style={styles.input}
+          placeholder="Fabricante (opcional)"
+          placeholderTextColor={colors.muted}
+          value={fabricante}
+          onChangeText={setFabricante}
+          accessibilityLabel="Fabricante"
+        />
+        <TextInput
+          style={[styles.input, { minHeight: 64 }]}
+          placeholder="Observações (opcional)"
+          placeholderTextColor={colors.muted}
+          value={observacoes}
+          onChangeText={setObservacoes}
+          multiline
+          accessibilityLabel="Observações do insumo"
+        />
         <TouchableOpacity
           style={{
-            marginTop: 10,
+            marginTop: 2,
             minHeight: 44,
             borderRadius: 12,
             backgroundColor: colors.primary,
             alignItems: "center",
             justifyContent: "center",
+            opacity: createItem.isPending ? 0.7 : 1,
           }}
+          disabled={createItem.isPending}
           onPress={() => {
             if (!nome.trim()) return Alert.alert("Informe o nome");
+            if (!unidadeBase.trim()) return Alert.alert("Informe a unidade padrão");
             void createItem
               .mutateAsync({
                 propriedadeId,
                 nome: nome.trim(),
+                categoria,
+                unidadeBase,
                 saldoInicial: Number(saldo) || 0,
                 estoqueMinimo: Number(minimo) || 0,
-                categoria: "fertilizante",
+                fabricante: fabricante.trim() || undefined,
+                observacoes: observacoes.trim() || undefined,
               })
               .then(() => {
                 setNome("");
                 setSaldo("0");
+                setMinimo("0");
+                setFabricante("");
+                setObservacoes("");
               })
               .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"));
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700" }}>Adicionar item</Text>
+          <Text style={{ color: "#fff", fontWeight: "700" }}>
+            {createItem.isPending ? "Salvando…" : "Adicionar item"}
+          </Text>
         </TouchableOpacity>
       </View>
 
@@ -723,10 +826,20 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
               <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
                 {item.nome}
               </Text>
+              <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+                {ESTOQUE_CATEGORIA_LABEL[item.categoria as keyof typeof ESTOQUE_CATEGORIA_LABEL] ??
+                  item.categoria}
+                {item.fabricante ? ` · ${item.fabricante}` : ""}
+              </Text>
               <Text style={{ fontSize: 13, color: baixo ? "#EF6C00" : colors.muted, marginTop: 2 }}>
                 Saldo {item.saldo} {item.unidadeBase}
                 {baixo ? " · abaixo do mínimo" : ""}
               </Text>
+              {item.observacoes ? (
+                <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }} numberOfLines={2}>
+                  {item.observacoes}
+                </Text>
+              ) : null}
               <View style={{ flexDirection: "row", gap: 8, marginTop: 10 }}>
                 <TouchableOpacity
                   onPress={() =>
