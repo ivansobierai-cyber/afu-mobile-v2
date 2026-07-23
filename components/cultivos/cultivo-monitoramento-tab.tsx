@@ -160,6 +160,3 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
 });
-
-// silence unused Linking if tree-shaken oddly
-void Linking;

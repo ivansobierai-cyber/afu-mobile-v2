@@ -102,14 +102,16 @@ export default function CultivoDetailScreen() {
     },
   );
 
-  const { data: terrenosAll = [] } = trpc.coreData.terrenos.list.useQuery(cacheInput, {
-    enabled: tenantReady && (tab === "monitoramento" || tab === "mapa"),
-  });
-  const terrenosDaProp = cultivo
-    ? terrenosAll
-        .filter((t) => t.propriedadeId === cultivo.propriedadeId)
-        .map((t) => ({ id: t.id, nome: t.nome }))
-    : [];
+  const { data: terrenosDaPropRaw = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: cultivo?.propriedadeId ?? 0 },
+    {
+      enabled:
+        tenantReady &&
+        !!cultivo?.propriedadeId &&
+        (tab === "monitoramento" || tab === "mapa"),
+    },
+  );
+  const terrenosDaProp = terrenosDaPropRaw.map((t) => ({ id: t.id, nome: t.nome }));
 
   const advanceFase = async () => {
     if (!cultivo) return;
