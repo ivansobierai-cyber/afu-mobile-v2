@@ -61,6 +61,7 @@ describe("tenant-access helpers (Etapa 4)", () => {
   it("surface de helpers tenant-aware está exportada", async () => {
     const mod = await import("../server/tenant-access");
     expect(typeof mod.requirePropertyInTenant).toBe("function");
+    expect(typeof mod.requireWritablePropertyInTenant).toBe("function");
     expect(typeof mod.requireRelatorioInTenant).toBe("function");
     expect(typeof mod.requireAnaliseInTenant).toBe("function");
     expect(typeof mod.requireTarefaInTenant).toBe("function");
@@ -68,6 +69,7 @@ describe("tenant-access helpers (Etapa 4)", () => {
     expect(typeof mod.requireCulturaInTenant).toBe("function");
     expect(typeof mod.assertRelatedIdsInTenant).toBe("function");
     expect(typeof mod.requireOrgMemberUserId).toBe("function");
+    expect(mod.PROPERTY_ARCHIVED).toBe("PROPERTY_ARCHIVED");
   });
 
   it("trpc exporta organizationProcedure e propertyProcedure", async () => {
