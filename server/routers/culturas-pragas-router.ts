@@ -43,7 +43,7 @@ const culturaFiltrosSchema = z.object({
 
 const culturaCreateSchema = z.object({
   propriedadeId: z.number().int().min(1),
-  terrenoId: z.number().int().optional().nullable(),
+  terrenoId: z.number().int().min(1),
   nomeCultura: z.string().min(1).max(100),
   variedade: z.string().max(100).optional().nullable(),
   dataPlantio: z.string().optional().nullable(),
@@ -112,7 +112,12 @@ const culturasRouter = router({
 
   create: adminProcedure
     .input(culturaCreateSchema)
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await assertRelatedIdsInTenant(tenant, {
+        propriedadeId: input.propriedadeId,
+        terrenoId: input.terrenoId,
+      });
       return adminCreateCultura(input);
     }),
 

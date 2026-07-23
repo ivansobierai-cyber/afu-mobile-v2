@@ -20,6 +20,7 @@ admin existentes.
 | 8 Operações | OK | painel com `culturaId` fixo |
 | 9 Indicadores | OK | `coreData.cultivos.indicadores` |
 | 10 Homologação | OK | E2E `tests/cultivos-v2-workspace.test.ts` |
+| Finalização | OK | Aba Arquivos + `safraId`/`terrenoId` NOT NULL (0030) |
 
 ## APIs novas (tRPC)
 
@@ -31,12 +32,14 @@ admin existentes.
 - `coreData.cultivos.mapa`
 - `coreData.cultivos.iaResumo`
 - `coreData.cultivos.indicadores`
+- `coreData.cultivos.arquivos`
 
 ## Migração
 
 ```bash
 npm run db:cultivo-fase:apply
 npm run db:cultivos:backfill
+npm run db:cultivos-not-null:apply
 ```
 
 ## Testes
@@ -49,14 +52,17 @@ npx vitest run tests/cultivos-dominio-v2.test.ts \
   tests/cultivos-monitoramento-v2.test.ts \
   tests/cultivos-mapa-v2.test.ts \
   tests/cultivos-ia-ops-indicadores-v2.test.ts \
-  tests/cultivos-v2-workspace.test.ts
+  tests/cultivos-v2-workspace.test.ts \
+  tests/cultivos-arquivos-finalizacao.test.ts
 ```
 
 ## Checklist de aceite
 
 - [x] Workspace com abas sem perda do detalhe fenológico anterior
 - [x] Nenhum cultivo novo sem talhão (API)
+- [x] `safraId`/`terrenoId` NOT NULL no banco (após backfill)
 - [x] Histórico de fases preservado
+- [x] Aba Arquivos com fotos de diagnósticos
 - [x] Fluxo integrado dashboard → timeline → ops → indicadores
 - [x] Isolamento multitenant nas procedures novas
 - [x] Código legado (admin culturasPragas, estoque, financeiro) intacto

@@ -248,9 +248,9 @@ export const culturas = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(), // FK → propriedades.id
   organizationId: int("organizationId"),
-  /** Ciclo produtivo — nullable até backfill (correção Etapa 2) */
-  safraId: int("safraId"),
-  terrenoId: int("terrenoId"), // FK → terrenos.id (opcional)
+  /** Ciclo produtivo — obrigatório após backfill + migração 0030 */
+  safraId: int("safraId").notNull(),
+  terrenoId: int("terrenoId").notNull(), // FK → terrenos.id
   nomeCultura: varchar("nomeCultura", { length: 100 }).notNull(),
   variedade: varchar("variedade", { length: 100 }),
   dataPlantio: date("dataPlantio"),

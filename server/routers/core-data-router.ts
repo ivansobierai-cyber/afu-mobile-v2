@@ -640,6 +640,17 @@ const cultivosRouter = router({
       });
     }),
 
+  /** Arquivos/fotos do cultivo (finalização V2) */
+  arquivos: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { buildCultivoArquivos } = await import("../db-cultivo-arquivos");
+      return buildCultivoArquivos(tenant.organizationId, cultura);
+    }),
+
   delete: orgPermissionProcedure("property.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

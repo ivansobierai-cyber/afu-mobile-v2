@@ -13,7 +13,6 @@ import { ScreenState } from "@/components/screen-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { CultivoHeader } from "@/components/cultivos/cultivo-header";
 import { CultivoVisaoGeral } from "@/components/cultivos/cultivo-visao-geral";
-import { CultivoTabPlaceholder } from "@/components/cultivos/cultivo-tab-placeholder";
 import { CultivoDashboardCards } from "@/components/cultivos/cultivo-dashboard";
 import { TimelineCultivo } from "@/components/cultivos/timeline-cultivo";
 import {
@@ -21,6 +20,7 @@ import {
   CultivoMonitoramentoTab,
 } from "@/components/cultivos/cultivo-monitoramento-tab";
 import { CultivoMapaTab } from "@/components/cultivos/cultivo-mapa-tab";
+import { CultivoArquivosTab } from "@/components/cultivos/cultivo-arquivos-tab";
 import {
   CultivoCustosTab,
   CultivoIaTab,
@@ -284,9 +284,10 @@ export default function CultivoDetailScreen() {
         {tab === "custos" && <CultivoCustosTab culturaId={cultivo.id} />}
         {tab === "historico" && <TimelineCultivo events={timeline} />}
         {tab === "arquivos" && (
-          <CultivoTabPlaceholder
-            title="Arquivos"
-            message="Fotos e documentos vinculados ao cultivo aparecerão aqui."
+          <CultivoArquivosTab
+            culturaId={cultivo.id}
+            propriedadeId={cultivo.propriedadeId}
+            nomeCultura={cultivo.nomeCultura}
           />
         )}
       </ScrollView>

@@ -74,7 +74,7 @@ export async function getCulturaById(id: number) {
 
 export type CulturaCreateInput = {
   propriedadeId: number;
-  terrenoId?: number | null;
+  terrenoId: number;
   nomeCultura: string;
   variedade?: string | null;
   dataPlantio?: string | null;
@@ -90,9 +90,23 @@ export type CulturaCreateInput = {
 export async function adminCreateCultura(data: CulturaCreateInput) {
   const db = await getDb();
   if (!db) throw new Error("DB não disponível");
+  if (!data.terrenoId) throw new Error("Talhão (terrenoId) é obrigatório");
+
+  const { getPropriedadeById } = await import("./db");
+  const { ensureDefaultSafra } = await import("./db-safras");
+  const propriedade = await getPropriedadeById(data.propriedadeId);
+  if (!propriedade?.organizationId) throw new Error("Propriedade sem organizationId");
+
+  const safra = await ensureDefaultSafra({
+    organizationId: propriedade.organizationId,
+    propriedadeId: data.propriedadeId,
+  });
+
   const result = await db.insert(culturas).values({
     propriedadeId: data.propriedadeId,
-    terrenoId: data.terrenoId ?? null,
+    organizationId: propriedade.organizationId,
+    safraId: safra.id,
+    terrenoId: data.terrenoId,
     nomeCultura: data.nomeCultura,
     variedade: data.variedade ?? null,
     dataPlantio: data.dataPlantio ? new Date(data.dataPlantio) : null,
@@ -104,7 +118,7 @@ export async function adminCreateCultura(data: CulturaCreateInput) {
     status: data.status ?? "em_andamento",
     observacoes: data.observacoes ?? null,
   } as InsertCultura);
-  return { id: Number((result as any).insertId) };
+  return { id: Number((result as any).insertId ?? (result as any)[0]?.insertId) };
 }
 
 export async function adminUpdateCultura(id: number, data: Partial<CulturaCreateInput>) {

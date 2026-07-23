@@ -88,6 +88,7 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
       propriedadeId: a.propriedadeId,
       organizationId: a.organizationId,
       safraId: histId,
+      terrenoId: a.terrenoId,
       nomeCultura: "Milho histórico",
       status: "colhido",
     });

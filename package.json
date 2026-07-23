@@ -54,6 +54,7 @@
     "db:equipe:apply": "tsx scripts/apply-0028-tarefa-alocacoes.ts",
     "db:cultivo-fase:apply": "tsx scripts/apply-0029-cultivo-fase-eventos.ts",
     "db:cultivos:backfill": "tsx scripts/backfill-cultivos-safra-talhao.ts",
+    "db:cultivos-not-null:apply": "tsx scripts/apply-0030-cultivos-safra-talhao-not-null.ts",
     "db:sync-ai:apply": "tsx scripts/apply-0018-0019-sync-ai.ts",
     "backfill:organizations": "tsx scripts/backfill-organizations.ts",
     "backfill:organization-id": "tsx scripts/backfill-organization-id.ts",
