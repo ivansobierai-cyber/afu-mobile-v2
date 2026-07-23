@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { ScreenState } from "@/components/screen-state";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
+import { openLaudoHtml } from "@/lib/laudo-html";
+import { buildResultadoCultivoConteudo } from "@/lib/cultivos/resultado-cultivo-report";
 import { trpc } from "@/lib/trpc";
 
 type IaProps = { culturaId: number };
@@ -13,12 +16,17 @@ export function CultivoIaTab({ culturaId }: IaProps) {
     id: culturaId,
   });
 
-  if (isLoading) return <Text style={{ color: colors.muted }}>Calculando resumo…</Text>;
+  if (isLoading) {
+    return <ScreenState status="loading" compact message="Calculando resumo de IA…" />;
+  }
   if (isError || !data) {
     return (
-      <Text style={{ color: colors.muted }} onPress={() => void refetch()}>
-        Falha ao carregar IA. Toque para tentar de novo.
-      </Text>
+      <ScreenState
+        status="error"
+        compact
+        message="Falha ao carregar IA."
+        onAction={() => void refetch()}
+      />
     );
   }
 
@@ -134,13 +142,19 @@ export function CultivoCustosTab({ culturaId }: CustosProps) {
       setProducaoReal("");
     },
   });
+  const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
-  if (isLoading) return <Text style={{ color: colors.muted }}>Carregando indicadores…</Text>;
+  if (isLoading) {
+    return <ScreenState status="loading" compact message="Carregando indicadores…" />;
+  }
   if (isError || !data) {
     return (
-      <Text style={{ color: colors.muted }} onPress={() => void refetch()}>
-        Falha ao carregar indicadores. Toque para tentar de novo.
-      </Text>
+      <ScreenState
+        status="error"
+        compact
+        message="Falha ao carregar indicadores."
+        onAction={() => void refetch()}
+      />
     );
   }
 
@@ -174,6 +188,27 @@ export function CultivoCustosTab({ culturaId }: CustosProps) {
     },
   ];
 
+  const gerarRelatorio = async () => {
+    try {
+      const conteudo = buildResultadoCultivoConteudo({
+        indicadores: data,
+        dashboard: dash,
+      });
+      const result = await pdfMutation.mutateAsync({
+        tipo: "resultado_cultivo",
+        titulo: `Resultado — ${dash?.cultivo.nomeCultura ?? `Cultivo #${culturaId}`}`,
+        propriedadeId: dash?.cultivo.propriedadeId,
+        culturaNome: dash?.cultivo.nomeCultura ?? undefined,
+        conteudo: JSON.stringify(conteudo),
+        dataEmissao: new Date().toISOString().slice(0, 10),
+        persist: true,
+      });
+      await openLaudoHtml(result.html, result.titulo);
+    } catch (e: any) {
+      Alert.alert("Erro", e?.message ?? "Falha ao gerar relatório");
+    }
+  };
+
   return (
     <View>
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
@@ -198,6 +233,26 @@ export function CultivoCustosTab({ culturaId }: CustosProps) {
             <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>{r.value}</Text>
           </View>
         ))}
+        <TouchableOpacity
+          disabled={pdfMutation.isPending}
+          onPress={() => void gerarRelatorio()}
+          accessibilityRole="button"
+          accessibilityLabel="Gerar relatório PDF do resultado do cultivo"
+          style={{
+            marginTop: 14,
+            minHeight: 44,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.primary,
+            alignItems: "center",
+            justifyContent: "center",
+            opacity: pdfMutation.isPending ? 0.7 : 1,
+          }}
+        >
+          <Text style={{ color: colors.primary, fontWeight: "700" }}>
+            {pdfMutation.isPending ? "Gerando…" : "Gerar relatório PDF"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>

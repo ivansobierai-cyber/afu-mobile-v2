@@ -21,6 +21,8 @@ admin existentes.
 | 9 Indicadores | OK | `coreData.cultivos.indicadores` |
 | 10 Homologação | OK | E2E `tests/cultivos-v2-workspace.test.ts` |
 | Finalização | OK | Aba Arquivos + `safraId`/`terrenoId` NOT NULL (0030) |
+| UX premium (slice) | OK | `ScreenState` nas abas + loading do histórico |
+| Relatório PDF resultado | OK | `analise.gerarPDF` tipo `resultado_cultivo` na aba Custos |
 
 ## APIs novas (tRPC)
 
@@ -42,19 +44,17 @@ npm run db:cultivos:backfill
 npm run db:cultivos-not-null:apply
 ```
 
-## Testes
+## Relatório PDF — resultado do cultivo
 
-```bash
-npx vitest run tests/cultivos-dominio-v2.test.ts \
-  tests/cultivo-workspace.test.ts \
-  tests/cultivos-dashboard-v2.test.ts \
-  tests/cultivos-timeline-v2.test.ts \
-  tests/cultivos-monitoramento-v2.test.ts \
-  tests/cultivos-mapa-v2.test.ts \
-  tests/cultivos-ia-ops-indicadores-v2.test.ts \
-  tests/cultivos-v2-workspace.test.ts \
-  tests/cultivos-arquivos-finalizacao.test.ts
-```
+Na aba **Custos**:
+
+1. Carrega indicadores + dashboard
+2. CTA **Gerar relatório PDF**
+3. `analise.gerarPDF` com `tipo: "resultado_cultivo"`
+4. `openLaudoHtml` (print no web / WebBrowser no nativo)
+
+Payload: `lib/cultivos/resultado-cultivo-report.ts`  
+Testes: `tests/resultado-cultivo-report.test.ts`
 
 ## Checklist de aceite
 
@@ -66,3 +66,5 @@ npx vitest run tests/cultivos-dominio-v2.test.ts \
 - [x] Fluxo integrado dashboard → timeline → ops → indicadores
 - [x] Isolamento multitenant nas procedures novas
 - [x] Código legado (admin culturasPragas, estoque, financeiro) intacto
+- [x] Loading das abas via `ScreenState` (compact)
+- [x] Relatório PDF `resultado_cultivo` na aba Custos

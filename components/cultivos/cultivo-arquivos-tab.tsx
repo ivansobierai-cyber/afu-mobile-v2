@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native"
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { IconSymbol } from "@/components/ui/icon-symbol";
+import { ScreenState } from "@/components/screen-state";
 import { trpc } from "@/lib/trpc";
 
 type Props = {
@@ -19,13 +20,16 @@ export function CultivoArquivosTab({ culturaId, propriedadeId, nomeCultura }: Pr
   });
 
   if (isLoading) {
-    return <Text style={{ color: colors.muted }}>Carregando arquivos…</Text>;
+    return <ScreenState status="loading" compact message="Carregando arquivos…" />;
   }
   if (isError) {
     return (
-      <Text style={{ color: colors.muted }} onPress={() => void refetch()}>
-        Falha ao carregar. Toque para tentar de novo.
-      </Text>
+      <ScreenState
+        status="error"
+        compact
+        message="Falha ao carregar arquivos."
+        onAction={() => void refetch()}
+      />
     );
   }
 

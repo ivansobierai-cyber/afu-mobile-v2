@@ -8,7 +8,8 @@ export type ReportTipo =
   | "analise_fitotecnica"
   | "historico_propriedade"
   | "recomendacao"
-  | "certificado";
+  | "certificado"
+  | "resultado_cultivo";
 
 export type ReportHtmlInput = {
   tipo: ReportTipo;
@@ -39,6 +40,7 @@ export function buildReportHtml(input: ReportHtmlInput): string {
     historico_propriedade: "Histórico da Propriedade",
     recomendacao: "Relatório de Recomendações Agrícolas",
     certificado: "Certificado de Qualidade",
+    resultado_cultivo: "Relatório de Resultado do Cultivo",
   };
 
   const orgNote = input.organizationLabel
@@ -83,6 +85,19 @@ export function buildReportHtml(input: ReportHtmlInput): string {
     <div class="meta-item"><label>Data de Emissão</label><value>${escapeHtml(dataEmissao)}</value></div>
     ${responsavel ? `<div class="meta-item"><label>Responsável Técnico</label><value>${escapeHtml(responsavel)}</value></div>` : ""}
   </div>
+
+  ${Array.isArray(dadosConteudo.indicadores) && (dadosConteudo.indicadores as Array<{ label?: string; value?: string }>).length > 0 ? `
+  <div class="section">
+    <h2>Indicadores</h2>
+    <div class="meta-grid">
+      ${(dadosConteudo.indicadores as Array<{ label?: string; value?: string }>)
+        .map(
+          (row) =>
+            `<div class="meta-item"><label>${escapeHtml(String(row.label ?? ""))}</label><value>${escapeHtml(String(row.value ?? "—"))}</value></div>`,
+        )
+        .join("")}
+    </div>
+  </div>` : ""}
 
   ${dadosConteudo.interpretacao ? `
   <div class="section">

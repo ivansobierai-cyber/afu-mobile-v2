@@ -374,6 +374,7 @@ const analiseRouter = router({
           "historico_propriedade",
           "recomendacao",
           "certificado",
+          "resultado_cultivo",
         ]),
         titulo: z.string(),
         propriedadeNome: z.string().optional(),
@@ -447,6 +448,8 @@ const analiseRouter = router({
             historico_propriedade: "historico",
             recomendacao: "recomendacao",
             certificado: "certificado",
+            /** Sem enum DB novo: persiste como histórico operacional */
+            resultado_cultivo: "historico",
           } as const;
 
           relatorioId = await createRelatorio({
