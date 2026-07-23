@@ -68,10 +68,11 @@ const terrenoInput = z.object({
   observacoes: z.string().optional(),
 });
 
+/** Cultivos V2: talhão obrigatório no create; safra auto via ensureDefault se omitida. */
 const cultivoInput = z.object({
   propriedadeId: z.number().int().positive(),
   safraId: z.number().int().positive().optional(),
-  terrenoId: z.number().int().positive().optional(),
+  terrenoId: z.number().int().positive(),
   nomeCultura: z.string().min(1).max(100),
   variedade: z.string().max(100).optional(),
   dataPlantio: z.string().optional(),
@@ -82,6 +83,11 @@ const cultivoInput = z.object({
   unidadeProducao: z.string().max(30).optional(),
   status: z.enum(["planejado", "em_andamento", "colhido", "perdido"]).optional(),
   observacoes: z.string().optional(),
+});
+
+const cultivoUpdateInput = cultivoInput.partial().extend({
+  /** Não permitir remover talhão (null); omitir = manter. */
+  terrenoId: z.number().int().positive().optional(),
 });
 
 const eventoInput = z.object({
@@ -454,17 +460,30 @@ const cultivosRouter = router({
           })
         ).id;
       }
-      return createCultura({
+      const id = await createCultura({
         ...input,
         safraId,
         organizationId: tenant.organizationId,
         areaPlantada: input.areaPlantada?.toString(),
         producaoEstimada: input.producaoEstimada?.toString(),
       } as any);
+      if (input.faseAtual) {
+        const { recordFaseChangeIfNeeded } = await import("../db-cultivo-fase");
+        await recordFaseChangeIfNeeded({
+          organizationId: tenant.organizationId,
+          propriedadeId: input.propriedadeId,
+          culturaId: id,
+          faseAnterior: null,
+          faseNova: input.faseAtual,
+          userId: tenant.userId,
+          origem: "api",
+        });
+      }
+      return id;
     }),
 
   update: orgPermissionProcedure("property.write")
-    .input(z.object({ id: z.number().int().positive(), data: cultivoInput.partial() }))
+    .input(z.object({ id: z.number().int().positive(), data: cultivoUpdateInput }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       const atual = await requireCulturaInTenant(tenant, input.id);
@@ -472,7 +491,15 @@ const cultivosRouter = router({
         propriedadeId: input.data.propriedadeId ?? atual.propriedadeId,
         terrenoId: input.data.terrenoId,
       });
-      return updateCultura(
+      if (input.data.safraId != null) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          input.data.propriedadeId ?? atual.propriedadeId,
+          input.data.safraId,
+        );
+      }
+      await updateCultura(
         input.id,
         {
           ...input.data,
@@ -481,6 +508,32 @@ const cultivosRouter = router({
         } as any,
         tenant.organizationId,
       );
+      if (input.data.faseAtual != null) {
+        const { recordFaseChangeIfNeeded } = await import("../db-cultivo-fase");
+        await recordFaseChangeIfNeeded({
+          organizationId: tenant.organizationId,
+          propriedadeId: atual.propriedadeId,
+          culturaId: input.id,
+          faseAnterior: atual.faseAtual,
+          faseNova: input.data.faseAtual,
+          userId: tenant.userId,
+          origem: "manual",
+        });
+      }
+      return { success: true };
+    }),
+
+  /** Histórico fenológico (Cultivos V2 Etapa 1) */
+  faseEventos: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      await requireCulturaInTenant(tenant, input.id);
+      const { listCultivoFaseEventos } = await import("../db-cultivo-fase");
+      return listCultivoFaseEventos(tenant.organizationId, input.id, {
+        order: "asc",
+      });
     }),
 
   delete: orgPermissionProcedure("property.write")

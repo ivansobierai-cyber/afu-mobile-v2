@@ -274,11 +274,47 @@ export const culturas = mysqlTable(
     index("culturas_organization_idx").on(t.organizationId),
     index("culturas_org_prop_idx").on(t.organizationId, t.propriedadeId),
     index("culturas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("culturas_terreno_idx").on(t.terrenoId),
+    index("culturas_catalogo_idx").on(t.culturaCatalogoId),
   ],
 );
 
 export type Cultura = typeof culturas.$inferSelect;
 export type InsertCultura = typeof culturas.$inferInsert;
+
+/** Cultivos V2 — histórico de avanço fenológico (aditivo; faseAtual permanece na cultura) */
+export const cultivoFaseEventos = mysqlTable(
+  "cultivo_fase_eventos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    culturaId: int("culturaId").notNull(),
+    faseAnterior: varchar("faseAnterior", { length: 100 }),
+    faseNova: varchar("faseNova", { length: 100 }).notNull(),
+    dataEvento: timestamp("dataEvento").defaultNow().notNull(),
+    origem: mysqlEnum("origemFaseCultivo", [
+      "manual",
+      "api",
+      "backfill",
+      "sistema",
+    ])
+      .default("manual")
+      .notNull(),
+    userId: int("userId"),
+    observacao: text("observacao"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("cultivo_fase_org_idx").on(t.organizationId),
+    index("cultivo_fase_cultura_idx").on(t.culturaId),
+    index("cultivo_fase_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("cultivo_fase_cultura_data_idx").on(t.culturaId, t.dataEvento),
+  ],
+);
+
+export type CultivoFaseEvento = typeof cultivoFaseEventos.$inferSelect;
+export type InsertCultivoFaseEvento = typeof cultivoFaseEventos.$inferInsert;
 
 // ─────────────────────────────────────────────
 // TABELA: diagnosticos_ia

@@ -77,6 +77,7 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
     await a.caller.coreData.cultivos.create({
       propriedadeId: a.propriedadeId,
       safraId: atual.id,
+      terrenoId: a.terrenoId,
       nomeCultura: "Soja atual",
       status: "em_andamento",
     });
@@ -108,6 +109,7 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
       a.caller.coreData.cultivos.create({
         propriedadeId: a.propriedadeId,
         safraId: histId,
+        terrenoId: a.terrenoId,
         nomeCultura: "Bloqueado",
         status: "planejado",
       }),
@@ -130,6 +132,7 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
       a.caller.coreData.cultivos.create({
         propriedadeId: a.propriedadeId,
         safraId: closedRes.id,
+        terrenoId: a.terrenoId,
         nomeCultura: "Bloqueado pós-close",
       }),
     ).rejects.toBeInstanceOf(TRPCError);
