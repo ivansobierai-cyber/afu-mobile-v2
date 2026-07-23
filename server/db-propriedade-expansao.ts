@@ -124,6 +124,49 @@ export async function getEstoqueItem(id: number) {
   return rows[0];
 }
 
+/** Delta de saldo por tipo de movimento — saldo nunca é editado fora desta regra. */
+export function deltaSaldoMovimento(
+  tipo: InsertEstoqueMovimento["tipo"],
+  quantidade: number,
+): number {
+  if (["saida", "consumo", "perda", "reserva"].includes(tipo)) return -quantidade;
+  if (tipo === "transferencia") return 0;
+  // entrada | ajuste
+  return quantidade;
+}
+
+export function calcularSaldoPorMovimentos(
+  movimentos: Array<{ tipo: InsertEstoqueMovimento["tipo"]; quantidade: string | number }>,
+): number {
+  let saldo = 0;
+  for (const m of movimentos) {
+    saldo += deltaSaldoMovimento(m.tipo, Number(m.quantidade));
+  }
+  return Math.round(saldo * 1000) / 1000;
+}
+
+export async function listMovimentosEstoque(opts: {
+  itemId?: number;
+  propriedadeId: number;
+  organizationId: number;
+  limit?: number;
+}) {
+  const db = await getDb();
+  if (!db) return [];
+  const limit = opts.limit ?? 100;
+  const conds = [
+    eq(estoqueMovimentos.propriedadeId, opts.propriedadeId),
+    eq(estoqueMovimentos.organizationId, opts.organizationId),
+  ];
+  if (opts.itemId != null) conds.push(eq(estoqueMovimentos.itemId, opts.itemId));
+  return db
+    .select()
+    .from(estoqueMovimentos)
+    .where(and(...conds))
+    .orderBy(desc(estoqueMovimentos.createdAt))
+    .limit(limit);
+}
+
 export async function findConsumoEstoqueByTarefaItem(tarefaId: number, itemId: number) {
   const db = await getDb();
   if (!db) return undefined;
@@ -141,30 +184,70 @@ export async function findConsumoEstoqueByTarefaItem(tarefaId: number, itemId: n
   return rows[0];
 }
 
+/**
+ * Única via de alteração de saldo: grava movimento + reconstrói saldo pelos movimentos.
+ * Auditoria: organizationId, propriedadeId, createdByUserId, timestamps.
+ */
 export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
   const db = await getDb();
   if (!db) throw new Error("DB unavailable");
   const item = await getEstoqueItem(data.itemId);
   if (!item) throw new Error("Item não encontrado");
+
   const qtd = Number(data.quantidade);
-  let saldo = Number(item.saldo);
-  if (["saida", "consumo", "perda", "reserva"].includes(data.tipo)) saldo -= qtd;
-  else if (data.tipo !== "transferencia") saldo += qtd;
+  if (!Number.isFinite(qtd) || qtd <= 0) {
+    throw new Error("Quantidade inválida");
+  }
+
   const organizationId = data.organizationId ?? item.organizationId ?? undefined;
+  if (organizationId == null) throw new Error("organizationId obrigatório no movimento");
   const propriedadeId = data.propriedadeId ?? item.propriedadeId;
+  const createdByUserId = data.createdByUserId ?? data.usuarioId;
+
+  const historico = await db
+    .select({ tipo: estoqueMovimentos.tipo, quantidade: estoqueMovimentos.quantidade })
+    .from(estoqueMovimentos)
+    .where(eq(estoqueMovimentos.itemId, item.id));
+  const saldoProjetado = calcularSaldoPorMovimentos([
+    ...historico,
+    { tipo: data.tipo, quantidade: qtd },
+  ]);
+  if (saldoProjetado < -0.0005) {
+    throw new Error("Saldo insuficiente para o movimento");
+  }
+
   await db.insert(estoqueMovimentos).values({
     ...data,
     organizationId,
     propriedadeId,
-    createdByUserId: data.createdByUserId ?? data.usuarioId,
+    createdByUserId,
   });
-  // Etapa 5 — saldo só atualiza se o item continuar no mesmo tenant
+
   const whereItem =
     item.organizationId != null
       ? and(eq(estoqueItens.id, item.id), eq(estoqueItens.organizationId, item.organizationId))
       : eq(estoqueItens.id, item.id);
-  await db.update(estoqueItens).set({ saldo: saldo.toFixed(3) }).where(whereItem);
-  return { saldo };
+
+  const patch: Partial<InsertEstoqueItem> = {
+    saldo: saldoProjetado.toFixed(3),
+  };
+  // Transferência de depósito: atualiza depósito do item sem mudar quantidade
+  if (data.tipo === "transferencia" && data.depositoId != null) {
+    patch.depositoId = data.depositoId;
+  }
+  await db.update(estoqueItens).set(patch).where(whereItem);
+
+  await registrarAtividade({
+    propriedadeId,
+    organizationId,
+    usuarioId: createdByUserId,
+    tipo: "estoque_movimento",
+    titulo: `Estoque: ${data.tipo} · ${item.nome}`,
+    detalhe: `${qtd} ${item.unidadeBase}${data.motivo ? ` — ${data.motivo}` : ""}`,
+    gravidade: data.tipo === "perda" || data.tipo === "consumo" ? "atencao" : "info",
+  });
+
+  return { saldo: saldoProjetado };
 }
 
 export async function listOrcamentos(propriedadeId: number) {

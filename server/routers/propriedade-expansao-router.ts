@@ -25,6 +25,7 @@ import {
   createEstoqueItem,
   getEstoqueItem,
   registrarMovimentoEstoque,
+  listMovimentosEstoque,
   listOrcamentos,
   createOrcamento,
   listCustos,
@@ -538,6 +539,8 @@ export const propriedadeExpansaoRouter = router({
           quantidade: z.number().positive(),
           motivo: z.string().optional(),
           tarefaId: z.number().int().positive().optional(),
+          depositoId: z.number().int().positive().optional(),
+          loteId: z.number().int().positive().optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -551,17 +554,46 @@ export const propriedadeExpansaoRouter = router({
         ) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        return registrarMovimentoEstoque({
-          itemId: input.itemId,
-          organizationId: tenant.organizationId,
+        try {
+          return await registrarMovimentoEstoque({
+            itemId: input.itemId,
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId,
+            usuarioId: tenant.perfilId,
+            createdByUserId: tenant.userId,
+            tipo: input.tipo,
+            quantidade: input.quantidade.toFixed(3),
+            motivo: input.motivo,
+            tarefaId: input.tarefaId,
+            depositoId: input.depositoId,
+            loteId: input.loteId,
+          } as any);
+        } catch (e: any) {
+          const msg = e?.message ?? "Falha no movimento";
+          if (msg.includes("Saldo insuficiente") || msg.includes("Quantidade inválida")) {
+            throw new TRPCError({ code: "BAD_REQUEST", message: msg });
+          }
+          throw e;
+        }
+      }),
+
+    historico: organizationProcedure
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          itemId: z.number().int().positive().optional(),
+          limit: z.number().int().min(1).max(200).optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await assertPropertyInTenant(tenant, input.propriedadeId);
+        return listMovimentosEstoque({
           propriedadeId: input.propriedadeId,
-          usuarioId: tenant.perfilId,
-          createdByUserId: tenant.userId,
-          tipo: input.tipo,
-          quantidade: input.quantidade.toFixed(3),
-          motivo: input.motivo,
-          tarefaId: input.tarefaId,
-        } as any);
+          organizationId: tenant.organizationId,
+          itemId: input.itemId,
+          limit: input.limit,
+        });
       }),
   }),
 
