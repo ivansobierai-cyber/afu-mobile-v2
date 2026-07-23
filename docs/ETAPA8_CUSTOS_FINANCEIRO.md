@@ -12,7 +12,15 @@
 | 3 | Máquinas | **concluído** |
 | 4 | Equipes | **concluído** |
 | 5 | Indicadores | **concluído** |
-| 6 | Dashboard financeiro | pendente |
+| 6 | Dashboard financeiro | **concluído** |
+
+## Conclusão da Etapa 8
+
+- [x] Indicadores consistentes (cálculo puro + API)
+- [x] Custos com centros (sem remover dados)
+- [x] Dupla contabilização evitada (custo operacional × lançamento tipo custo)
+- [x] Dashboard reflete orçamento + lançamentos reais
+
 
 ## Passo 1 — entregue
 
@@ -53,3 +61,9 @@
 - Evita dupla contagem custos_operacao × lançamentos tipo custo
 - UI no painel de métricas (sem remover `metricas`)
 - Testes `tests/indicadores-passo5.test.ts`
+
+## Passo 6 — entregue
+
+- API `expansao.financeiro.dashboard` (planejado/executado/receita/despesas/custos/resultado + séries)
+- UI no painel de custos
+- Testes `tests/financeiro-passo6-dashboard.test.ts`
