@@ -1,71 +1,74 @@
-# VPS Oracle — acesso e deploy AFU
+# VPS Oracle — acesso e inventário AFU
 
-**Host:** `opc@170.9.33.109`  
-**Chave (máquina local Windows):** `C:\Users\ivans\.ssh\ssh-key-oracle.key`
+**Host:** `opc@170.9.33.109` (`sbr`, Oracle Linux 10.2)  
+**Chave (máquina local Windows):** `C:\Users\ivans\.ssh\ssh-key-oracle.key`  
+**Agente Cloud:** SSH OK via `~/.ssh/id_ed25519` (pubkey `ubuntu@cursor` em `authorized_keys`).
 
-## Limitação do agente Cloud (atual)
+## Conectar
 
-Nesta VM **ainda não há** a chave Oracle montada em `~/.ssh/ssh-key-oracle.key`.  
-A chave do agente (`~/.ssh/id_ed25519`) é oferecida ao servidor, mas a VPS rejeita:
+```bash
+# PC (Windows)
+ssh -i "C:\Users\ivans\.ssh\ssh-key-oracle.key" opc@170.9.33.109
+
+# Agente Cloud
+ssh -o IdentitiesOnly=yes -i ~/.ssh/id_ed25519 opc@170.9.33.109
+```
+
+Pubkey do agente (já autorizada):
 
 ```text
-Offering public key: ... ED25519 SHA256:GO/z+mGgzzzYTS4tTsXTrj/fdTVpe3NHb8a+cMQkiRA
-Permission denied (publickey,gssapi-keyex,gssapi-with-mic)
+ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGIwXELwm4gLlbD4FaFzT9d9hneoN291uCe2rn+47Oj8 ubuntu@cursor
 ```
 
-Isso significa: o host responde, mas a pubkey do agente **não está** em `~opc/.ssh/authorized_keys` (ou está em arquivo/usuário errado).
+## Inventário (2026-07-23)
 
-### Opção A — autorizar a chave pública deste agente na VPS (recomendado)
+| Item | Status |
+|------|--------|
+| AFU Mobile (API/app) | **Não instalado** — sem repo, Node, pm2 |
+| nginx :80 | Default Oracle Linux test page |
+| Docker Ollama :11434 | Up — modelo `llama3.1:latest` (~4.9 GB) |
+| Docker n8n :5678 | Up (`/home/opc/n8n/docker-compose.yml`) |
+| MySQL / API AFU | Ausente nesta VPS |
+| Node.js / npm | Ausente |
+| Disco root `/` | **28 GB** — era 100% cheio; liberado ~2.4 GB |
+| `/var/oled` | 20 GB livres (partição OCI; não usada pelo app) |
+| RAM | 46 GB |
 
-No seu PC (PowerShell ou Git Bash):
+### Limpeza já feita pelo agente
 
-```bash
-ssh -i "C:\Users\ivans\.ssh\ssh-key-oracle.key" opc@170.9.33.109
-```
+1. Removido download **parcial** Ollama (`*-partial*` em `ollama_storage`).
+2. Removido container/imagem `hello-world`.
+3. Removido `/usr/local/lib/ollama` (CUDA nativo **inativo**; Ollama em uso é o container Docker).
+4. Vacuum leve de journal/logs PCP.
 
-**Na VPS** (cole exatamente estas 4 linhas):
+Ollama e n8n permaneceram no ar após a limpeza.
 
-```bash
-mkdir -p ~/.ssh && chmod 700 ~/.ssh
-grep -q 'ubuntu@cursor' ~/.ssh/authorized_keys 2>/dev/null || \
-  echo 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGIwXELwm4gLlbD4FaFzT9d9hneoN291uCe2rn+47Oj8 ubuntu@cursor' >> ~/.ssh/authorized_keys
-chmod 600 ~/.ssh/authorized_keys
-grep 'ubuntu@cursor' ~/.ssh/authorized_keys
-```
+### Risco de disco
 
-Fingerprint esperada na VPS após o `grep`:
+Root de 28 GB é apertado para Ollama (imagem CUDA + modelo) **e** um deploy Node completo (`npm ci` deste monorepo).  
+Antes de hospedar AFU aqui, preferir:
 
-`ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIGIwXELwm4gLlbD4FaFzT9d9hneoN291uCe2rn+47Oj8 ubuntu@cursor`
+1. **Expandir** o boot volume OCI (recomendado), ou
+2. Mover `data-root` do Docker para `/var/oled` (20 GB livres), ou
+3. Manter AFU em Railway/Vercel e usar a VPS só para Ollama/n8n.
 
-Depois disso o agente Cloud consegue `ssh opc@170.9.33.109`.
+## Checklist se for deployar AFU nesta VPS
 
-### Opção B — secret do ambiente Cloud
+Pré-requisitos: ≥8 GB livres no root (ou Docker em `/var/oled`) + Node 22 LTS.
 
-Adicione o conteúdo de `ssh-key-oracle.key` como secret e monte em  
-`~/.ssh/ssh-key-oracle.key` (chmod 600) no setup do ambiente Cloud  
-(`https://cursor.com/dashboard/cloud-agents/environments/e/6a47262b-7e0f-11f1-ba66-0e7d0216e441`).  
-Reinicie o agent.
-
-## Conectar (no seu PC)
-
-```bash
-ssh -i "C:\Users\ivans\.ssh\ssh-key-oracle.key" opc@170.9.33.109
-```
-
-## Checklist pós-merge na VPS (se a API/app rodar lá)
-
-1. `git fetch && git checkout main && git pull`
-2. `npm ci` (ou install)
-3. Aplicar schema aditivo se necessário:
+1. Instalar Node (ex.: NodeSource / fnm) e clonar o repo.
+2. Configurar `.env` (`DATABASE_URL`, `JWT_SECRET`, …).
+3. `npm ci`
+4. Schema aditivo se necessário:
    - `npm run db:estoque-custo:apply`
    - `npm run db:producao-real:apply`
    - `npm run db:cultivo-fase:apply`
-4. Reiniciar o serviço da API (pm2/systemd/docker conforme o setup)
-5. Smoke:
+5. Subir API (pm2/systemd/docker) e reverse-proxy nginx.
+6. Smoke:
 
 ```bash
 EXPO_PUBLIC_API_BASE_URL=https://SUA_API_VPS npm run smoke:plano-auxiliar
-EXPO_PUBLIC_API_BASE_URL=https://SUA_API_VPS npx tsx scripts/smoke-resultado-cultivo.ts
+EXPO_PUBLIC_API_BASE_URL=https://SUA_API_VPS npm run smoke:resultado-cultivo
 ```
 
 ## Produção já homologada (Railway + Vercel)
