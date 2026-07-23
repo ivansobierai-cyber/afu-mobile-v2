@@ -263,6 +263,7 @@ export const tarefasRouter = router({
       await assertRelatedIdsInTenant(tenant, {
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
+        responsavelUserId: input.responsavelUserId,
       });
       for (const terrenoId of terrenoIds) {
         await requireTerrenoInTenant(tenant, terrenoId, input.propriedadeId);
