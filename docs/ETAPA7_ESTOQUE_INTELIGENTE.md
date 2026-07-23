@@ -22,7 +22,11 @@
 - [x] Auditoria ativa
 - [x] Testes obrigatórios aprovados (entrada/saída/reserva/consumo/transferência/cancelamento/multitenant/RBAC via suites 1–6)
 
-**Pendência conhecida:** valor monetário total do estoque depende de custo médio (ainda não modelado) — dashboard expõe `valorDisponivel: false`.
+**Pendência conhecida:** ~~valor monetário total do estoque~~ **resolvido** — `custoMedio` no item + `custoUnitario` na entrada (CMP); dashboard com `valorDisponivel: true`.
+
+```bash
+npm run db:estoque-custo:apply
+```
 
 ## Passo 1 — entregue
 

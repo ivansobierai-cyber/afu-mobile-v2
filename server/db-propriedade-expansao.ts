@@ -186,7 +186,7 @@ export async function getEstoqueDashboard(propriedadeId: number, organizationId:
       perdasMensal: 0,
       itensCriticos: [] as Array<{ id: number; nome: string; saldo: number; estoqueMinimo: number }>,
       valorTotalEstoque: 0,
-      valorDisponivel: false,
+      valorDisponivel: true,
     };
   }
 
@@ -227,7 +227,13 @@ export async function getEstoqueDashboard(propriedadeId: number, organizationId:
     }));
 
   const saldoTotal = itens.reduce((acc, i) => acc + Number(i.saldo), 0);
-  // Sem coluna de custo médio ainda: valor monetário indisponível (0 + flag)
+  const valorTotalEstoque = itens.reduce((acc, i) => {
+    const saldo = Number(i.saldo);
+    const cm = i.custoMedio != null ? Number(i.custoMedio) : 0;
+    if (!Number.isFinite(saldo) || !Number.isFinite(cm) || saldo <= 0 || cm <= 0) return acc;
+    return acc + saldo * cm;
+  }, 0);
+
   return {
     estoqueAtual: { itens: itens.length, saldoTotal: Math.round(saldoTotal * 1000) / 1000 },
     consumoMensal: Math.round(consumoMensal * 1000) / 1000,
@@ -239,9 +245,28 @@ export async function getEstoqueDashboard(propriedadeId: number, organizationId:
     },
     perdasMensal: Math.round(perdasMensal * 1000) / 1000,
     itensCriticos,
-    valorTotalEstoque: 0,
-    valorDisponivel: false,
+    valorTotalEstoque: Math.round(valorTotalEstoque * 100) / 100,
+    valorDisponivel: true,
   };
+}
+
+/** Custo médio ponderado após entrada com custo unitário. */
+export function calcularCustoMedioPonderado(opts: {
+  saldoAntes: number;
+  custoMedioAntes: number | null;
+  quantidadeEntrada: number;
+  custoUnitario: number;
+}): number {
+  const qty = opts.quantidadeEntrada;
+  const unit = opts.custoUnitario;
+  const antes = opts.saldoAntes > 0 ? opts.saldoAntes : 0;
+  const cm = opts.custoMedioAntes != null && Number.isFinite(opts.custoMedioAntes)
+    ? opts.custoMedioAntes
+    : 0;
+  const novoSaldo = antes + qty;
+  if (novoSaldo <= 0) return Math.round(unit * 10000) / 10000;
+  if (antes <= 0 || cm <= 0) return Math.round(unit * 10000) / 10000;
+  return Math.round(((antes * cm + qty * unit) / novoSaldo) * 10000) / 10000;
 }
 
 export async function findConsumoEstoqueByTarefaItem(tarefaId: number, itemId: number) {
@@ -303,6 +328,7 @@ export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
     createdByUserId,
   });
 
+  const saldoAntes = Number(item.saldo);
   const whereItem =
     item.organizationId != null
       ? and(eq(estoqueItens.id, item.id), eq(estoqueItens.organizationId, item.organizationId))
@@ -314,6 +340,22 @@ export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
   // Transferência de depósito: atualiza depósito do item sem mudar quantidade
   if (data.tipo === "transferencia" && data.depositoId != null) {
     patch.depositoId = data.depositoId;
+  }
+  // Entrada com custo unitário → atualiza custo médio ponderado
+  if (data.tipo === "entrada" && data.custoUnitario != null) {
+    const unit = Number(data.custoUnitario);
+    if (Number.isFinite(unit) && unit >= 0) {
+      const cmAntes =
+        item.custoMedio != null && Number.isFinite(Number(item.custoMedio))
+          ? Number(item.custoMedio)
+          : null;
+      patch.custoMedio = calcularCustoMedioPonderado({
+        saldoAntes,
+        custoMedioAntes: cmAntes,
+        quantidadeEntrada: qtd,
+        custoUnitario: unit,
+      }).toFixed(4);
+    }
   }
   await db.update(estoqueItens).set(patch).where(whereItem);
 
@@ -327,7 +369,10 @@ export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
     gravidade: data.tipo === "perda" || data.tipo === "consumo" ? "atencao" : "info",
   });
 
-  return { saldo: saldoProjetado };
+  return {
+    saldo: saldoProjetado,
+    custoMedio: patch.custoMedio != null ? Number(patch.custoMedio) : item.custoMedio != null ? Number(item.custoMedio) : null,
+  };
 }
 
 export async function listReservasAtivasPorItem(

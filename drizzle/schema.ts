@@ -1238,6 +1238,8 @@ export const estoqueItens = mysqlTable(
   ]).default("outro").notNull(),
   unidadeBase: varchar("unidadeBase", { length: 30 }).default("kg").notNull(),
   saldo: decimal("saldo", { precision: 14, scale: 3 }).default("0").notNull(),
+  /** Custo médio ponderado (R$/unidade) — alimentado por entradas com custoUnitario */
+  custoMedio: decimal("custoMedio", { precision: 14, scale: 4 }),
   estoqueMinimo: decimal("estoqueMinimo", { precision: 14, scale: 3 }).default("0"),
   fabricante: varchar("fabricante", { length: 120 }),
   observacoes: text("observacoes"),
@@ -1300,6 +1302,8 @@ export const estoqueMovimentos = mysqlTable(
       "transferencia",
     ]).notNull(),
     quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+    /** Custo unitário da entrada (R$) — atualiza custoMedio do item */
+    custoUnitario: decimal("custoUnitario", { precision: 14, scale: 4 }),
     motivo: varchar("motivo", { length: 255 }),
     tarefaId: int("tarefaId"),
     createdByUserId: int("createdByUserId"),

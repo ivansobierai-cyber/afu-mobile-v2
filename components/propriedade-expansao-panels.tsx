@@ -622,6 +622,7 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
   const [unidadeBase, setUnidadeBase] = useState<(typeof ESTOQUE_UNIDADES)[number]>("kg");
   const [saldo, setSaldo] = useState("0");
   const [minimo, setMinimo] = useState("0");
+  const [custoMedio, setCustoMedio] = useState("");
   const [fabricante, setFabricante] = useState("");
   const [observacoes, setObservacoes] = useState("");
 
@@ -792,6 +793,15 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
         </View>
         <TextInput
           style={styles.input}
+          placeholder="Custo médio / unitário R$ (opcional)"
+          placeholderTextColor={colors.muted}
+          keyboardType="decimal-pad"
+          value={custoMedio}
+          onChangeText={setCustoMedio}
+          accessibilityLabel="Custo médio unitário"
+        />
+        <TextInput
+          style={styles.input}
           placeholder="Fabricante (opcional)"
           placeholderTextColor={colors.muted}
           value={fabricante}
@@ -821,6 +831,7 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
           onPress={() => {
             if (!nome.trim()) return Alert.alert("Informe o nome");
             if (!unidadeBase.trim()) return Alert.alert("Informe a unidade padrão");
+            const cm = Number(custoMedio);
             void createItem
               .mutateAsync({
                 propriedadeId,
@@ -829,6 +840,8 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
                 unidadeBase,
                 saldoInicial: Number(saldo) || 0,
                 estoqueMinimo: Number(minimo) || 0,
+                custoMedio:
+                  Number.isFinite(cm) && cm >= 0 && custoMedio.trim() !== "" ? cm : undefined,
                 fabricante: fabricante.trim() || undefined,
                 observacoes: observacoes.trim() || undefined,
               })
@@ -836,6 +849,7 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
                 setNome("");
                 setSaldo("0");
                 setMinimo("0");
+                setCustoMedio("");
                 setFabricante("");
                 setObservacoes("");
               })
@@ -880,6 +894,9 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
               </Text>
               <Text style={{ fontSize: 13, color: baixo ? "#EF6C00" : colors.muted, marginTop: 2 }}>
                 Saldo {item.saldo} {item.unidadeBase}
+                {item.custoMedio != null && Number(item.custoMedio) > 0
+                  ? ` · CMP R$ ${Number(item.custoMedio).toFixed(2)}`
+                  : ""}
                 {baixo ? " · abaixo do mínimo" : ""}
               </Text>
               {item.observacoes ? (

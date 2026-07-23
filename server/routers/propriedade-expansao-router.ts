@@ -528,6 +528,7 @@ export const propriedadeExpansaoRouter = router({
             .default("kg"),
           saldoInicial: z.number().min(0).optional(),
           estoqueMinimo: z.number().min(0).optional(),
+          custoMedio: z.number().min(0).optional(),
           fabricante: z.string().max(120).optional(),
           observacoes: z.string().max(2_000).optional(),
           depositoId: z.number().int().positive().optional(),
@@ -551,6 +552,10 @@ export const propriedadeExpansaoRouter = router({
           categoria: input.categoria,
           unidadeBase,
           saldo: "0",
+          custoMedio:
+            input.custoMedio != null && (input.saldoInicial ?? 0) <= 0
+              ? input.custoMedio.toFixed(4)
+              : undefined,
           estoqueMinimo: (input.estoqueMinimo ?? 0).toFixed(3),
           fabricante: input.fabricante?.trim() || undefined,
           observacoes: input.observacoes?.trim() || undefined,
@@ -565,6 +570,8 @@ export const propriedadeExpansaoRouter = router({
             createdByUserId: tenant.userId,
             tipo: "entrada",
             quantidade: (input.saldoInicial ?? 0).toFixed(3),
+            custoUnitario:
+              input.custoMedio != null ? input.custoMedio.toFixed(4) : undefined,
             motivo: "Saldo inicial",
           } as any);
         }
@@ -578,6 +585,7 @@ export const propriedadeExpansaoRouter = router({
           propriedadeId: z.number().int().positive(),
           tipo: z.enum(["entrada", "saida", "reserva", "consumo", "ajuste", "perda", "transferencia"]),
           quantidade: z.number().positive(),
+          custoUnitario: z.number().min(0).optional(),
           motivo: z.string().optional(),
           tarefaId: z.number().int().positive().optional(),
           depositoId: z.number().int().positive().optional(),
@@ -604,6 +612,10 @@ export const propriedadeExpansaoRouter = router({
             createdByUserId: tenant.userId,
             tipo: input.tipo,
             quantidade: input.quantidade.toFixed(3),
+            custoUnitario:
+              input.tipo === "entrada" && input.custoUnitario != null
+                ? input.custoUnitario.toFixed(4)
+                : undefined,
             motivo: input.motivo,
             tarefaId: input.tarefaId,
             depositoId: input.depositoId,
