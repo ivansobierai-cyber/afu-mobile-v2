@@ -1,10 +1,22 @@
 # Merge + Railway — PR #12 (multi-tenant / painel propriedades)
 
-**Branch:** `cursor/security-multitenant-audit-fd64`  
-**PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12  
-**API staging:** `https://afu-mobile-v2-production.up.railway.app`
+**Status (2026-07-23):** PR #12 **merged**; API multi-tenant **em produção**.  
+Continuidade (PRs #13–#17): ver `docs/PROPRIEDADES_PROGRESSO.md`.
 
-O agente de cloud **não tem** token/MCP Railway neste ambiente. Deploy da API é passo humano (ou merge em `main` se o serviço Docker estiver ligado ao repositório).
+**Branch (histórico):** `cursor/security-multitenant-audit-fd64`  
+**PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12  
+**API:** `https://afu-mobile-v2-production.up.railway.app`
+
+## Estado atual da API (pós #13–#17)
+
+- Health 200 · `SEED_ON_START=0`
+- `railway.toml` força builder `DOCKERFILE`
+- Routers: safras, máquinas, `createBulk`, geometria validada no server
+- Deploy de referência pós-follow-ups: `563c7fdc` (código em `main` @ `6b05e5f`)
+
+---
+
+O agente de cloud pode autenticar Railway via CLI (device code); `RAILWAY_TOKEN`/MCP nem sempre estão disponíveis. Deploy típico: `railway up` com Dockerfile ou auto-deploy de `main`.
 
 ## Deploy Railway OK (2026-07-22)
 

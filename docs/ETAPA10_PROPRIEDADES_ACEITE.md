@@ -1,8 +1,9 @@
 # Etapa 10 — Aceite e evidências (painel propriedades / PR #12)
 
-**Status:** suíte de aceite OK · smoke local AVANÇAR · **API Railway multi-tenant OK** · smoke UI PR (Registrar/admin/safra) AVANÇAR · merge pendente  
-**Branch:** `cursor/security-multitenant-audit-fd64`  
-**PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12
+**Status:** **MERGED em `main`** · suíte de aceite OK · API Railway multi-tenant OK · smoke UI AVANÇAR  
+**Branch (histórico):** `cursor/security-multitenant-audit-fd64`  
+**PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12 (merged 2026-07-22)  
+**Continuação:** dívidas Plano Mestre + follow-ups em `docs/PROPRIEDADES_PROGRESSO.md` (PRs #13–#17)
 
 Ops: `docs/MERGE_PR12_RAILWAY.md` · evidência API: `docs/evidencias/railway-api-post-deploy-latest.json`
 
@@ -56,7 +57,7 @@ Login demo: `demo@afuagro.com.br` / `Demo@1234`
 - [x] Smoke preview lista/detalhe + banner parcial (`tenantReady`) — evidências em `docs/evidencias/smoke-preview-tenantready/`
 - [x] Deploy API deste branch no Railway + safras/archive/seed (`docs/MERGE_PR12_RAILWAY.md`)
 - [x] Re-smoke API + UI PR com Registrar/safras/admin (`docs/evidencias/smoke-etapa10-pos-railway-latest.json`)
-- [ ] Aprovação / merge em `main`
+- [x] Aprovação / merge em `main` (PR #12 → `5ae21b7`, 2026-07-22)
 
 ---
 
