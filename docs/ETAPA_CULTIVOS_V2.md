@@ -44,19 +44,17 @@ npm run db:cultivos:backfill
 npm run db:cultivos-not-null:apply
 ```
 
-## Testes
+## Relatório PDF — resultado do cultivo
 
-```bash
-npx vitest run tests/cultivos-dominio-v2.test.ts \
-  tests/cultivo-workspace.test.ts \
-  tests/cultivos-dashboard-v2.test.ts \
-  tests/cultivos-timeline-v2.test.ts \
-  tests/cultivos-monitoramento-v2.test.ts \
-  tests/cultivos-mapa-v2.test.ts \
-  tests/cultivos-ia-ops-indicadores-v2.test.ts \
-  tests/cultivos-v2-workspace.test.ts \
-  tests/cultivos-arquivos-finalizacao.test.ts
-```
+Na aba **Custos**:
+
+1. Carrega indicadores + dashboard
+2. CTA **Gerar relatório PDF**
+3. `analise.gerarPDF` com `tipo: "resultado_cultivo"`
+4. `openLaudoHtml` (print no web / WebBrowser no nativo)
+
+Payload: `lib/cultivos/resultado-cultivo-report.ts`  
+Testes: `tests/resultado-cultivo-report.test.ts`
 
 ## Checklist de aceite
 

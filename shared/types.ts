@@ -290,7 +290,13 @@ export interface AnaliseFitotecnica {
 }
 
 // Relatórios e Laudos
-export type TipoRelatorio = "diagnostico" | "analise_fitotecnica" | "historico_propriedade" | "recomendacao" | "certificado";
+export type TipoRelatorio =
+  | "diagnostico"
+  | "analise_fitotecnica"
+  | "historico_propriedade"
+  | "recomendacao"
+  | "certificado"
+  | "resultado_cultivo";
 export type StatusRelatorio = "gerando" | "pronto" | "erro";
 
 export interface Relatorio {

@@ -82,12 +82,18 @@ export function ScreenState({
       <View
         style={[styles.wrap, compact && styles.compact]}
         accessibilityRole="progressbar"
-        accessibilityLabel={resolvedTitle}
+        accessibilityLabel={resolvedMessage || resolvedTitle}
       >
         <ActivityIndicator size={compact ? "small" : "large"} color={colors.primary} />
-        {!compact ? (
-          <Text style={[styles.message, { color: colors.muted, marginTop: 12 }]}>{resolvedMessage}</Text>
-        ) : null}
+        <Text
+          style={[
+            styles.message,
+            { color: colors.muted, marginTop: compact ? 8 : 12 },
+            compact && { fontSize: 13 },
+          ]}
+        >
+          {resolvedMessage}
+        </Text>
       </View>
     );
   }
