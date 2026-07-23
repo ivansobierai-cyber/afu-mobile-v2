@@ -644,15 +644,21 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
 
   const { data: itens = [], isLoading, isError, refetch } =
     trpc.coreData.expansao.estoque.list.useQuery({ propriedadeId });
+  const { data: historico = [] } = trpc.coreData.expansao.estoque.historico.useQuery({
+    propriedadeId,
+    limit: 12,
+  });
   const createItem = trpc.coreData.expansao.estoque.createItem.useMutation({
     onSuccess: async () => {
       await utils.coreData.expansao.estoque.list.invalidate({ propriedadeId });
+      await utils.coreData.expansao.estoque.historico.invalidate({ propriedadeId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
     },
   });
   const movimento = trpc.coreData.expansao.estoque.movimento.useMutation({
     onSuccess: async () => {
       await utils.coreData.expansao.estoque.list.invalidate({ propriedadeId });
+      await utils.coreData.expansao.estoque.historico.invalidate({ propriedadeId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
     },
   });

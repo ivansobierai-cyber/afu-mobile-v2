@@ -9,7 +9,7 @@
 |-------|------|--------|
 | 1 | Estrutura do banco | **concluído** |
 | 2 | Cadastro de insumos | **concluído** |
-| 3 | Movimentações (saldo só via movimentos) | pendente |
+| 3 | Movimentações (saldo só via movimentos) | **concluído** |
 | 4 | Integração com operações (reserva→consumo) | pendente |
 | 5 | Alertas | pendente |
 | 6 | Dashboard | pendente |
@@ -40,3 +40,17 @@
 - [x] Cadastro das categorias agrícolas do plano
 - [x] Campos mínimos (nome, categoria, unidade, mínimo, fabricante, observações)
 - [x] Todo item com unidade padrão
+
+## Passo 3 — entregue
+
+- Saldo reconstruído pelos movimentos (`calcularSaldoPorMovimentos` / `registrarMovimentoEstoque`)
+- Tipos: entrada, saída, reserva, consumo, ajuste, perda, transferência
+- API `estoque.historico` + auditoria (`createdByUserId`, org/prop) + feed `atividade_propriedade`
+- Bloqueio de saldo insuficiente no servidor
+- Testes `tests/estoque-passo3-movimentos.test.ts`
+
+## Critérios de aceite Passo 3
+
+- [x] Histórico completo
+- [x] Auditoria automática
+- [x] Saldo nunca alterado fora de movimentos
