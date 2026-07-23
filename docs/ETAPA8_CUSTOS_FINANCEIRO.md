@@ -8,7 +8,7 @@
 | Passo | Nome | Status |
 |-------|------|--------|
 | 1 | Centros de custo | **concluído** |
-| 2 | Cadastro financeiro | pendente |
+| 2 | Cadastro financeiro | **concluído** |
 | 3 | Máquinas | pendente |
 | 4 | Equipes | pendente |
 | 5 | Indicadores | pendente |
@@ -21,3 +21,11 @@
 - Apply `npm run db:centros-custo:apply` (0025)
 - API `expansao.custos.centros` + `createCusto` com FKs validados no tenant
 - Testes `tests/custos-passo1-centros.test.ts`
+
+## Passo 2 — entregue
+
+- Tabela `financeiro_lancamentos` (despesa/receita/custo/investimento)
+- Classificação automática `classificarLancamentoFinanceiro`
+- API `expansao.financeiro.list/create` + UI no painel de custos
+- Apply `npm run db:financeiro:apply` (0026)
+- Testes `tests/financeiro-passo2.test.ts`
