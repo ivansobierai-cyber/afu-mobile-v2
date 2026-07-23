@@ -61,4 +61,4 @@ Auditoria de movimentos/atividades e logs de API já existentes; rollback rehear
 - ~~Valor monetário do estoque~~ **resolvido** — `custoMedio`/`custoUnitario` + `npm run db:estoque-custo:apply`
 - ~~Produtividade (kg/ha)~~ **resolvido** — `producaoReal` no cultivo + agregação nos indicadores (`npm run db:producao-real:apply`)
 - ~~Smoke local das entregas finais~~ **resolvido** — `npm run smoke:plano-auxiliar` + UI (`docs/evidencias/smoke-plano-auxiliar/`)
-- Deploy produção Railway após merge: re-smoke com checklist em `ETAPA10_SMOKE_HOMOLOGACAO.md`
+- Deploy produção Railway após merge: runbook `docs/MERGE_PR20_RAILWAY.md` (probe 2026-07-23: API prod ainda **sem** este PR → `estoque.dashboard` NOT_FOUND)
