@@ -4,6 +4,9 @@
 
 export type LatLng = { latitude: number; longitude: number };
 
+/** Limite de payload para perímetros (API + cliente). ~200 KB. */
+export const GEOMETRIA_GEOJSON_MAX_CHARS = 200_000;
+
 /** Retângulo aproximado ao redor de um ponto (delta em graus ~1km em lat). */
 export function squarePolygonAround(
   latitude: number,
@@ -126,6 +129,12 @@ export function verticesToPolygonGeoJson(vertices: LatLng[]): GeoJsonValidation 
 export function validatePolygonGeoJson(raw: string): GeoJsonValidation {
   const text = raw.trim();
   if (!text) return { ok: false, error: "Cole um GeoJSON de polígono." };
+  if (text.length > GEOMETRIA_GEOJSON_MAX_CHARS) {
+    return {
+      ok: false,
+      error: `GeoJSON excede o limite de ${GEOMETRIA_GEOJSON_MAX_CHARS} caracteres.`,
+    };
+  }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);

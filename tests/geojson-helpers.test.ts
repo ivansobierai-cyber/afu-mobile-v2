@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   approxAreaHaFromGeoJson,
+  GEOMETRIA_GEOJSON_MAX_CHARS,
   polygonRingToVertices,
   squarePolygonAround,
   validatePolygonGeoJson,
@@ -75,5 +76,11 @@ describe("geojson-helpers", () => {
     ]);
     expect(result.ok).toBe(false);
     if (!result.ok) expect(result.error).toContain("pelo menos 3 vértices");
+  });
+
+  it("recusa payload acima do limite de caracteres", () => {
+    const result = validatePolygonGeoJson("x".repeat(GEOMETRIA_GEOJSON_MAX_CHARS + 1));
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("excede o limite");
   });
 });

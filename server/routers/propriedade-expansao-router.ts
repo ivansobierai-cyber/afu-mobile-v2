@@ -40,6 +40,10 @@ import {
   removeMaquinaOperacional,
 } from "../db-propriedade-expansao";
 import { gerarAlertas, METRICAS_CATALOGO } from "../../lib/propriedades/alertas-engine";
+import {
+  GEOMETRIA_GEOJSON_MAX_CHARS,
+  validatePolygonGeoJson,
+} from "../../lib/propriedades/geojson-helpers";
 import { STATUS_ABERTOS, type TarefaStatus } from "../../lib/propriedades/tarefa-status";
 import {
   getCtxTenant,
@@ -52,6 +56,25 @@ import {
 } from "../tenant-access";
 import { createTenantDb } from "../tenant-db";
 import { safraLabelsMatch } from "../../lib/propriedades/safra-label";
+
+const geometriaGeoJsonInput = z
+  .string()
+  .min(2)
+  .max(GEOMETRIA_GEOJSON_MAX_CHARS, {
+    message: `GeoJSON excede o limite de ${GEOMETRIA_GEOJSON_MAX_CHARS} caracteres.`,
+  });
+
+/** Valida anel fechado WGS84 e devolve Polygon normalizado. */
+function requireNormalizedPolygonGeoJson(raw: string): {
+  normalized: string;
+  areaHa: number | null;
+} {
+  const result = validatePolygonGeoJson(raw);
+  if (!result.ok) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: result.error });
+  }
+  return { normalized: result.normalized, areaHa: result.areaHa };
+}
 
 const maquinaTipoSchema = z.enum([
   "trator",
@@ -128,7 +151,7 @@ export const propriedadeExpansaoRouter = router({
     .input(
       z.object({
         propriedadeId: z.number().int().positive(),
-        geometriaGeoJson: z.string().min(2),
+        geometriaGeoJson: geometriaGeoJsonInput,
         areaGeometricaHa: z.number().optional(),
         origem: z.enum(["desenhada", "gps", "importada", "integracao"]).optional(),
         /** Etapa 8 — optimistic concurrency; omitir só em writes online frescos */
@@ -140,22 +163,13 @@ export const propriedadeExpansaoRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       await requirePropertyInTenant(tenant, input.propriedadeId);
-      // Validação mínima GeoJSON
-      let parsed: any;
-      try {
-        parsed = JSON.parse(input.geometriaGeoJson);
-      } catch {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON inválido" });
-      }
-      if (!parsed || (parsed.type !== "Polygon" && parsed.type !== "Feature" && parsed.type !== "FeatureCollection")) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON deve ser Polygon ou Feature" });
-      }
+      const { normalized, areaHa } = requireNormalizedPolygonGeoJson(input.geometriaGeoJson);
       try {
         const updated = await updateGeometriaPropriedade(
           input.propriedadeId,
           {
-            geometriaGeoJson: input.geometriaGeoJson,
-            areaGeometricaHa: input.areaGeometricaHa?.toString(),
+            geometriaGeoJson: normalized,
+            areaGeometricaHa: (input.areaGeometricaHa ?? areaHa ?? undefined)?.toString(),
             geometriaOrigem: input.origem,
             expectedGeometriaVersao: input.expectedGeometriaVersao,
           },
@@ -204,7 +218,7 @@ export const propriedadeExpansaoRouter = router({
       z.object({
         terrenoId: z.number().int().positive(),
         propriedadeId: z.number().int().positive(),
-        geometriaGeoJson: z.string().min(2),
+        geometriaGeoJson: geometriaGeoJsonInput,
         areaGeometricaHa: z.number().optional(),
         origem: z.enum(["desenhada", "gps", "importada", "integracao"]).optional(),
         expectedGeometriaVersao: z.number().int().positive().optional(),
@@ -216,17 +230,13 @@ export const propriedadeExpansaoRouter = router({
       const tenant = getCtxTenant(ctx);
       await requirePropertyInTenant(tenant, input.propriedadeId);
       await requireTerrenoInTenant(tenant, input.terrenoId, input.propriedadeId);
-      try {
-        JSON.parse(input.geometriaGeoJson);
-      } catch {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "GeoJSON inválido" });
-      }
+      const { normalized, areaHa } = requireNormalizedPolygonGeoJson(input.geometriaGeoJson);
       try {
         const updated = await updateGeometriaTerreno(
           input.terrenoId,
           {
-            geometriaGeoJson: input.geometriaGeoJson,
-            areaGeometricaHa: input.areaGeometricaHa?.toString(),
+            geometriaGeoJson: normalized,
+            areaGeometricaHa: (input.areaGeometricaHa ?? areaHa ?? undefined)?.toString(),
             geometriaOrigem: input.origem,
             expectedGeometriaVersao: input.expectedGeometriaVersao,
           },
