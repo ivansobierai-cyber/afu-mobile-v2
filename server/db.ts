@@ -582,6 +582,29 @@ export async function createTarefa(data: InsertTarefaOperacional) {
   return result[0].insertId;
 }
 
+/**
+ * Insere várias tarefas na mesma transação (all-or-nothing).
+ * `organizationId` deve estar preenchido em cada linha.
+ */
+export async function createTarefasInTransaction(
+  rows: InsertTarefaOperacional[],
+): Promise<number[]> {
+  if (rows.length === 0) return [];
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  return db.transaction(async (tx) => {
+    const ids: number[] = [];
+    for (const data of rows) {
+      const organizationId = requireOrgIdOnInsert(data, data.organizationId);
+      const result = await tx
+        .insert(tarefasOperacionais)
+        .values({ ...data, organizationId });
+      ids.push(result[0].insertId);
+    }
+    return ids;
+  });
+}
+
 export async function updateTarefa(
   id: number,
   data: Partial<InsertTarefaOperacional>,

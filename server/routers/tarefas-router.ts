@@ -8,6 +8,7 @@ import { router, organizationProcedure, orgPermissionProcedure } from "../_core/
 import {
   getTarefasByPropriedade,
   createTarefa,
+  createTarefasInTransaction,
   updateTarefa,
   createApontamento,
   getApontamentosByTarefa,
@@ -23,6 +24,7 @@ import {
   requireOrgPermission,
   requirePropertyInTenant,
   requireTarefaInTenant,
+  requireTerrenoInTenant,
   assertRelatedIdsInTenant,
   type TenantContext,
 } from "../tenant-access";
@@ -255,21 +257,73 @@ export const tarefasRouter = router({
     .input(tarefaBulkInput)
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      const ids: number[] = [];
       const { terrenoIds, ...baseInput } = input;
+
+      // Pré-valida tudo antes de qualquer insert (evita criação parcial)
+      await assertRelatedIdsInTenant(tenant, {
+        propriedadeId: input.propriedadeId,
+        culturaId: input.culturaId,
+      });
+      for (const terrenoId of terrenoIds) {
+        await requireTerrenoInTenant(tenant, terrenoId, input.propriedadeId);
+      }
+
+      const safraId = await resolveSafraIdForCreate(tenant, input);
+      const dataPrevista = new Date(input.dataPrevista);
+
+      type Planned = {
+        terrenoId: number;
+        clientMutationId?: string;
+        existingId?: number;
+      };
+      const planned: Planned[] = [];
       for (const terrenoId of terrenoIds) {
         const clientMutationId = input.clientMutationId
           ? `${input.clientMutationId.slice(0, 48)}_${terrenoId}`
           : undefined;
-        ids.push(
-          await createTarefaForTenant(
-            tenant,
-            { ...baseInput, terrenoId },
-            { terrenoId, clientMutationId },
-          ),
-        );
+        if (clientMutationId) {
+          const existing = await findTarefaByClientMutationId(clientMutationId);
+          if (existing) {
+            if (existing.organizationId !== tenant.organizationId) {
+              throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+            }
+            planned.push({ terrenoId, clientMutationId, existingId: existing.id });
+            continue;
+          }
+        }
+        planned.push({ terrenoId, clientMutationId });
       }
-      return ids;
+
+      if (planned.every((p) => p.existingId != null)) {
+        return planned.map((p) => p.existingId!);
+      }
+
+      const toInsert = planned.filter((p) => p.existingId == null);
+      const newIds = await createTarefasInTransaction(
+        toInsert.map((p) => ({
+          usuarioId: tenant.perfilId,
+          organizationId: tenant.organizationId,
+          propriedadeId: baseInput.propriedadeId,
+          safraId,
+          terrenoId: p.terrenoId,
+          culturaId: baseInput.culturaId,
+          responsavelUserId: baseInput.responsavelUserId,
+          tipoOperacao: baseInput.tipoOperacao,
+          titulo: baseInput.titulo,
+          instrucoes: baseInput.instrucoes,
+          prioridade: baseInput.prioridade ?? "normal",
+          status: "planejada" as const,
+          dataPrevista,
+          areaPlanejada: baseInput.areaPlanejada?.toString(),
+          origem: "manual" as const,
+          clientMutationId: p.clientMutationId,
+        })),
+      );
+
+      let newIdx = 0;
+      return planned.map((p) =>
+        p.existingId != null ? p.existingId : newIds[newIdx++]!,
+      );
     }),
 
   transition: orgPermissionProcedure("operations.write")
