@@ -165,6 +165,8 @@ export default function CultivoDetailScreen() {
     );
   }
 
+  const showDashSkeleton = tab === "visao" && !dashboard;
+
   const styles = StyleSheet.create({
     tabBar: {
       borderBottomWidth: 1,
@@ -240,7 +242,11 @@ export default function CultivoDetailScreen() {
       >
         {tab === "visao" && (
           <>
-            {dashboard ? <CultivoDashboardCards data={dashboard} /> : null}
+            {showDashSkeleton ? (
+              <ScreenState status="loading" compact message="Carregando dashboard…" />
+            ) : dashboard ? (
+              <CultivoDashboardCards data={dashboard} />
+            ) : null}
             <CultivoVisaoGeral
               cultivo={cultivo}
               advancingFase={advancingFase}
