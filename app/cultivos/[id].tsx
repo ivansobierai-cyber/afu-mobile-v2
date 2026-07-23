@@ -16,6 +16,10 @@ import { CultivoVisaoGeral } from "@/components/cultivos/cultivo-visao-geral";
 import { CultivoTabPlaceholder } from "@/components/cultivos/cultivo-tab-placeholder";
 import { CultivoDashboardCards } from "@/components/cultivos/cultivo-dashboard";
 import { TimelineCultivo } from "@/components/cultivos/timeline-cultivo";
+import {
+  CultivoDiagnosticosTab,
+  CultivoMonitoramentoTab,
+} from "@/components/cultivos/cultivo-monitoramento-tab";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import {
@@ -97,6 +101,15 @@ export default function CultivoDetailScreen() {
         (tab === "historico" || tab === "visao"),
     },
   );
+
+  const { data: terrenosAll = [] } = trpc.coreData.terrenos.list.useQuery(cacheInput, {
+    enabled: tenantReady && (tab === "monitoramento" || tab === "mapa"),
+  });
+  const terrenosDaProp = cultivo
+    ? terrenosAll
+        .filter((t) => t.propriedadeId === cultivo.propriedadeId)
+        .map((t) => ({ id: t.id, nome: t.nome }))
+    : [];
 
   const advanceFase = async () => {
     if (!cultivo) return;
@@ -234,15 +247,19 @@ export default function CultivoDetailScreen() {
           />
         )}
         {tab === "monitoramento" && (
-          <CultivoTabPlaceholder
-            title="Monitoramento"
-            message="Ocorrências e inspeções do cultivo serão exibidas aqui (Etapa 5)."
+          <CultivoMonitoramentoTab
+            culturaId={cultivo.id}
+            propriedadeId={cultivo.propriedadeId}
+            terrenoId={cultivo.terrenoId}
+            safraId={cultivo.safraId}
+            terrenos={terrenosDaProp}
           />
         )}
         {tab === "diagnosticos" && (
-          <CultivoTabPlaceholder
-            title="Diagnósticos"
-            message="Diagnósticos IA vinculados a este cultivo serão listados aqui (Etapa 5)."
+          <CultivoDiagnosticosTab
+            culturaId={cultivo.id}
+            propriedadeId={cultivo.propriedadeId}
+            nomeCultura={cultivo.nomeCultura}
           />
         )}
         {tab === "ia" && (

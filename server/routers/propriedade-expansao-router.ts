@@ -62,6 +62,7 @@ import {
   requirePropertyInTenant,
   requireTerrenoInTenant,
   requireTarefaInTenant,
+  requireCulturaInTenant,
   assertRelatedIdsInTenant,
   TENANT_NOT_FOUND,
   type TenantContext,
@@ -311,6 +312,7 @@ export const propriedadeExpansaoRouter = router({
         z.object({
           propriedadeId: z.number().int().positive(),
           safraId: z.number().int().positive().optional(),
+          culturaId: z.number().int().positive().optional(),
         }),
       )
       .query(async ({ ctx, input }) => {
@@ -324,9 +326,16 @@ export const propriedadeExpansaoRouter = router({
             input.safraId,
           );
         }
+        if (input.culturaId) {
+          await requireCulturaInTenant(tenant, input.culturaId, input.propriedadeId);
+        }
         const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
         const all = await listOcorrencias(input.propriedadeId);
-        return filterRowsBySafraId(all, input.safraId ?? null).matched;
+        let matched = filterRowsBySafraId(all, input.safraId ?? null).matched;
+        if (input.culturaId) {
+          matched = matched.filter((o) => o.culturaId === input.culturaId);
+        }
+        return matched;
       }),
 
     create: orgPermissionProcedure("operations.write")

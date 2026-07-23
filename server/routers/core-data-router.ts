@@ -558,6 +558,52 @@ const cultivosRouter = router({
       return buildCultivoTimeline(tenant.organizationId, cultura);
     }),
 
+  /** Monitoramento do cultivo (Cultivos V2 Etapa 5) */
+  monitoramento: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { listOcorrencias } = await import("../db-propriedade-expansao");
+      const all = await listOcorrencias(cultura.propriedadeId);
+      const ocorrencias = all.filter((o) => o.culturaId === cultura.id);
+      return {
+        culturaId: cultura.id,
+        propriedadeId: cultura.propriedadeId,
+        terrenoId: cultura.terrenoId,
+        safraId: cultura.safraId,
+        ocorrencias,
+        abertas: ocorrencias.filter(
+          (o) => o.status === "aberta" || o.status === "em_acompanhamento",
+        ).length,
+      };
+    }),
+
+  /** Diagnósticos do cultivo (Cultivos V2 Etapa 5) */
+  diagnosticos: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { getDb } = await import("../db");
+      const { diagnosticosIa } = await import("../../drizzle/schema");
+      const { and, desc, eq } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(diagnosticosIa)
+        .where(
+          and(
+            eq(diagnosticosIa.organizationId, tenant.organizationId),
+            eq(diagnosticosIa.culturaId, cultura.id),
+          ),
+        )
+        .orderBy(desc(diagnosticosIa.dataDiagnostico));
+    }),
+
   delete: orgPermissionProcedure("property.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

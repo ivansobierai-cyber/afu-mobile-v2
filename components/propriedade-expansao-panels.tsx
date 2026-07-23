@@ -248,6 +248,8 @@ type MonitoramentoProps = {
   propriedadeId: number;
   terrenos: { id: number; nome: string }[];
   safraId?: number;
+  /** Cultivos V2 — filtra e pré-preenche ocorrências deste cultivo */
+  culturaId?: number;
   readOnly?: boolean;
   /** Incrementar para focar o formulário de ocorrência (menu + Registrar) */
   openCreateNonce?: number;
@@ -258,6 +260,7 @@ export function PropriedadeMonitoramentoPanel({
   propriedadeId,
   terrenos,
   safraId,
+  culturaId,
   readOnly = false,
   openCreateNonce = 0,
   onCreateOpened,
@@ -287,12 +290,13 @@ export function PropriedadeMonitoramentoPanel({
     return () => clearTimeout(t);
   }, [openCreateNonce, readOnly, onCreateOpened]);
 
+  const listInput = { propriedadeId, safraId, culturaId };
   const { data: ocorrencias = [], isLoading, isError, refetch } =
-    trpc.coreData.expansao.ocorrencias.list.useQuery({ propriedadeId, safraId });
+    trpc.coreData.expansao.ocorrencias.list.useQuery(listInput);
 
   const create = trpc.coreData.expansao.ocorrencias.create.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate(listInput);
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
       await utils.coreData.expansao.atividades.invalidate({ propriedadeId, cacheScope });
       await utils.coreData.expansao.overview.invalidate({ propriedadeId, safraId });
@@ -300,14 +304,14 @@ export function PropriedadeMonitoramentoPanel({
   });
   const criarTarefa = trpc.coreData.expansao.ocorrencias.criarTarefa.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate(listInput);
       await utils.coreData.tarefas.listByPropriedade.invalidate({ propriedadeId, safraId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
   const resolver = trpc.coreData.expansao.ocorrencias.resolver.useMutation({
     onSuccess: async () => {
-      await utils.coreData.expansao.ocorrencias.list.invalidate({ propriedadeId, safraId });
+      await utils.coreData.expansao.ocorrencias.list.invalidate(listInput);
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId, cacheScope });
     },
   });
@@ -359,6 +363,7 @@ export function PropriedadeMonitoramentoPanel({
       await create.mutateAsync({
         propriedadeId,
         safraId,
+        culturaId,
         titulo: titulo.trim(),
         descricao: descricao.trim() || undefined,
         categoria,
