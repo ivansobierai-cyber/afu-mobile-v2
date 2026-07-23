@@ -1,9 +1,10 @@
 # Conclusão global — segurança multi-tenant (§ 16)
 
 **Prompt:** `docs/AFU_Agro_Prompt_Seguranca_Dados_Multitenant.md`  
-**PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12  
-**Branch:** `cursor/security-multitenant-audit-fd64`  
-**Decisão de programa:** **AVANÇAR / FECHADO** (Etapas 1–10 + fechamento documental)
+**PR:** https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/12 (**merged** em `main`, 2026-07-22)  
+**Branch (histórico):** `cursor/security-multitenant-audit-fd64`  
+**Decisão de programa:** **AVANÇAR / FECHADO** (Etapas 1–10 + fechamento documental)  
+**Produção:** API Railway multi-tenant ativa; follow-ups #15–#17 também em `main` (ver `PROPRIEDADES_PROGRESSO.md`)
 
 ---
 
