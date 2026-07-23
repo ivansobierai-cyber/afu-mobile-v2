@@ -1,6 +1,6 @@
 # Progresso — Plano Mestre Propriedades (10 etapas)
 
-**Branch de trabalho:** `cursor/organize-dashboard-nav-fd64`  
+**Branch de trabalho:** `main` (dívidas 1–6 + P3 máquinas/desenho entregues)  
 **Plano:** `docs/AFU_Agro_Plano_Mestre_Propriedades_10_Etapas.md`  
 **Skill:** `.cursor/skills/afu-propriedades-evolution/SKILL.md`
 
@@ -53,3 +53,9 @@ Concluído nesta rodada:
 - Desenho livre de perímetro para propriedade/talhões e cadastro de máquinas/equipamentos.
 
 P3 restante: apenas polimento fino de UX após testes de campo.
+
+## Follow-ups de segurança (pós-revisão)
+
+- **PR #15:** `responsavelUserId` só aceita membro ativo da org (`requireOrgMemberUserId`).
+- **PR #16:** GeoJSON de perímetro validado no server (`validatePolygonGeoJson` + limite 200k) e normalizado.
+- **PR #17:** `tarefas.createBulk` all-or-nothing (pré-validação + transação MySQL).
