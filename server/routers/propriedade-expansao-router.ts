@@ -953,6 +953,16 @@ export const propriedadeExpansaoRouter = router({
       }),
   }),
 
+  // ── Etapa 8 Passo 4: equipe (reusa memberships) ────────────────────────────
+  equipe: router({
+    list: organizationProcedure.query(async ({ ctx }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const { listEquipeOrganizacao } = await import("../db-equipe");
+      return listEquipeOrganizacao(tenant.organizationId);
+    }),
+  }),
+
   // ── P3: máquinas e equipamentos operacionais ─────────────────────────────
   maquinas: router({
     list: organizationProcedure

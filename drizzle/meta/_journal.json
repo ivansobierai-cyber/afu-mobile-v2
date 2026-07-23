@@ -183,6 +183,13 @@
       "when": 1784813000000,
       "tag": "0027_maquinas_controle",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1784814000000,
+      "tag": "0028_tarefa_alocacoes",
+      "breakpoints": true
     }
   ]
 }

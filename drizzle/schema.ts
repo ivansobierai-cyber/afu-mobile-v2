@@ -587,6 +587,39 @@ export const tarefasOperacionais = mysqlTable(
 export type TarefaOperacional = typeof tarefasOperacionais.$inferSelect;
 export type InsertTarefaOperacional = typeof tarefasOperacionais.$inferInsert;
 
+/** Etapa 8 Passo 4 — alocação de equipe em tarefas (N:N) */
+export const tarefaAlocacoes = mysqlTable(
+  "tarefa_alocacoes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    tarefaId: int("tarefaId").notNull(),
+    userId: int("userId").notNull(),
+    papelEquipe: mysqlEnum("papelEquipe", [
+      "funcionario",
+      "operador",
+      "tecnico",
+      "agronomo",
+    ])
+      .default("operador")
+      .notNull(),
+    horasPlanejadas: decimal("horasPlanejadas", { precision: 10, scale: 2 }),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("tarefa_aloc_org_idx").on(t.organizationId),
+    index("tarefa_aloc_tarefa_idx").on(t.tarefaId),
+    index("tarefa_aloc_user_idx").on(t.userId),
+    index("tarefa_aloc_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type TarefaAlocacao = typeof tarefaAlocacoes.$inferSelect;
+export type InsertTarefaAlocacao = typeof tarefaAlocacoes.$inferInsert;
+
 // ─────────────────────────────────────────────
 // TABELA: apontamentos_operacao (execução real)
 // ─────────────────────────────────────────────

@@ -541,4 +541,61 @@ export const tarefasRouter = router({
       await requireTarefaInTenant(tenant, input.tarefaId);
       return getApontamentosByTarefa(input.tarefaId);
     }),
+
+  /** Etapa 8 Passo 4 — alocações de equipe na tarefa */
+  alocacoes: router({
+    list: organizationProcedure
+      .input(z.object({ tarefaId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        requireOrgPermission(tenant, "operations.read");
+        await requireTarefaInTenant(tenant, input.tarefaId);
+        const { listAlocacoesPorTarefa } = await import("../db-equipe");
+        return listAlocacoesPorTarefa(input.tarefaId, tenant.organizationId);
+      }),
+
+    upsert: orgPermissionProcedure("operations.write")
+      .input(
+        z.object({
+          tarefaId: z.number().int().positive(),
+          userId: z.number().int().positive(),
+          papelEquipe: z.enum(["funcionario", "operador", "tecnico", "agronomo"]).optional(),
+          horasPlanejadas: z.number().nonnegative().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const tarefa = await requireTarefaInTenant(tenant, input.tarefaId);
+        const { requireOrgMemberUserId } = await import("../tenant-access");
+        await requireOrgMemberUserId(tenant, input.userId);
+        const { upsertAlocacaoTarefa, mapOrgRoleToPapelEquipe, listEquipeOrganizacao } =
+          await import("../db-equipe");
+        let papel = input.papelEquipe;
+        if (!papel) {
+          const equipe = await listEquipeOrganizacao(tenant.organizationId);
+          const membro = equipe.find((e) => e.userId === input.userId);
+          papel = membro?.papelEquipe ?? mapOrgRoleToPapelEquipe("operador");
+        }
+        const id = await upsertAlocacaoTarefa({
+          organizationId: tenant.organizationId,
+          propriedadeId: tarefa.propriedadeId,
+          tarefaId: input.tarefaId,
+          userId: input.userId,
+          papelEquipe: papel,
+          horasPlanejadas:
+            input.horasPlanejadas != null ? input.horasPlanejadas.toFixed(2) : undefined,
+          createdByUserId: tenant.userId,
+        });
+        return id;
+      }),
+
+    remove: orgPermissionProcedure("operations.write")
+      .input(z.object({ id: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const { removeAlocacaoTarefa } = await import("../db-equipe");
+        await removeAlocacaoTarefa(input.id, tenant.organizationId);
+        return { success: true };
+      }),
+  }),
 });
