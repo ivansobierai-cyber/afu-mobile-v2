@@ -951,6 +951,34 @@ export const propriedadeExpansaoRouter = router({
         });
         return { id, categoriaAuto };
       }),
+
+    /** Etapa 8 Passo 6 — dashboard financeiro */
+    dashboard: organizationProcedure
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          safraId: z.number().int().positive().optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        requireOrgPermission(tenant, "finance.read");
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        if (input.safraId) {
+          const { requireSafraInProperty } = await import("../db-safras");
+          await requireSafraInProperty(
+            tenant.organizationId,
+            input.propriedadeId,
+            input.safraId,
+          );
+        }
+        const { getDashboardFinanceiro } = await import("../db-indicadores");
+        return getDashboardFinanceiro({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          safraId: input.safraId,
+        });
+      }),
   }),
 
   // ── Etapa 8 Passo 4: equipe (reusa memberships) ────────────────────────────

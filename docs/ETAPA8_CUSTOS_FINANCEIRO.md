@@ -11,7 +11,7 @@
 | 2 | Cadastro financeiro | **concluído** |
 | 3 | Máquinas | **concluído** |
 | 4 | Equipes | **concluído** |
-| 5 | Indicadores | pendente |
+| 5 | Indicadores | **concluído** |
 | 6 | Dashboard financeiro | pendente |
 
 ## Passo 1 — entregue
@@ -46,3 +46,10 @@
 - API `tarefas.alocacoes.list/upsert/remove`
 - Apply `npm run db:equipe:apply` (0028)
 - Testes `tests/equipe-passo4.test.ts`
+
+## Passo 5 — entregue
+
+- `calcularIndicadores` + API `expansao.indicadores` (custo/ha, safra, cultura, operação, lucro, margem, ROI)
+- Evita dupla contagem custos_operacao × lançamentos tipo custo
+- UI no painel de métricas (sem remover `metricas`)
+- Testes `tests/indicadores-passo5.test.ts`

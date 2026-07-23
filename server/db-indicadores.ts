@@ -82,3 +82,56 @@ export async function getIndicadoresFinanceiros(opts: {
     },
   };
 }
+
+/** Etapa 8 Passo 6 — dashboard: planejado × executado + resultado */
+export async function getDashboardFinanceiro(opts: {
+  propriedadeId: number;
+  organizationId: number;
+  safraId?: number;
+}) {
+  const { listOrcamentos } = await import("./db-propriedade-expansao");
+  const [indicadores, orcamentosAll] = await Promise.all([
+    getIndicadoresFinanceiros(opts),
+    listOrcamentos(opts.propriedadeId),
+  ]);
+
+  let orcamentos = orcamentosAll.filter(
+    (o) => o.organizationId == null || o.organizationId === opts.organizationId,
+  );
+  if (opts.safraId != null) {
+    orcamentos = orcamentos.filter((o) => o.safraId === opts.safraId);
+  }
+
+  const planejado = orcamentos.reduce((a, o) => a + Number(o.orcamentoPrevisto), 0);
+  const executadoOrcamento = orcamentos.reduce((a, o) => a + Number(o.custoRealizado), 0);
+  const executado = Math.max(executadoOrcamento, indicadores.custosOperacionais);
+
+  const series = [
+    { label: "Planejado", valor: Math.round(planejado * 100) / 100 },
+    { label: "Executado", valor: Math.round(executado * 100) / 100 },
+    { label: "Receita", valor: indicadores.receita },
+    { label: "Despesas", valor: indicadores.despesas },
+    { label: "Custos", valor: indicadores.custosOperacionais },
+    { label: "Resultado", valor: indicadores.lucro },
+  ];
+
+  return {
+    planejado: Math.round(planejado * 100) / 100,
+    executado: Math.round(executado * 100) / 100,
+    receita: indicadores.receita,
+    despesas: indicadores.despesas,
+    custos: indicadores.custosOperacionais,
+    resultado: indicadores.lucro,
+    margemPct: indicadores.margemPct,
+    roiPct: indicadores.roiPct,
+    custoPorHectare: indicadores.custoPorHectare,
+    series,
+    orcamentos: orcamentos.map((o) => ({
+      id: o.id,
+      nomeSafra: o.nomeSafra,
+      previsto: Number(o.orcamentoPrevisto),
+      realizado: Number(o.custoRealizado),
+    })),
+    scope: indicadores.scope,
+  };
+}

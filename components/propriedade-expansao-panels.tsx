@@ -976,6 +976,10 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: C
     propriedadeId,
     safraId,
   });
+  const { data: dashFin } = trpc.coreData.expansao.financeiro.dashboard.useQuery({
+    propriedadeId,
+    safraId,
+  });
   const createOrc = trpc.coreData.expansao.custos.createOrcamento.useMutation({
     onSuccess: async () => {
       await utils.coreData.expansao.custos.list.invalidate({ propriedadeId, safraId });
@@ -1009,6 +1013,53 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: C
 
   return (
     <View>
+      {dashFin ? (
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 12,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
+            Dashboard financeiro
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            Planejado R$ {dashFin.planejado.toFixed(2)} · Executado R$ {dashFin.executado.toFixed(2)}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            Receita R$ {dashFin.receita.toFixed(2)} · Despesas R$ {dashFin.despesas.toFixed(2)} · Custos R${" "}
+            {dashFin.custos.toFixed(2)}
+          </Text>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginTop: 4 }}>
+            Resultado R$ {dashFin.resultado.toFixed(2)}
+          </Text>
+          <View style={{ flexDirection: "row", flexWrap: "wrap", marginTop: 10, gap: 8 }}>
+            {dashFin.series.map((s) => {
+              const max = Math.max(...dashFin.series.map((x) => Math.abs(x.valor)), 1);
+              const h = Math.max(8, Math.round((Math.abs(s.valor) / max) * 48));
+              return (
+                <View key={s.label} style={{ alignItems: "center", width: 52 }}>
+                  <View
+                    style={{
+                      width: 28,
+                      height: h,
+                      borderRadius: 4,
+                      backgroundColor: s.valor < 0 ? "#C62828" : colors.primary,
+                    }}
+                  />
+                  <Text style={{ fontSize: 9, color: colors.muted, marginTop: 4 }} numberOfLines={1}>
+                    {s.label}
+                  </Text>
+                </View>
+              );
+            })}
+          </View>
+        </View>
+      ) : null}
       {orcamentos.length === 0 ? (
         <View
           style={{
