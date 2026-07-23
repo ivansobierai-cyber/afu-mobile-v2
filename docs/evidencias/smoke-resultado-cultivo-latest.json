@@ -1,0 +1,12 @@
+{
+  "suite": "smoke-resultado-cultivo",
+  "at": "2026-07-23T22:54:18.411Z",
+  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "decision": "AVANCAR",
+  "detail": {
+    "titulo": "Resultado — Soja",
+    "tipo": "resultado_cultivo",
+    "htmlLen": 3747,
+    "ok": true
+  }
+}
