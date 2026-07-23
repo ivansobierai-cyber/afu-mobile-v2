@@ -41,6 +41,7 @@
     "seed:marketplace": "tsx scripts/seed-marketplace.ts",
     "seed:comprador": "tsx scripts/seed-comprador.ts",
     "seed:admin": "tsx scripts/seed-admin.ts",
+    "seed:validacao": "tsx scripts/seed-validacao-10-usuarios.ts",
     "db:safras:apply": "tsx scripts/apply-0020-safras.ts",
     "db:safras:backfill": "tsx scripts/backfill-safras.ts",
     "db:archive:apply": "tsx scripts/apply-0021-property-archive.ts",
