@@ -1312,6 +1312,8 @@ export const custosOperacao = mysqlTable(
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
   safraId: int("safraId"),
+  terrenoId: int("terrenoId"),
+  culturaId: int("culturaId"),
   orcamentoId: int("orcamentoId"),
   tarefaId: int("tarefaId"),
   categoria: mysqlEnum("categoriaCusto", [
@@ -1326,9 +1328,18 @@ export const custosOperacao = mysqlTable(
   valor: decimal("valor", { precision: 14, scale: 2 }).notNull(),
   dataCusto: timestamp("dataCusto").defaultNow().notNull(),
   usuarioId: int("usuarioId").notNull(),
+  createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("custos_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("custos_organization_idx").on(t.organizationId),
+    index("custos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("custos_safra_idx").on(t.safraId),
+    index("custos_terreno_idx").on(t.terrenoId),
+    index("custos_cultura_idx").on(t.culturaId),
+    index("custos_tarefa_idx").on(t.tarefaId),
+  ],
 );
 
 export type CustoOperacao = typeof custosOperacao.$inferSelect;

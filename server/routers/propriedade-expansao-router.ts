@@ -54,6 +54,7 @@ import {
   requireOrgPermission,
   requirePropertyInTenant,
   requireTerrenoInTenant,
+  requireTarefaInTenant,
   assertRelatedIdsInTenant,
   TENANT_NOT_FOUND,
   type TenantContext,
@@ -716,6 +717,8 @@ export const propriedadeExpansaoRouter = router({
         z.object({
           propriedadeId: z.number().int().positive(),
           safraId: z.number().int().positive().optional(),
+          terrenoId: z.number().int().positive().optional(),
+          culturaId: z.number().int().positive().optional(),
           orcamentoId: z.number().int().positive().optional(),
           tarefaId: z.number().int().positive().optional(),
           categoria: z.enum(["insumo", "mao_obra", "maquina", "combustivel", "servico", "outro"]).optional(),
@@ -726,6 +729,14 @@ export const propriedadeExpansaoRouter = router({
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
         await requirePropertyInTenant(tenant, input.propriedadeId);
+        await assertRelatedIdsInTenant(tenant, {
+          propriedadeId: input.propriedadeId,
+          terrenoId: input.terrenoId,
+          culturaId: input.culturaId,
+        });
+        if (input.tarefaId) {
+          await requireTarefaInTenant(tenant, input.tarefaId);
+        }
         let safraId = input.safraId;
         if (safraId) {
           const { requireSafraInProperty } = await import("../db-safras");
@@ -748,12 +759,15 @@ export const propriedadeExpansaoRouter = router({
           propriedadeId: input.propriedadeId,
           organizationId: tenant.organizationId,
           safraId,
+          terrenoId: input.terrenoId,
+          culturaId: input.culturaId,
           orcamentoId: input.orcamentoId,
           tarefaId: input.tarefaId,
           categoria: input.categoria ?? "outro",
           descricao: input.descricao,
           valor: input.valor.toFixed(2),
           usuarioId: tenant.perfilId,
+          createdByUserId: tenant.userId,
           dataCusto: new Date(),
         } as any);
         await registrarAtividade({
@@ -766,6 +780,68 @@ export const propriedadeExpansaoRouter = router({
           gravidade: "info",
         });
         return id;
+      }),
+
+    /** Etapa 8 Passo 1 — centros de custo (reutiliza entidades existentes) */
+    centros: organizationProcedure
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          safraId: z.number().int().positive().optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        requireOrgPermission(tenant, "finance.read");
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        if (input.safraId) {
+          const { requireSafraInProperty } = await import("../db-safras");
+          await requireSafraInProperty(
+            tenant.organizationId,
+            input.propriedadeId,
+            input.safraId,
+          );
+        }
+        const { listSafrasByPropriedade } = await import("../db-safras");
+        const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
+        const tdb = createTenantDb(tenant.organizationId);
+        const [prop, safras, terrenos, cultivosAll, tarefasAll] = await Promise.all([
+          tdb.requirePropriedade(input.propriedadeId),
+          listSafrasByPropriedade(tenant.organizationId, input.propriedadeId),
+          tdb.listTerrenosByPropriedade(input.propriedadeId),
+          tdb.listCulturasByPropriedade(input.propriedadeId),
+          tdb.listTarefasByPropriedade(input.propriedadeId),
+        ]);
+        const cultivos = filterRowsBySafraId(cultivosAll, input.safraId ?? null).matched;
+        const operacoes = filterRowsBySafraId(tarefasAll, input.safraId ?? null).matched;
+        return {
+          propriedade: {
+            id: prop.id,
+            nome: prop.nome,
+            tipo: "propriedade" as const,
+          },
+          safras: safras.map((s) => ({
+            id: s.id,
+            nome: s.nome,
+            tipo: "safra" as const,
+          })),
+          talhoes: terrenos.map((t) => ({
+            id: t.id,
+            nome: t.nome,
+            tipo: "talhao" as const,
+          })),
+          culturas: cultivos.map((c) => ({
+            id: c.id,
+            nome: c.nomeCultura,
+            tipo: "cultura" as const,
+          })),
+          operacoes: operacoes.map((o) => ({
+            id: o.id,
+            nome: o.titulo,
+            tipo: "operacao" as const,
+            status: o.status,
+          })),
+        };
       }),
   }),
 
