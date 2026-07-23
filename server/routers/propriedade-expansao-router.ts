@@ -456,7 +456,7 @@ export const propriedadeExpansaoRouter = router({
       .query(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
         await assertPropertyInTenant(tenant, input.propriedadeId);
-        return listEstoque(input.propriedadeId);
+        return listEstoque(input.propriedadeId, tenant.organizationId);
       }),
 
     createItem: orgPermissionProcedure("operations.write")
@@ -464,10 +464,26 @@ export const propriedadeExpansaoRouter = router({
         z.object({
           propriedadeId: z.number().int().positive(),
           nome: z.string().min(1).max(150),
-          categoria: z.enum(["fertilizante", "defensivo", "semente", "combustivel", "peca", "outro"]).optional(),
-          unidadeBase: z.string().max(30).optional(),
+          categoria: z
+            .enum([
+              "fertilizante",
+              "defensivo",
+              "herbicida",
+              "fungicida",
+              "inseticida",
+              "semente",
+              "combustivel",
+              "peca",
+              "ferramenta",
+              "outro",
+            ])
+            .optional(),
+          unidadeBase: z.string().min(1).max(30).optional(),
           saldoInicial: z.number().min(0).optional(),
           estoqueMinimo: z.number().min(0).optional(),
+          fabricante: z.string().max(120).optional(),
+          observacoes: z.string().max(2_000).optional(),
+          depositoId: z.number().int().positive().optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -476,16 +492,23 @@ export const propriedadeExpansaoRouter = router({
         const id = await createEstoqueItem({
           propriedadeId: input.propriedadeId,
           organizationId: tenant.organizationId,
+          depositoId: input.depositoId,
           nome: input.nome,
           categoria: input.categoria ?? "outro",
-          unidadeBase: input.unidadeBase ?? "kg",
+          unidadeBase: input.unidadeBase?.trim() || "kg",
           saldo: "0",
           estoqueMinimo: (input.estoqueMinimo ?? 0).toFixed(3),
+          fabricante: input.fabricante?.trim() || undefined,
+          observacoes: input.observacoes?.trim() || undefined,
+          createdByUserId: tenant.userId,
         } as any);
         if ((input.saldoInicial ?? 0) > 0) {
           await registrarMovimentoEstoque({
             itemId: id,
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId,
             usuarioId: tenant.perfilId,
+            createdByUserId: tenant.userId,
             tipo: "entrada",
             quantidade: (input.saldoInicial ?? 0).toFixed(3),
             motivo: "Saldo inicial",
@@ -499,7 +522,7 @@ export const propriedadeExpansaoRouter = router({
         z.object({
           itemId: z.number().int().positive(),
           propriedadeId: z.number().int().positive(),
-          tipo: z.enum(["entrada", "saida", "reserva", "consumo", "ajuste", "perda"]),
+          tipo: z.enum(["entrada", "saida", "reserva", "consumo", "ajuste", "perda", "transferencia"]),
           quantidade: z.number().positive(),
           motivo: z.string().optional(),
           tarefaId: z.number().int().positive().optional(),
@@ -518,7 +541,10 @@ export const propriedadeExpansaoRouter = router({
         }
         return registrarMovimentoEstoque({
           itemId: input.itemId,
+          organizationId: tenant.organizationId,
+          propriedadeId: input.propriedadeId,
           usuarioId: tenant.perfilId,
+          createdByUserId: tenant.userId,
           tipo: input.tipo,
           quantidade: input.quantidade.toFixed(3),
           motivo: input.motivo,

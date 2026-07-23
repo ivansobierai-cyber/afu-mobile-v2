@@ -67,6 +67,7 @@ npm run db:safras:apply || echo "[api] WARN: db:safras:apply failed (non-fatal)"
 npm run db:archive:apply || echo "[api] WARN: db:archive:apply failed (non-fatal)"
 npm run db:tarefas-responsavel:apply || echo "[api] WARN: db:tarefas-responsavel:apply failed (non-fatal)"
 npm run db:maquinas:apply || echo "[api] WARN: db:maquinas:apply failed (non-fatal)"
+npm run db:estoque:apply || echo "[api] WARN: db:estoque:apply failed (non-fatal)"
 
 run_seeds() {
   echo "[api] Running demo seeds (background)..."

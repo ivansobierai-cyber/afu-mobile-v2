@@ -83,9 +83,20 @@ export async function getOcorrenciaById(id: number) {
   return rows[0];
 }
 
-export async function listEstoque(propriedadeId: number) {
+export async function listEstoque(propriedadeId: number, organizationId?: number) {
   const db = await getDb();
   if (!db) return [];
+  if (organizationId != null) {
+    return db
+      .select()
+      .from(estoqueItens)
+      .where(
+        and(
+          eq(estoqueItens.propriedadeId, propriedadeId),
+          eq(estoqueItens.organizationId, organizationId),
+        ),
+      );
+  }
   return db.select().from(estoqueItens).where(eq(estoqueItens.propriedadeId, propriedadeId));
 }
 
@@ -138,8 +149,15 @@ export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
   const qtd = Number(data.quantidade);
   let saldo = Number(item.saldo);
   if (["saida", "consumo", "perda", "reserva"].includes(data.tipo)) saldo -= qtd;
-  else saldo += qtd;
-  await db.insert(estoqueMovimentos).values(data);
+  else if (data.tipo !== "transferencia") saldo += qtd;
+  const organizationId = data.organizationId ?? item.organizationId ?? undefined;
+  const propriedadeId = data.propriedadeId ?? item.propriedadeId;
+  await db.insert(estoqueMovimentos).values({
+    ...data,
+    organizationId,
+    propriedadeId,
+    createdByUserId: data.createdByUserId ?? data.usuarioId,
+  });
   // Etapa 5 — saldo só atualiza se o item continuar no mesmo tenant
   const whereItem =
     item.organizationId != null

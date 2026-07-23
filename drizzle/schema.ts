@@ -1125,54 +1125,161 @@ export const ocorrenciasCampo = mysqlTable(
 export type OcorrenciaCampo = typeof ocorrenciasCampo.$inferSelect;
 export type InsertOcorrenciaCampo = typeof ocorrenciasCampo.$inferInsert;
 
-/** Etapa 7 — estoque agrícola (≠ marketplace) */
+/** Etapa 7 — estoque agrícola (≠ marketplace) — base + extensão inteligente */
+export const estoqueDepositos = mysqlTable(
+  "estoque_depositos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    nome: varchar("nome", { length: 120 }).notNull(),
+    descricao: text("descricao"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_depositos_org_idx").on(t.organizationId),
+    index("estoque_depositos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type EstoqueDeposito = typeof estoqueDepositos.$inferSelect;
+export type InsertEstoqueDeposito = typeof estoqueDepositos.$inferInsert;
+
 export const estoqueItens = mysqlTable(
   "estoque_itens",
   {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
+  depositoId: int("depositoId"),
   nome: varchar("nome", { length: 150 }).notNull(),
   categoria: mysqlEnum("categoriaEstoque", [
     "fertilizante",
     "defensivo",
+    "herbicida",
+    "fungicida",
+    "inseticida",
     "semente",
     "combustivel",
     "peca",
+    "ferramenta",
     "outro",
   ]).default("outro").notNull(),
   unidadeBase: varchar("unidadeBase", { length: 30 }).default("kg").notNull(),
   saldo: decimal("saldo", { precision: 14, scale: 3 }).default("0").notNull(),
   estoqueMinimo: decimal("estoqueMinimo", { precision: 14, scale: 3 }).default("0"),
+  fabricante: varchar("fabricante", { length: 120 }),
+  observacoes: text("observacoes"),
+  createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("estoque_itens_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("estoque_itens_organization_idx").on(t.organizationId),
+    index("estoque_itens_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
 );
 
 export type EstoqueItem = typeof estoqueItens.$inferSelect;
 export type InsertEstoqueItem = typeof estoqueItens.$inferInsert;
 
-export const estoqueMovimentos = mysqlTable("estoque_movimentos", {
-  id: int("id").autoincrement().primaryKey(),
-  itemId: int("itemId").notNull(),
-  usuarioId: int("usuarioId").notNull(),
-  tipo: mysqlEnum("tipoMovimentoEstoque", [
-    "entrada",
-    "saida",
-    "reserva",
-    "consumo",
-    "ajuste",
-    "perda",
-  ]).notNull(),
-  quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
-  motivo: varchar("motivo", { length: 255 }),
-  tarefaId: int("tarefaId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const estoqueLotes = mysqlTable(
+  "estoque_lotes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    itemId: int("itemId").notNull(),
+    depositoId: int("depositoId"),
+    codigo: varchar("codigo", { length: 80 }).notNull(),
+    validade: timestamp("validade"),
+    quantidadeInicial: decimal("quantidadeInicial", { precision: 14, scale: 3 }).default("0").notNull(),
+    bloqueado: boolean("bloqueado").default(false).notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_lotes_org_idx").on(t.organizationId),
+    index("estoque_lotes_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("estoque_lotes_item_idx").on(t.itemId),
+  ],
+);
+
+export type EstoqueLote = typeof estoqueLotes.$inferSelect;
+export type InsertEstoqueLote = typeof estoqueLotes.$inferInsert;
+
+export const estoqueMovimentos = mysqlTable(
+  "estoque_movimentos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId"),
+    propriedadeId: int("propriedadeId"),
+    itemId: int("itemId").notNull(),
+    loteId: int("loteId"),
+    depositoId: int("depositoId"),
+    usuarioId: int("usuarioId").notNull(),
+    tipo: mysqlEnum("tipoMovimentoEstoque", [
+      "entrada",
+      "saida",
+      "reserva",
+      "consumo",
+      "ajuste",
+      "perda",
+      "transferencia",
+    ]).notNull(),
+    quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+    motivo: varchar("motivo", { length: 255 }),
+    tarefaId: int("tarefaId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_movimentos_org_idx").on(t.organizationId),
+    index("estoque_movimentos_item_idx").on(t.itemId),
+    index("estoque_movimentos_tarefa_idx").on(t.tarefaId),
+  ],
+);
 
 export type EstoqueMovimento = typeof estoqueMovimentos.$inferSelect;
 export type InsertEstoqueMovimento = typeof estoqueMovimentos.$inferInsert;
+
+/** Reservas explícitas ligadas a tarefa/operação (Etapa 7 — Passo 1/4) */
+export const estoqueReservas = mysqlTable(
+  "estoque_reservas",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    itemId: int("itemId").notNull(),
+    loteId: int("loteId"),
+    tarefaId: int("tarefaId"),
+    quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+    status: mysqlEnum("statusReservaEstoque", [
+      "ativa",
+      "consumida",
+      "liberada",
+      "cancelada",
+    ])
+      .default("ativa")
+      .notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_reservas_org_idx").on(t.organizationId),
+    index("estoque_reservas_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("estoque_reservas_tarefa_idx").on(t.tarefaId),
+    index("estoque_reservas_item_idx").on(t.itemId),
+  ],
+);
+
+export type EstoqueReserva = typeof estoqueReservas.$inferSelect;
+export type InsertEstoqueReserva = typeof estoqueReservas.$inferInsert;
 
 /** Etapa 8 — orçamento e custos */
 export const orcamentosSafra = mysqlTable(

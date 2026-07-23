@@ -451,7 +451,7 @@ export const tarefasRouter = router({
 
         const consumos = input.consumos ?? [];
         if (consumos.length > 0) {
-          const estoque = await listEstoque(tarefa.propriedadeId);
+          const estoque = await listEstoque(tarefa.propriedadeId, tenant.organizationId);
           for (const consumo of consumos) {
             const existing = await findConsumoEstoqueByTarefaItem(tarefa.id, consumo.itemId);
             if (existing) continue;
