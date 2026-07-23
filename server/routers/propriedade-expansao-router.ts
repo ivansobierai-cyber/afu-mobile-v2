@@ -33,6 +33,8 @@ import {
   createOrcamento,
   listCustos,
   createCusto,
+  listFinanceiroLancamentos,
+  createFinanceiroLancamento,
   listAtividades,
   registrarAtividade,
   updateGeometriaPropriedade,
@@ -842,6 +844,106 @@ export const propriedadeExpansaoRouter = router({
             status: o.status,
           })),
         };
+      }),
+  }),
+
+  // ── Etapa 8 Passo 2: lançamentos financeiros ──────────────────────────────
+  financeiro: router({
+    list: organizationProcedure
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          safraId: z.number().int().positive().optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        requireOrgPermission(tenant, "finance.read");
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        if (input.safraId) {
+          const { requireSafraInProperty } = await import("../db-safras");
+          await requireSafraInProperty(
+            tenant.organizationId,
+            input.propriedadeId,
+            input.safraId,
+          );
+        }
+        return listFinanceiroLancamentos(
+          input.propriedadeId,
+          tenant.organizationId,
+          input.safraId,
+        );
+      }),
+
+    create: orgPermissionProcedure("finance.write")
+      .input(
+        z.object({
+          propriedadeId: z.number().int().positive(),
+          safraId: z.number().int().positive().optional(),
+          terrenoId: z.number().int().positive().optional(),
+          culturaId: z.number().int().positive().optional(),
+          tarefaId: z.number().int().positive().optional(),
+          tipo: z.enum(["despesa", "receita", "custo", "investimento"]),
+          descricao: z.string().min(1).max(200),
+          valor: z.number().positive(),
+          dataLancamento: z.string().datetime().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await assertRelatedIdsInTenant(tenant, {
+          propriedadeId: input.propriedadeId,
+          terrenoId: input.terrenoId,
+          culturaId: input.culturaId,
+        });
+        if (input.tarefaId) await requireTarefaInTenant(tenant, input.tarefaId);
+        let safraId = input.safraId;
+        if (safraId) {
+          const { requireSafraInProperty } = await import("../db-safras");
+          await requireSafraInProperty(
+            tenant.organizationId,
+            input.propriedadeId,
+            safraId,
+          );
+        } else {
+          const { ensureDefaultSafra } = await import("../db-safras");
+          safraId = (
+            await ensureDefaultSafra({
+              organizationId: tenant.organizationId,
+              propriedadeId: input.propriedadeId,
+              createdByUserId: tenant.userId,
+            })
+          ).id;
+        }
+        const { classificarLancamentoFinanceiro } = await import(
+          "../../lib/propriedades/financeiro-classificar"
+        );
+        const categoriaAuto = classificarLancamentoFinanceiro(input.tipo, input.descricao);
+        const id = await createFinanceiroLancamento({
+          organizationId: tenant.organizationId,
+          propriedadeId: input.propriedadeId,
+          safraId,
+          terrenoId: input.terrenoId,
+          culturaId: input.culturaId,
+          tarefaId: input.tarefaId,
+          tipo: input.tipo,
+          categoriaAuto,
+          descricao: input.descricao.trim(),
+          valor: input.valor.toFixed(2),
+          dataLancamento: input.dataLancamento ? new Date(input.dataLancamento) : new Date(),
+          createdByUserId: tenant.userId,
+        });
+        await registrarAtividade({
+          propriedadeId: input.propriedadeId,
+          organizationId: tenant.organizationId,
+          usuarioId: tenant.userId,
+          tipo: "financeiro",
+          titulo: `${input.tipo}: ${input.descricao}`,
+          detalhe: `R$ ${input.valor.toFixed(2)} · ${categoriaAuto}`,
+          gravidade: "info",
+        });
+        return { id, categoriaAuto };
       }),
   }),
 

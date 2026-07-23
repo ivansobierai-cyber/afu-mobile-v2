@@ -1345,6 +1345,42 @@ export const custosOperacao = mysqlTable(
 export type CustoOperacao = typeof custosOperacao.$inferSelect;
 export type InsertCustoOperacao = typeof custosOperacao.$inferInsert;
 
+/** Etapa 8 Passo 2 — lançamentos financeiros (despesa/receita/custo/investimento) */
+export const financeiroLancamentos = mysqlTable(
+  "financeiro_lancamentos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    safraId: int("safraId"),
+    terrenoId: int("terrenoId"),
+    culturaId: int("culturaId"),
+    tarefaId: int("tarefaId"),
+    tipo: mysqlEnum("tipoLancamentoFinanceiro", [
+      "despesa",
+      "receita",
+      "custo",
+      "investimento",
+    ]).notNull(),
+    categoriaAuto: varchar("categoriaAuto", { length: 60 }).notNull(),
+    descricao: varchar("descricao", { length: 200 }).notNull(),
+    valor: decimal("valor", { precision: 14, scale: 2 }).notNull(),
+    dataLancamento: timestamp("dataLancamento").defaultNow().notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("fin_lanc_org_idx").on(t.organizationId),
+    index("fin_lanc_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("fin_lanc_tipo_idx").on(t.tipo),
+    index("fin_lanc_safra_idx").on(t.safraId),
+  ],
+);
+
+export type FinanceiroLancamento = typeof financeiroLancamentos.$inferSelect;
+export type InsertFinanceiroLancamento = typeof financeiroLancamentos.$inferInsert;
+
 /** Etapa 4 — feed de atividade */
 export const atividadePropriedade = mysqlTable(
   "atividade_propriedade",

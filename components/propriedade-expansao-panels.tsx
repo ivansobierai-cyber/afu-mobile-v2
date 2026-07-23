@@ -962,8 +962,15 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: C
   const [descricao, setDescricao] = useState("");
   const [valor, setValor] = useState("");
   const [orcamentoValor, setOrcamentoValor] = useState("10000");
+  const [finTipo, setFinTipo] = useState<"despesa" | "receita" | "custo" | "investimento">("despesa");
+  const [finDesc, setFinDesc] = useState("");
+  const [finValor, setFinValor] = useState("");
 
   const { data, isLoading, isError, refetch } = trpc.coreData.expansao.custos.list.useQuery({
+    propriedadeId,
+    safraId,
+  });
+  const { data: lancamentos = [] } = trpc.coreData.expansao.financeiro.list.useQuery({
     propriedadeId,
     safraId,
   });
@@ -983,6 +990,11 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: C
         safraId,
         cacheScope,
       });
+    },
+  });
+  const createFin = trpc.coreData.expansao.financeiro.create.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.financeiro.list.invalidate({ propriedadeId, safraId });
     },
   });
 

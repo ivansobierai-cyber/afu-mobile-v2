@@ -14,6 +14,8 @@ import {
   InsertOrcamentoSafra,
   custosOperacao,
   InsertCustoOperacao,
+  financeiroLancamentos,
+  InsertFinanceiroLancamento,
   atividadePropriedade,
   InsertAtividadePropriedade,
   maquinasOperacionais,
@@ -642,6 +644,33 @@ export async function createCusto(data: InsertCustoOperacao) {
         ),
       );
   }
+  return result[0].insertId;
+}
+
+export async function listFinanceiroLancamentos(
+  propriedadeId: number,
+  organizationId: number,
+  safraId?: number,
+) {
+  const db = await getDb();
+  if (!db) return [];
+  const conds = [
+    eq(financeiroLancamentos.propriedadeId, propriedadeId),
+    eq(financeiroLancamentos.organizationId, organizationId),
+  ];
+  if (safraId != null) conds.push(eq(financeiroLancamentos.safraId, safraId));
+  return db
+    .select()
+    .from(financeiroLancamentos)
+    .where(and(...conds))
+    .orderBy(desc(financeiroLancamentos.dataLancamento));
+}
+
+export async function createFinanceiroLancamento(data: InsertFinanceiroLancamento) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const organizationId = requireOrgId(data, data.organizationId);
+  const result = await db.insert(financeiroLancamentos).values({ ...data, organizationId });
   return result[0].insertId;
 }
 

@@ -169,6 +169,13 @@
       "when": 1784811000000,
       "tag": "0025_centros_custo",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1784812000000,
+      "tag": "0026_financeiro_lancamentos",
+      "breakpoints": true
     }
   ]
 }
