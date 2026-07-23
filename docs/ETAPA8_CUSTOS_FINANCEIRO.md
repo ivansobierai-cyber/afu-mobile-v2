@@ -9,7 +9,7 @@
 |-------|------|--------|
 | 1 | Centros de custo | **concluído** |
 | 2 | Cadastro financeiro | **concluído** |
-| 3 | Máquinas | pendente |
+| 3 | Máquinas | **concluído** |
 | 4 | Equipes | pendente |
 | 5 | Indicadores | pendente |
 | 6 | Dashboard financeiro | pendente |
@@ -29,3 +29,12 @@
 - API `expansao.financeiro.list/create` + UI no painel de custos
 - Apply `npm run db:financeiro:apply` (0026)
 - Testes `tests/financeiro-passo2.test.ts`
+
+## Passo 3 — entregue
+
+- Tipo `caminhao` (mantém tipos existentes)
+- Campos `combustivelLitros`, `ultimaManutencaoAt`
+- Tabela `maquina_eventos` (horímetro/combustível/manutenção/disponibilidade)
+- APIs novas sem remover CRUD: `registrarHorimetro`, `registrarCombustivel`, `registrarManutencao`, `setDisponibilidade`, `eventos`
+- Apply `npm run db:maquinas-controle:apply` (0027)
+- Testes `tests/maquinas-passo3-controle.test.ts`

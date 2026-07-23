@@ -49,6 +49,7 @@
     "db:estoque:apply": "tsx scripts/apply-0024-estoque-inteligente.ts",
     "db:centros-custo:apply": "tsx scripts/apply-0025-centros-custo.ts",
     "db:financeiro:apply": "tsx scripts/apply-0026-financeiro-lancamentos.ts",
+    "db:maquinas-controle:apply": "tsx scripts/apply-0027-maquinas-controle.ts",
     "db:sync-ai:apply": "tsx scripts/apply-0018-0019-sync-ai.ts",
     "backfill:organizations": "tsx scripts/backfill-organizations.ts",
     "backfill:organization-id": "tsx scripts/backfill-organization-id.ts",

@@ -31,6 +31,7 @@ const MAQUINA_TIPOS = [
   "trator",
   "pulverizador",
   "colheitadeira",
+  "caminhao",
   "implemento",
   "irrigacao",
   "outro",
@@ -40,6 +41,7 @@ const MAQUINA_TIPO_LABEL: Record<(typeof MAQUINA_TIPOS)[number], string> = {
   trator: "Trator",
   pulverizador: "Pulverizador",
   colheitadeira: "Colheitadeira",
+  caminhao: "Caminhão",
   implemento: "Implemento",
   irrigacao: "Irrigação",
   outro: "Outro",
@@ -1338,6 +1340,26 @@ export function PropriedadeMaquinasPanel({
       await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
     },
   });
+  const setDisp = trpc.coreData.expansao.maquinas.setDisponibilidade.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
+  const regHorimetro = trpc.coreData.expansao.maquinas.registrarHorimetro.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
+  const regCombustivel = trpc.coreData.expansao.maquinas.registrarCombustivel.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
+  const regManutencao = trpc.coreData.expansao.maquinas.registrarManutencao.useMutation({
+    onSuccess: async () => {
+      await utils.coreData.expansao.maquinas.list.invalidate({ propriedadeId });
+    },
+  });
 
   const salvar = () => {
     if (!nome.trim()) {
@@ -1496,7 +1518,10 @@ export function PropriedadeMaquinasPanel({
                   <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
                     {MAQUINA_TIPO_LABEL[m.tipo as (typeof MAQUINA_TIPOS)[number]] ?? m.tipo}
                     {m.identificador ? ` · ${m.identificador}` : ""}
-                    {m.horasUso ? ` · ${Number(m.horasUso).toFixed(1)} h` : ""}
+                    {m.horasUso != null ? ` · ${Number(m.horasUso).toFixed(1)} h` : ""}
+                    {m.combustivelLitros != null
+                      ? ` · ${Number(m.combustivelLitros).toFixed(1)} L`
+                      : ""}
                   </Text>
                 </View>
                 <View
@@ -1520,26 +1545,67 @@ export function PropriedadeMaquinasPanel({
                 <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
                   <TouchableOpacity
                     accessibilityRole="button"
-                    onPress={() =>
-                      void update
-                        .mutateAsync({ id: m.id, status: "manutencao" })
-                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
-                    }
+                    onPress={() => {
+                      const atual = Number(m.horasUso ?? 0);
+                      void regHorimetro
+                        .mutateAsync({ maquinaId: m.id, horas: atual + 1 })
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"));
+                    }}
                   >
-                    <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 12 }}>
-                      Marcar manutenção
+                    <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 12 }}>
+                      +1h horímetro
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     accessibilityRole="button"
                     onPress={() =>
-                      void update
-                        .mutateAsync({ id: m.id, status: "disponivel" })
+                      void regCombustivel
+                        .mutateAsync({ maquinaId: m.id, litros: 50, sentido: "entrada" })
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
+                    }
+                  >
+                    <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 12 }}>
+                      +50 L
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() =>
+                      void regManutencao
+                        .mutateAsync({
+                          maquinaId: m.id,
+                          descricao: "Manutenção registrada",
+                          colocarEmManutencao: true,
+                        })
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
+                    }
+                  >
+                    <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 12 }}>
+                      Manutenção
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() =>
+                      void setDisp
+                        .mutateAsync({ maquinaId: m.id, status: "disponivel" })
                         .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
                     }
                   >
                     <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>
                       Disponível
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    onPress={() =>
+                      void setDisp
+                        .mutateAsync({ maquinaId: m.id, status: "em_uso" })
+                        .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
+                    }
+                  >
+                    <Text style={{ color: "#1565C0", fontWeight: "700", fontSize: 12 }}>
+                      Em uso
                     </Text>
                   </TouchableOpacity>
                   <TouchableOpacity

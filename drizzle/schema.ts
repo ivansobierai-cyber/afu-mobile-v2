@@ -1402,7 +1402,7 @@ export const atividadePropriedade = mysqlTable(
 export type AtividadePropriedade = typeof atividadePropriedade.$inferSelect;
 export type InsertAtividadePropriedade = typeof atividadePropriedade.$inferInsert;
 
-/** P3 — máquinas e equipamentos operacionais */
+/** P3 / Etapa 8 Passo 3 — máquinas e equipamentos operacionais */
 export const maquinasOperacionais = mysqlTable(
   "maquinas_operacionais",
   {
@@ -1414,6 +1414,7 @@ export const maquinasOperacionais = mysqlTable(
     "trator",
     "pulverizador",
     "colheitadeira",
+    "caminhao",
     "implemento",
     "irrigacao",
     "outro",
@@ -1425,7 +1426,11 @@ export const maquinasOperacionais = mysqlTable(
     "manutencao",
     "inativa",
   ]).default("disponivel").notNull(),
+  /** Horímetro acumulado (horas) */
   horasUso: decimal("horasUso", { precision: 12, scale: 1 }),
+  /** Nível atual de combustível (litros) */
+  combustivelLitros: decimal("combustivelLitros", { precision: 12, scale: 2 }),
+  ultimaManutencaoAt: timestamp("ultimaManutencaoAt"),
   notas: text("notas"),
   createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -1439,6 +1444,40 @@ export const maquinasOperacionais = mysqlTable(
 
 export type MaquinaOperacional = typeof maquinasOperacionais.$inferSelect;
 export type InsertMaquinaOperacional = typeof maquinasOperacionais.$inferInsert;
+
+/** Etapa 8 Passo 3 — eventos de máquina (horímetro, combustível, manutenção) */
+export const maquinaEventos = mysqlTable(
+  "maquina_eventos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    maquinaId: int("maquinaId").notNull(),
+    tipo: mysqlEnum("tipoEventoMaquina", [
+      "horimetro",
+      "combustivel",
+      "manutencao",
+      "disponibilidade",
+    ]).notNull(),
+    /** Horímetro registrado / litros / etc. */
+    valor: decimal("valor", { precision: 14, scale: 3 }),
+    /** Para combustível: entrada | saida */
+    sentido: varchar("sentido", { length: 20 }),
+    descricao: varchar("descricao", { length: 255 }),
+    tarefaId: int("tarefaId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("maquina_eventos_org_idx").on(t.organizationId),
+    index("maquina_eventos_maquina_idx").on(t.maquinaId),
+    index("maquina_eventos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type MaquinaEvento = typeof maquinaEventos.$inferSelect;
+export type InsertMaquinaEvento = typeof maquinaEventos.$inferInsert;
 
 // ─────────────────────────────────────────────
 // SEGURANÇA ETAPA 2 — organizações e memberships

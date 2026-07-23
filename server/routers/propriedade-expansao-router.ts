@@ -44,6 +44,11 @@ import {
   createMaquinaOperacional,
   updateMaquinaOperacional,
   removeMaquinaOperacional,
+  listMaquinaEventos,
+  registrarHorimetroMaquina,
+  registrarCombustivelMaquina,
+  registrarManutencaoMaquina,
+  setDisponibilidadeMaquina,
 } from "../db-propriedade-expansao";
 import { gerarAlertas, METRICAS_CATALOGO } from "../../lib/propriedades/alertas-engine";
 import {
@@ -87,6 +92,7 @@ const maquinaTipoSchema = z.enum([
   "trator",
   "pulverizador",
   "colheitadeira",
+  "caminhao",
   "implemento",
   "irrigacao",
   "outro",
@@ -1040,6 +1046,144 @@ export const propriedadeExpansaoRouter = router({
         await requirePropertyInTenant(tenant, maquina.propriedadeId);
         await removeMaquinaOperacional(input.id, tenant.organizationId);
         return { success: true };
+      }),
+
+    eventos: organizationProcedure
+      .input(
+        z.object({
+          maquinaId: z.number().int().positive(),
+          limit: z.number().int().min(1).max(100).optional(),
+        }),
+      )
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.maquinaId, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await assertPropertyInTenant(tenant, maquina.propriedadeId);
+        return listMaquinaEventos(input.maquinaId, tenant.organizationId, input.limit);
+      }),
+
+    registrarHorimetro: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          maquinaId: z.number().int().positive(),
+          horas: z.number().nonnegative(),
+          descricao: z.string().max(255).optional(),
+          tarefaId: z.number().int().positive().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.maquinaId, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        if (input.tarefaId) await requireTarefaInTenant(tenant, input.tarefaId);
+        try {
+          return await registrarHorimetroMaquina({
+            maquinaId: input.maquinaId,
+            organizationId: tenant.organizationId,
+            horas: input.horas,
+            descricao: input.descricao,
+            createdByUserId: tenant.userId,
+            tarefaId: input.tarefaId,
+          });
+        } catch (e: any) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: e?.message ?? "Falha no horímetro" });
+        }
+      }),
+
+    registrarCombustivel: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          maquinaId: z.number().int().positive(),
+          litros: z.number().positive(),
+          sentido: z.enum(["entrada", "saida"]),
+          descricao: z.string().max(255).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.maquinaId, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        try {
+          return await registrarCombustivelMaquina({
+            maquinaId: input.maquinaId,
+            organizationId: tenant.organizationId,
+            litros: input.litros,
+            sentido: input.sentido,
+            descricao: input.descricao,
+            createdByUserId: tenant.userId,
+          });
+        } catch (e: any) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: e?.message ?? "Falha no combustível",
+          });
+        }
+      }),
+
+    registrarManutencao: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          maquinaId: z.number().int().positive(),
+          descricao: z.string().min(1).max(255),
+          custo: z.number().nonnegative().optional(),
+          colocarEmManutencao: z.boolean().optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.maquinaId, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        try {
+          return await registrarManutencaoMaquina({
+            maquinaId: input.maquinaId,
+            organizationId: tenant.organizationId,
+            descricao: input.descricao,
+            custo: input.custo,
+            colocarEmManutencao: input.colocarEmManutencao,
+            createdByUserId: tenant.userId,
+          });
+        } catch (e: any) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: e?.message ?? "Falha na manutenção",
+          });
+        }
+      }),
+
+    setDisponibilidade: orgPermissionProcedure("property.write")
+      .input(
+        z.object({
+          maquinaId: z.number().int().positive(),
+          status: maquinaStatusSchema,
+          descricao: z.string().max(255).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        const maquina = await getMaquinaOperacional(input.maquinaId, tenant.organizationId);
+        if (!maquina) {
+          throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+        }
+        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        return setDisponibilidadeMaquina({
+          maquinaId: input.maquinaId,
+          organizationId: tenant.organizationId,
+          status: input.status,
+          descricao: input.descricao,
+          createdByUserId: tenant.userId,
+        });
       }),
   }),
 

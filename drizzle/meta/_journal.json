@@ -176,6 +176,13 @@
       "when": 1784812000000,
       "tag": "0026_financeiro_lancamentos",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1784813000000,
+      "tag": "0027_maquinas_controle",
+      "breakpoints": true
     }
   ]
 }

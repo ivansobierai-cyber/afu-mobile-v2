@@ -20,6 +20,8 @@ import {
   InsertAtividadePropriedade,
   maquinasOperacionais,
   InsertMaquinaOperacional,
+  maquinaEventos,
+  InsertMaquinaEvento,
   propriedades,
   terrenos,
 } from "../drizzle/schema";
@@ -884,6 +886,158 @@ export async function removeMaquinaOperacional(id: number, organizationId: numbe
   if (Number((result as any)[0]?.affectedRows ?? 0) === 0) {
     throw new Error("Máquina não encontrada no tenant");
   }
+}
+
+export async function listMaquinaEventos(
+  maquinaId: number,
+  organizationId: number,
+  limit = 50,
+) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(maquinaEventos)
+    .where(
+      and(
+        eq(maquinaEventos.maquinaId, maquinaId),
+        eq(maquinaEventos.organizationId, organizationId),
+      ),
+    )
+    .orderBy(desc(maquinaEventos.createdAt))
+    .limit(limit);
+}
+
+async function insertMaquinaEvento(data: InsertMaquinaEvento) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const organizationId = requireOrgId(data, data.organizationId);
+  const result = await db.insert(maquinaEventos).values({ ...data, organizationId });
+  return result[0].insertId;
+}
+
+/** Registra horímetro; novo valor deve ser >= horas atuais. */
+export async function registrarHorimetroMaquina(opts: {
+  maquinaId: number;
+  organizationId: number;
+  horas: number;
+  descricao?: string;
+  createdByUserId: number;
+  tarefaId?: number;
+}) {
+  const maquina = await getMaquinaOperacional(opts.maquinaId, opts.organizationId);
+  if (!maquina) throw new Error("Máquina não encontrada");
+  const atual = Number(maquina.horasUso ?? 0);
+  if (!Number.isFinite(opts.horas) || opts.horas < atual - 1e-9) {
+    throw new Error(`Horímetro inválido (atual ${atual})`);
+  }
+  await updateMaquinaOperacional(
+    opts.maquinaId,
+    { horasUso: opts.horas.toFixed(1) },
+    opts.organizationId,
+  );
+  const eventoId = await insertMaquinaEvento({
+    organizationId: opts.organizationId,
+    propriedadeId: maquina.propriedadeId,
+    maquinaId: opts.maquinaId,
+    tipo: "horimetro",
+    valor: opts.horas.toFixed(3),
+    descricao: opts.descricao ?? `Horímetro ${opts.horas}`,
+    createdByUserId: opts.createdByUserId,
+    tarefaId: opts.tarefaId,
+  });
+  return { eventoId, horasUso: opts.horas };
+}
+
+/** Abastecimento (entrada) ou consumo (saida) de combustível. */
+export async function registrarCombustivelMaquina(opts: {
+  maquinaId: number;
+  organizationId: number;
+  litros: number;
+  sentido: "entrada" | "saida";
+  descricao?: string;
+  createdByUserId: number;
+}) {
+  const maquina = await getMaquinaOperacional(opts.maquinaId, opts.organizationId);
+  if (!maquina) throw new Error("Máquina não encontrada");
+  if (!Number.isFinite(opts.litros) || opts.litros <= 0) {
+    throw new Error("Litros inválidos");
+  }
+  const atual = Number(maquina.combustivelLitros ?? 0);
+  const novo =
+    opts.sentido === "entrada" ? atual + opts.litros : atual - opts.litros;
+  if (novo < -1e-9) throw new Error("Combustível insuficiente no tanque");
+  await updateMaquinaOperacional(
+    opts.maquinaId,
+    { combustivelLitros: Math.max(0, novo).toFixed(2) },
+    opts.organizationId,
+  );
+  const eventoId = await insertMaquinaEvento({
+    organizationId: opts.organizationId,
+    propriedadeId: maquina.propriedadeId,
+    maquinaId: opts.maquinaId,
+    tipo: "combustivel",
+    valor: opts.litros.toFixed(3),
+    sentido: opts.sentido,
+    descricao: opts.descricao ?? `Combustível ${opts.sentido} ${opts.litros} L`,
+    createdByUserId: opts.createdByUserId,
+  });
+  return { eventoId, combustivelLitros: Math.max(0, novo) };
+}
+
+/** Registra manutenção; opcionalmente coloca status em manutenção. */
+export async function registrarManutencaoMaquina(opts: {
+  maquinaId: number;
+  organizationId: number;
+  descricao: string;
+  custo?: number;
+  colocarEmManutencao?: boolean;
+  createdByUserId: number;
+}) {
+  const maquina = await getMaquinaOperacional(opts.maquinaId, opts.organizationId);
+  if (!maquina) throw new Error("Máquina não encontrada");
+  const now = new Date();
+  const patch: Partial<InsertMaquinaOperacional> = {
+    ultimaManutencaoAt: now,
+  };
+  if (opts.colocarEmManutencao) patch.status = "manutencao";
+  await updateMaquinaOperacional(opts.maquinaId, patch, opts.organizationId);
+  const eventoId = await insertMaquinaEvento({
+    organizationId: opts.organizationId,
+    propriedadeId: maquina.propriedadeId,
+    maquinaId: opts.maquinaId,
+    tipo: "manutencao",
+    valor: opts.custo != null ? opts.custo.toFixed(3) : undefined,
+    descricao: opts.descricao,
+    createdByUserId: opts.createdByUserId,
+  });
+  return { eventoId, status: opts.colocarEmManutencao ? "manutencao" : maquina.status };
+}
+
+/** Atualiza disponibilidade (status) com auditoria. */
+export async function setDisponibilidadeMaquina(opts: {
+  maquinaId: number;
+  organizationId: number;
+  status: "disponivel" | "em_uso" | "manutencao" | "inativa";
+  descricao?: string;
+  createdByUserId: number;
+}) {
+  const maquina = await getMaquinaOperacional(opts.maquinaId, opts.organizationId);
+  if (!maquina) throw new Error("Máquina não encontrada");
+  await updateMaquinaOperacional(
+    opts.maquinaId,
+    { status: opts.status },
+    opts.organizationId,
+  );
+  const eventoId = await insertMaquinaEvento({
+    organizationId: opts.organizationId,
+    propriedadeId: maquina.propriedadeId,
+    maquinaId: opts.maquinaId,
+    tipo: "disponibilidade",
+    descricao: opts.descricao ?? `Status → ${opts.status}`,
+    createdByUserId: opts.createdByUserId,
+  });
+  return { eventoId, status: opts.status };
 }
 
 export async function findTarefaByClientMutationId(clientMutationId: string) {
