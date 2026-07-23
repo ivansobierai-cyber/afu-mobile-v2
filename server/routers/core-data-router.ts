@@ -615,6 +615,31 @@ const cultivosRouter = router({
       return buildCultivoMapa(tenant.organizationId, cultura);
     }),
 
+  /** Resumo IA heurístico (Cultivos V2 Etapa 7) */
+  iaResumo: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { buildCultivoIaResumo } = await import("../db-cultivo-ia");
+      return buildCultivoIaResumo(tenant.organizationId, cultura);
+    }),
+
+  /** Indicadores financeiros do cultivo (Cultivos V2 Etapa 9) */
+  indicadores: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "finance.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { buildCultivoIndicadores } = await import("../db-cultivo-indicadores");
+      return buildCultivoIndicadores({
+        organizationId: tenant.organizationId,
+        cultura,
+      });
+    }),
+
   delete: orgPermissionProcedure("property.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

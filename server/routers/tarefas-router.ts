@@ -26,6 +26,7 @@ import {
   requirePropertyInTenant,
   requireTarefaInTenant,
   requireTerrenoInTenant,
+  requireCulturaInTenant,
   assertRelatedIdsInTenant,
   type TenantContext,
 } from "../tenant-access";
@@ -192,6 +193,7 @@ export const tarefasRouter = router({
         status: statusSchema.optional(),
         abertasOnly: z.boolean().optional(),
         safraId: z.number().int().positive().optional(),
+        culturaId: z.number().int().positive().optional(),
       }),
     )
     .query(async ({ ctx, input }) => {
@@ -206,9 +208,15 @@ export const tarefasRouter = router({
           input.safraId,
         );
       }
+      if (input.culturaId) {
+        await requireCulturaInTenant(tenant, input.culturaId, input.propriedadeId);
+      }
       const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
       let lista = await getTarefasByPropriedade(input.propriedadeId);
       lista = filterRowsBySafraId(lista, input.safraId ?? null).matched;
+      if (input.culturaId) {
+        lista = lista.filter((t) => t.culturaId === input.culturaId);
+      }
       if (input.status) lista = lista.filter((t) => t.status === input.status);
       if (input.abertasOnly) {
         lista = lista.filter((t) => STATUS_ABERTOS.includes(t.status as TarefaStatus));

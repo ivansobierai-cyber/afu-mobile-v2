@@ -21,6 +21,11 @@ import {
   CultivoMonitoramentoTab,
 } from "@/components/cultivos/cultivo-monitoramento-tab";
 import { CultivoMapaTab } from "@/components/cultivos/cultivo-mapa-tab";
+import {
+  CultivoCustosTab,
+  CultivoIaTab,
+  CultivoOperacoesTab,
+} from "@/components/cultivos/cultivo-ops-ia-custos";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import {
@@ -109,7 +114,7 @@ export default function CultivoDetailScreen() {
       enabled:
         tenantReady &&
         !!cultivo?.propriedadeId &&
-        (tab === "monitoramento" || tab === "mapa"),
+        (tab === "monitoramento" || tab === "mapa" || tab === "operacoes"),
     },
   );
   const terrenosDaProp = terrenosDaPropRaw.map((t) => ({ id: t.id, nome: t.nome }));
@@ -244,9 +249,12 @@ export default function CultivoDetailScreen() {
           </>
         )}
         {tab === "operacoes" && (
-          <CultivoTabPlaceholder
-            title="Operações"
-            message="Tarefas e operações deste cultivo serão exibidas aqui (Etapa 8)."
+          <CultivoOperacoesTab
+            culturaId={cultivo.id}
+            propriedadeId={cultivo.propriedadeId}
+            terrenoId={cultivo.terrenoId}
+            safraId={cultivo.safraId}
+            terrenos={terrenosDaProp}
           />
         )}
         {tab === "monitoramento" && (
@@ -266,18 +274,8 @@ export default function CultivoDetailScreen() {
             nomeCultura={cultivo.nomeCultura}
           />
         )}
-        {tab === "ia" && (
-          <CultivoTabPlaceholder
-            title="Inteligência Artificial"
-            message="Resumo de saúde, risco e recomendações explicáveis (Etapa 7)."
-          />
-        )}
-        {tab === "custos" && (
-          <CultivoTabPlaceholder
-            title="Custos e indicadores"
-            message="KPIs e lançamentos financeiros do cultivo (Etapa 9)."
-          />
-        )}
+        {tab === "ia" && <CultivoIaTab culturaId={cultivo.id} />}
+        {tab === "custos" && <CultivoCustosTab culturaId={cultivo.id} />}
         {tab === "historico" && <TimelineCultivo events={timeline} />}
         {tab === "arquivos" && (
           <CultivoTabPlaceholder
