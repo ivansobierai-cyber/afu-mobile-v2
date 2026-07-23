@@ -24,6 +24,25 @@ Screenshots: `docs/evidencias/smoke-preview/` e `/opt/cursor/artifacts/smoke-eta
 
 ---
 
+## Plano auxiliar — custo médio + produtividade (2026-07-23)
+
+**Branch:** `cursor/etapa7-estoque-inteligente-fd64`  
+**API smoke:** `npm run smoke:plano-auxiliar` → `docs/evidencias/smoke-plano-auxiliar-latest.json`  
+**UI:** `localhost:8081` + API local  
+**Decisão:** **AVANÇAR**
+
+| # | Item | Resultado |
+|---|------|-----------|
+| 1 | Login demo → dashboard | PASS |
+| 2 | Estoque: item com custo → `Valor R$` no dashboard | PASS |
+| 3 | Cultivo → Custos → Registrar colheita real | PASS |
+| 4 | Produtividade `/ha (colheita real)` nos indicadores | PASS |
+| 5 | API: `valorDisponivel` + `produtividadeFonte=real` | PASS (8/8) |
+
+Screenshots: `docs/evidencias/smoke-plano-auxiliar/`.
+
+---
+
 ## Preview Vercel vs API Railway
 
 ### Re-smoke pós-deploy Railway (2026-07-22)

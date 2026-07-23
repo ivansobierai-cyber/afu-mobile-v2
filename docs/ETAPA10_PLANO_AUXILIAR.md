@@ -31,17 +31,34 @@ Login (fixture) → propriedade → tarefa com reserva → execução → consum
 
 Reuso das evidências/suites existentes de isolamento multitenant e RBAC (não reescritas; não removidas). Cross-tenant continua bloqueando leitura/escrita alheia.
 
+## Passo 5 — Performance (smoke local) ✅
+
+`npm run smoke:plano-auxiliar` mede tempos de estoque CMP + produtividade no ambiente local (evidência `docs/evidencias/smoke-plano-auxiliar-latest.json`).
+
+## Passo 6 — Deploy / homologação ✅ (local + preview)
+
+- CI `validate` verde nesta branch
+- Preview Vercel dos projetos afetados
+- Smoke API+UI local das entregas finais (custo médio + produtividade)
+- Deploy Railway/produção: aguarda merge em `main` (checklist em `ETAPA10_SMOKE_HOMOLOGACAO.md`)
+
+## Passo 7 — Monitoramento (baseline) ✅
+
+Auditoria de movimentos/atividades e logs de API já existentes; rollback rehearsal em `tests/etapa10-rollback-rehearsal.test.ts`. Backup/alertas de infra ficam no runbook de produção.
+
 ## Critérios
 
 | Critério | Status |
 |----------|--------|
 | Testes unitários/cálculos | ✅ |
 | Integração API/RBAC/multitenant | ✅ |
-| Fluxo E2E operacional | ✅ |
+| Fluxo E2E operacional (+ CMP + produtividade) | ✅ |
 | Sem remoção de funções legadas | ✅ |
+| Smoke local custo médio + produtividade | ✅ |
 
 ## Pendências conhecidas (não bloqueantes do aceite local)
 
 - ~~Valor monetário do estoque~~ **resolvido** — `custoMedio`/`custoUnitario` + `npm run db:estoque-custo:apply`
 - ~~Produtividade (kg/ha)~~ **resolvido** — `producaoReal` no cultivo + agregação nos indicadores (`npm run db:producao-real:apply`)
-- Deploy produção / smoke Railway-Vercel fica para o checklist operacional existente em `ETAPA10_SMOKE_HOMOLOGACAO.md`
+- ~~Smoke local das entregas finais~~ **resolvido** — `npm run smoke:plano-auxiliar` + UI (`docs/evidencias/smoke-plano-auxiliar/`)
+- Deploy produção Railway após merge: re-smoke com checklist em `ETAPA10_SMOKE_HOMOLOGACAO.md`

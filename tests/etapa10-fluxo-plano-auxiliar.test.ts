@@ -17,7 +17,7 @@ describe.skipIf(!hasDb)("Etapa 10 — fluxo E2E plano auxiliar", () => {
   }, 120_000);
 
   it("executa cadeia operacional completa", async () => {
-    // Estoque
+    // Estoque com custo médio
     const itemId = await a.caller.coreData.expansao.estoque.createItem({
       propriedadeId: a.propriedadeId,
       nome: "Ureia E2E",
@@ -25,6 +25,7 @@ describe.skipIf(!hasDb)("Etapa 10 — fluxo E2E plano auxiliar", () => {
       unidadeBase: "kg",
       saldoInicial: 100,
       estoqueMinimo: 10,
+      custoMedio: 4.5,
     });
 
     // Tarefa com reserva → execução → consumo
@@ -74,12 +75,28 @@ describe.skipIf(!hasDb)("Etapa 10 — fluxo E2E plano auxiliar", () => {
       horas: 12,
     });
 
+    // Cultivo + colheita real → produtividade
+    const cultivoId = await a.caller.coreData.cultivos.create({
+      propriedadeId: a.propriedadeId,
+      terrenoId: a.terrenoId,
+      nomeCultura: "Soja E2E",
+      areaPlantada: 10,
+      producaoEstimada: 5000,
+      unidadeProducao: "kg",
+    });
+    await a.caller.coreData.cultivos.update({
+      id: cultivoId,
+      data: { producaoReal: 4500, status: "colhido" },
+    });
+
     // Indicadores + dashboard
     const ind = await a.caller.coreData.expansao.indicadores({
       propriedadeId: a.propriedadeId,
     });
     expect(ind.receita).toBeGreaterThanOrEqual(2000);
     expect(ind.custosOperacionais).toBeGreaterThanOrEqual(300);
+    expect(ind.produtividadeFonte).toBe("real");
+    expect(ind.produtividade).toBe(450);
 
     const dash = await a.caller.coreData.expansao.financeiro.dashboard({
       propriedadeId: a.propriedadeId,
@@ -92,5 +109,16 @@ describe.skipIf(!hasDb)("Etapa 10 — fluxo E2E plano auxiliar", () => {
     });
     const item = estoque.find((i) => i.id === itemId);
     expect(Number(item?.saldo)).toBe(85); // 100 - 15 consumo
+    expect(Number(item?.custoMedio)).toBeCloseTo(4.5, 3);
+
+    const estDash = await a.caller.coreData.expansao.estoque.dashboard({
+      propriedadeId: a.propriedadeId,
+    });
+    expect(estDash.valorDisponivel).toBe(true);
+    expect(estDash.valorTotalEstoque).toBeGreaterThan(0);
+
+    const indCultivo = await a.caller.coreData.cultivos.indicadores({ id: cultivoId });
+    expect(indCultivo.produtividadeFonte).toBe("real");
+    expect(indCultivo.produtividade).toBe(450);
   });
 });
