@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet, useWindowDimensions } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { ScreenState } from "@/components/screen-state";
 import { PropertyMap } from "@/components/property-map";
 import { trpc } from "@/lib/trpc";
 
@@ -17,13 +18,16 @@ export function CultivoMapaTab({ culturaId }: Props) {
   });
 
   if (isLoading) {
-    return <Text style={{ color: colors.muted }}>Carregando mapa…</Text>;
+    return <ScreenState status="loading" compact message="Carregando mapa…" />;
   }
   if (isError || !data) {
     return (
-      <Text style={{ color: colors.muted }} onPress={() => void refetch()}>
-        Não foi possível carregar o mapa. Toque para tentar de novo.
-      </Text>
+      <ScreenState
+        status="error"
+        compact
+        message="Não foi possível carregar o mapa."
+        onAction={() => void refetch()}
+      />
     );
   }
 

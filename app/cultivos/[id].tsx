@@ -97,16 +97,17 @@ export default function CultivoDetailScreen() {
     { id: cultivoId },
     { enabled: tenantReady && Number.isFinite(cultivoId) && cultivoId > 0 },
   );
-  const { data: timeline = [] } = trpc.coreData.cultivos.timeline.useQuery(
-    { id: cultivoId },
-    {
-      enabled:
-        tenantReady &&
-        Number.isFinite(cultivoId) &&
-        cultivoId > 0 &&
-        (tab === "historico" || tab === "visao"),
-    },
-  );
+  const { data: timeline = [], isLoading: timelineLoading } =
+    trpc.coreData.cultivos.timeline.useQuery(
+      { id: cultivoId },
+      {
+        enabled:
+          tenantReady &&
+          Number.isFinite(cultivoId) &&
+          cultivoId > 0 &&
+          (tab === "historico" || tab === "visao"),
+      },
+    );
 
   const { data: terrenosDaPropRaw = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
     { propriedadeId: cultivo?.propriedadeId ?? 0 },
@@ -282,7 +283,12 @@ export default function CultivoDetailScreen() {
         )}
         {tab === "ia" && <CultivoIaTab culturaId={cultivo.id} />}
         {tab === "custos" && <CultivoCustosTab culturaId={cultivo.id} />}
-        {tab === "historico" && <TimelineCultivo events={timeline} />}
+        {tab === "historico" &&
+          (timelineLoading ? (
+            <ScreenState status="loading" compact message="Carregando histórico…" />
+          ) : (
+            <TimelineCultivo events={timeline} />
+          ))}
         {tab === "arquivos" && (
           <CultivoArquivosTab
             culturaId={cultivo.id}

@@ -21,6 +21,8 @@ admin existentes.
 | 9 Indicadores | OK | `coreData.cultivos.indicadores` |
 | 10 Homologação | OK | E2E `tests/cultivos-v2-workspace.test.ts` |
 | Finalização | OK | Aba Arquivos + `safraId`/`terrenoId` NOT NULL (0030) |
+| UX premium (slice) | OK | `ScreenState` nas abas + loading do histórico |
+| Relatório PDF resultado | OK | `analise.gerarPDF` tipo `resultado_cultivo` na aba Custos |
 
 ## APIs novas (tRPC)
 

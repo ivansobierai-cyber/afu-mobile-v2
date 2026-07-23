@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
+import { ScreenState } from "@/components/screen-state";
 import { PropriedadeMonitoramentoPanel } from "@/components/propriedade-expansao-panels";
 import { trpc } from "@/lib/trpc";
 
@@ -90,7 +91,7 @@ export function CultivoDiagnosticosTab({ culturaId, propriedadeId, nomeCultura }
       </TouchableOpacity>
 
       {isLoading ? (
-        <Text style={{ color: colors.muted, marginTop: 12 }}>Carregando…</Text>
+        <ScreenState status="loading" compact message="Carregando diagnósticos…" />
       ) : diagnosticos.length === 0 ? (
         <View
           style={[
