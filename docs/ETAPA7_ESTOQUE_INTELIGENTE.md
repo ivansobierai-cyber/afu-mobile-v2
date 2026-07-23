@@ -8,7 +8,7 @@
 | Passo | Nome | Status |
 |-------|------|--------|
 | 1 | Estrutura do banco | **concluído** |
-| 2 | Cadastro de insumos | pendente |
+| 2 | Cadastro de insumos | **concluído** |
 | 3 | Movimentações (saldo só via movimentos) | pendente |
 | 4 | Integração com operações (reserva→consumo) | pendente |
 | 5 | Alertas | pendente |
@@ -28,3 +28,15 @@
 - [x] Nenhum item sem organização (create + requireOrgId)
 - [x] Nenhum item de outra propriedade na listagem do tenant
 - [x] Testes `tests/estoque-passo1-estrutura.test.ts`
+
+## Passo 2 — entregue
+
+- UI `PropriedadeEstoquePanel`: categorias do plano, unidade padrão, mínimo, fabricante, observações
+- API `createItem`: unidade obrigatória no servidor (default `kg`; rejeita vazia)
+- Testes `tests/estoque-passo2-cadastro.test.ts`
+
+## Critérios de aceite Passo 2
+
+- [x] Cadastro das categorias agrícolas do plano
+- [x] Campos mínimos (nome, categoria, unidade, mínimo, fabricante, observações)
+- [x] Todo item com unidade padrão
