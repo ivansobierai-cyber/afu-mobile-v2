@@ -120,6 +120,7 @@ async function createTarefaForTenant(
     propriedadeId: input.propriedadeId,
     terrenoId,
     culturaId: input.culturaId,
+    responsavelUserId: input.responsavelUserId,
   });
   const safraId = await resolveSafraIdForCreate(tenant, input);
   const clientMutationId = options?.clientMutationId ?? input.clientMutationId;
