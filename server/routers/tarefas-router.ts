@@ -14,10 +14,11 @@ import {
   getApontamentosByTarefa,
 } from "../db";
 import {
-  findConsumoEstoqueByTarefaItem,
   findTarefaByClientMutationId,
-  listEstoque,
-  registrarMovimentoEstoque,
+  reservarInsumosParaTarefa,
+  validarDisponibilidadeReservasTarefa,
+  consumirReservasDaTarefa,
+  liberarReservasDaTarefa,
 } from "../db-propriedade-expansao";
 import {
   getCtxTenant,
@@ -60,6 +61,18 @@ const statusSchema = z.enum([
 
 const prioridadeSchema = z.enum(["baixa", "normal", "alta", "critica"]);
 
+const consumosInput = z
+  .array(
+    z.object({
+      itemId: z.number().int().positive(),
+      quantidade: z.number().positive(),
+    }),
+  )
+  .max(20)
+  .optional();
+
+const reservasInput = consumosInput;
+
 const tarefaInput = z.object({
   propriedadeId: z.number().int().positive(),
   safraId: z.number().int().positive().optional(),
@@ -73,17 +86,9 @@ const tarefaInput = z.object({
   dataPrevista: z.string(),
   areaPlanejada: z.number().positive().optional(),
   clientMutationId: z.string().min(8).max(64).optional(),
+  /** Etapa 7 Passo 4 — insumos a reservar na criação */
+  reservas: reservasInput,
 });
-
-const consumosInput = z
-  .array(
-    z.object({
-      itemId: z.number().int().positive(),
-      quantidade: z.number().positive(),
-    }),
-  )
-  .max(20)
-  .optional();
 
 const tarefaBulkInput = tarefaInput.omit({ terrenoId: true }).extend({
   terrenoIds: z.array(z.number().int().positive()).min(1).max(50),
@@ -153,6 +158,30 @@ async function createTarefaForTenant(
     origem: "manual",
     clientMutationId,
   } as any);
+}
+
+async function applyReservasAfterCreate(
+  tenant: TenantContext,
+  tarefaId: number,
+  propriedadeId: number,
+  reservas: Array<{ itemId: number; quantidade: number }> | undefined,
+) {
+  if (!reservas?.length) return;
+  try {
+    await reservarInsumosParaTarefa({
+      organizationId: tenant.organizationId,
+      propriedadeId,
+      tarefaId,
+      createdByUserId: tenant.userId,
+      usuarioId: tenant.perfilId,
+      itens: reservas,
+    });
+  } catch (e: any) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: e?.message ?? "Falha ao reservar insumos",
+    });
+  }
 }
 
 export const tarefasRouter = router({
@@ -250,7 +279,9 @@ export const tarefasRouter = router({
     .input(tarefaInput)
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      return createTarefaForTenant(tenant, input);
+      const id = await createTarefaForTenant(tenant, input);
+      await applyReservasAfterCreate(tenant, id, input.propriedadeId, input.reservas);
+      return id;
     }),
 
   createBulk: orgPermissionProcedure("operations.write")
@@ -322,9 +353,19 @@ export const tarefasRouter = router({
       );
 
       let newIdx = 0;
-      return planned.map((p) =>
+      const ids = planned.map((p) =>
         p.existingId != null ? p.existingId : newIds[newIdx++]!,
       );
+      for (let i = 0; i < planned.length; i++) {
+        if (planned[i]!.existingId != null) continue;
+        await applyReservasAfterCreate(
+          tenant,
+          ids[i]!,
+          input.propriedadeId,
+          input.reservas,
+        );
+      }
+      return ids;
     }),
 
   transition: orgPermissionProcedure("operations.write")
@@ -429,6 +470,14 @@ export const tarefasRouter = router({
       }
 
       if (to === "em_execucao" && from !== "pausada") {
+        try {
+          await validarDisponibilidadeReservasTarefa(tarefa.id, tenant.organizationId);
+        } catch (e: any) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: e?.message ?? "Insumos reservados indisponíveis",
+          });
+        }
         await createApontamento({
           tarefaId: tarefa.id,
           usuarioId: tenant.perfilId,
@@ -449,38 +498,28 @@ export const tarefasRouter = router({
           resultado: "ok",
         } as any);
 
-        const consumos = input.consumos ?? [];
-        if (consumos.length > 0) {
-          const estoque = await listEstoque(tarefa.propriedadeId, tenant.organizationId);
-          for (const consumo of consumos) {
-            const existing = await findConsumoEstoqueByTarefaItem(tarefa.id, consumo.itemId);
-            if (existing) continue;
-
-            const item = estoque.find((e) => e.id === consumo.itemId);
-            if (
-              !item ||
-              item.propriedadeId !== tarefa.propriedadeId ||
-              (item.organizationId != null && item.organizationId !== tenant.organizationId)
-            ) {
-              throw new TRPCError({ code: "NOT_FOUND", message: "Item de estoque não encontrado" });
-            }
-            const saldo = Number(item.saldo);
-            if (!Number.isFinite(saldo) || saldo < consumo.quantidade) {
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: `Saldo insuficiente para ${item.nome}`,
-              });
-            }
-            await registrarMovimentoEstoque({
-              itemId: consumo.itemId,
-              usuarioId: tenant.perfilId,
-              tipo: "consumo",
-              quantidade: consumo.quantidade.toString(),
-              motivo: `Consumo automático da tarefa ${tarefa.id}`,
-              tarefaId: tarefa.id,
-            } as any);
-          }
+        try {
+          await consumirReservasDaTarefa({
+            organizationId: tenant.organizationId,
+            propriedadeId: tarefa.propriedadeId,
+            tarefaId: tarefa.id,
+            createdByUserId: tenant.userId,
+            usuarioId: tenant.perfilId,
+            consumosExtras: input.consumos,
+          });
+        } catch (e: any) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: e?.message ?? "Falha ao consumir estoque da operação",
+          });
         }
+      }
+      if (to === "cancelada") {
+        await liberarReservasDaTarefa({
+          organizationId: tenant.organizationId,
+          tarefaId: tarefa.id,
+          statusFinal: "cancelada",
+        });
       }
 
       await updateTarefa(

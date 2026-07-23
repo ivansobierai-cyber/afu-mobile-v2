@@ -570,7 +570,11 @@ export const propriedadeExpansaoRouter = router({
           } as any);
         } catch (e: any) {
           const msg = e?.message ?? "Falha no movimento";
-          if (msg.includes("Saldo insuficiente") || msg.includes("Quantidade inválida")) {
+          if (
+            msg.includes("Saldo insuficiente") ||
+            msg.includes("Quantidade inválida") ||
+            msg.includes("operação relacionada")
+          ) {
             throw new TRPCError({ code: "BAD_REQUEST", message: msg });
           }
           throw e;

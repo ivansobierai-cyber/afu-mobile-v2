@@ -875,9 +875,9 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
                       .mutateAsync({
                         itemId: item.id,
                         propriedadeId,
-                        tipo: "consumo",
+                        tipo: "saida",
                         quantidade: 1,
-                        motivo: "Consumo rápido -1",
+                        motivo: "Saída rápida -1",
                       })
                       .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
                   }
@@ -889,13 +889,31 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
                     justifyContent: "center",
                   }}
                 >
-                  <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 13 }}>-1 consumo</Text>
+                  <Text style={{ color: "#EF6C00", fontWeight: "700", fontSize: 13 }}>-1 saída</Text>
                 </TouchableOpacity>
               </View>
             </View>
           );
         })
       )}
+
+      {historico.length > 0 ? (
+        <View style={{ marginTop: 8 }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
+            Histórico de movimentos
+          </Text>
+          {historico.map((m) => (
+            <Text
+              key={m.id}
+              style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}
+              numberOfLines={2}
+            >
+              {m.tipo} · {m.quantidade}
+              {m.motivo ? ` — ${m.motivo}` : ""}
+            </Text>
+          ))}
+        </View>
+      ) : null}
     </View>
   );
 }

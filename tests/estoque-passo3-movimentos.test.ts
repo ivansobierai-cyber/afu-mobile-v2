@@ -17,7 +17,7 @@ describe("Etapa 7 Passo 3 — regras de saldo (puro)", () => {
     expect(deltaSaldoMovimento("ajuste", 3)).toBe(3);
     expect(deltaSaldoMovimento("saida", 2)).toBe(-2);
     expect(deltaSaldoMovimento("consumo", 1)).toBe(-1);
-    expect(deltaSaldoMovimento("reserva", 4)).toBe(-4);
+    expect(deltaSaldoMovimento("reserva", 4)).toBe(0);
     expect(deltaSaldoMovimento("perda", 1)).toBe(-1);
     expect(deltaSaldoMovimento("transferencia", 99)).toBe(0);
   });
@@ -31,7 +31,8 @@ describe("Etapa 7 Passo 3 — regras de saldo (puro)", () => {
       { tipo: "ajuste", quantidade: 2 },
       { tipo: "transferencia", quantidade: 50 },
     ]);
-    expect(saldo).toBe(67);
+    // reserva não altera saldo físico → 100 - 10 - 5 + 2 = 87
+    expect(saldo).toBe(87);
   });
 });
 
@@ -102,6 +103,7 @@ describe.skipIf(!hasDb)("Etapa 7 Passo 3 — movimentações integração", () =
       tipo: "consumo",
       quantidade: 3,
       motivo: "Aplicação",
+      tarefaId: 1,
     });
     await a.caller.coreData.expansao.estoque.movimento({
       itemId,

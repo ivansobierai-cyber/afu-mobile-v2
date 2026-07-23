@@ -7,6 +7,8 @@ import {
   InsertEstoqueItem,
   estoqueMovimentos,
   InsertEstoqueMovimento,
+  estoqueReservas,
+  InsertEstoqueReserva,
   orcamentosSafra,
   InsertOrcamentoSafra,
   custosOperacao,
@@ -129,8 +131,9 @@ export function deltaSaldoMovimento(
   tipo: InsertEstoqueMovimento["tipo"],
   quantidade: number,
 ): number {
-  if (["saida", "consumo", "perda", "reserva"].includes(tipo)) return -quantidade;
-  if (tipo === "transferencia") return 0;
+  // reserva: trava disponível via estoque_reservas; não altera saldo físico
+  if (tipo === "reserva" || tipo === "transferencia") return 0;
+  if (["saida", "consumo", "perda"].includes(tipo)) return -quantidade;
   // entrada | ajuste
   return quantidade;
 }
@@ -198,6 +201,9 @@ export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
   if (!Number.isFinite(qtd) || qtd <= 0) {
     throw new Error("Quantidade inválida");
   }
+  if (data.tipo === "consumo" && data.tarefaId == null) {
+    throw new Error("Consumo exige operação relacionada (tarefaId)");
+  }
 
   const organizationId = data.organizationId ?? item.organizationId ?? undefined;
   if (organizationId == null) throw new Error("organizationId obrigatório no movimento");
@@ -248,6 +254,234 @@ export async function registrarMovimentoEstoque(data: InsertEstoqueMovimento) {
   });
 
   return { saldo: saldoProjetado };
+}
+
+export async function listReservasAtivasPorItem(
+  itemId: number,
+  organizationId: number,
+  excludeTarefaId?: number,
+) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(estoqueReservas)
+    .where(
+      and(
+        eq(estoqueReservas.itemId, itemId),
+        eq(estoqueReservas.organizationId, organizationId),
+        eq(estoqueReservas.status, "ativa"),
+      ),
+    );
+  if (excludeTarefaId == null) return rows;
+  return rows.filter((r) => r.tarefaId !== excludeTarefaId);
+}
+
+export async function quantidadeReservadaAtiva(
+  itemId: number,
+  organizationId: number,
+  excludeTarefaId?: number,
+): Promise<number> {
+  const rows = await listReservasAtivasPorItem(itemId, organizationId, excludeTarefaId);
+  return rows.reduce((acc, r) => acc + Number(r.quantidade), 0);
+}
+
+export async function saldoDisponivelEstoque(
+  itemId: number,
+  organizationId: number,
+  excludeTarefaId?: number,
+): Promise<{ saldo: number; reservado: number; disponivel: number; item: NonNullable<Awaited<ReturnType<typeof getEstoqueItem>>> }> {
+  const item = await getEstoqueItem(itemId);
+  if (!item) throw new Error("Item não encontrado");
+  const saldo = Number(item.saldo);
+  const reservado = await quantidadeReservadaAtiva(itemId, organizationId, excludeTarefaId);
+  return { saldo, reservado, disponivel: Math.round((saldo - reservado) * 1000) / 1000, item };
+}
+
+export async function listReservasPorTarefa(tarefaId: number, organizationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(estoqueReservas)
+    .where(
+      and(
+        eq(estoqueReservas.tarefaId, tarefaId),
+        eq(estoqueReservas.organizationId, organizationId),
+      ),
+    );
+}
+
+/** Cria reservas ativas + movimento tipo reserva (saldo físico inalterado). */
+export async function reservarInsumosParaTarefa(opts: {
+  organizationId: number;
+  propriedadeId: number;
+  tarefaId: number;
+  createdByUserId: number;
+  usuarioId: number;
+  itens: Array<{ itemId: number; quantidade: number }>;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const created: number[] = [];
+  for (const linha of opts.itens) {
+    const { disponivel, item } = await saldoDisponivelEstoque(
+      linha.itemId,
+      opts.organizationId,
+    );
+    if (
+      item.propriedadeId !== opts.propriedadeId ||
+      (item.organizationId != null && item.organizationId !== opts.organizationId)
+    ) {
+      throw new Error(`Item ${linha.itemId} fora do tenant`);
+    }
+    if (disponivel + 1e-9 < linha.quantidade) {
+      throw new Error(`Reserva insuficiente para ${item.nome} (disponível ${disponivel})`);
+    }
+    const result = await db.insert(estoqueReservas).values({
+      organizationId: opts.organizationId,
+      propriedadeId: opts.propriedadeId,
+      itemId: linha.itemId,
+      tarefaId: opts.tarefaId,
+      quantidade: linha.quantidade.toFixed(3),
+      status: "ativa",
+      createdByUserId: opts.createdByUserId,
+    } satisfies InsertEstoqueReserva);
+    const reservaId = result[0].insertId;
+    created.push(reservaId);
+    await registrarMovimentoEstoque({
+      itemId: linha.itemId,
+      organizationId: opts.organizationId,
+      propriedadeId: opts.propriedadeId,
+      usuarioId: opts.usuarioId,
+      createdByUserId: opts.createdByUserId,
+      tipo: "reserva",
+      quantidade: linha.quantidade.toFixed(3),
+      motivo: `Reserva tarefa #${opts.tarefaId}`,
+      tarefaId: opts.tarefaId,
+    } as InsertEstoqueMovimento);
+  }
+  return created;
+}
+
+export async function validarDisponibilidadeReservasTarefa(
+  tarefaId: number,
+  organizationId: number,
+) {
+  const reservas = (await listReservasPorTarefa(tarefaId, organizationId)).filter(
+    (r) => r.status === "ativa",
+  );
+  for (const r of reservas) {
+    const { disponivel, item } = await saldoDisponivelEstoque(
+      r.itemId,
+      organizationId,
+      tarefaId,
+    );
+    if (disponivel + 1e-9 < Number(r.quantidade)) {
+      throw new Error(
+        `Disponibilidade insuficiente para ${item.nome} ao iniciar a operação (faltam insumos reservados)`,
+      );
+    }
+  }
+  return reservas;
+}
+
+/** Converte reservas ativas em consumo; aceita consumos extras com tarefa obrigatória. */
+export async function consumirReservasDaTarefa(opts: {
+  organizationId: number;
+  propriedadeId: number;
+  tarefaId: number;
+  createdByUserId: number;
+  usuarioId: number;
+  consumosExtras?: Array<{ itemId: number; quantidade: number }>;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const reservas = (await listReservasPorTarefa(opts.tarefaId, opts.organizationId)).filter(
+    (r) => r.status === "ativa",
+  );
+
+  for (const r of reservas) {
+    const existing = await findConsumoEstoqueByTarefaItem(opts.tarefaId, r.itemId);
+    if (!existing) {
+      await registrarMovimentoEstoque({
+        itemId: r.itemId,
+        organizationId: opts.organizationId,
+        propriedadeId: opts.propriedadeId,
+        usuarioId: opts.usuarioId,
+        createdByUserId: opts.createdByUserId,
+        tipo: "consumo",
+        quantidade: r.quantidade,
+        motivo: `Consumo automático da tarefa ${opts.tarefaId}`,
+        tarefaId: opts.tarefaId,
+      } as InsertEstoqueMovimento);
+    }
+    await db
+      .update(estoqueReservas)
+      .set({ status: "consumida" })
+      .where(
+        and(
+          eq(estoqueReservas.id, r.id),
+          eq(estoqueReservas.organizationId, opts.organizationId),
+        ),
+      );
+  }
+
+  for (const consumo of opts.consumosExtras ?? []) {
+    const alreadyReserved = reservas.some((r) => r.itemId === consumo.itemId);
+    if (alreadyReserved) continue;
+    const existing = await findConsumoEstoqueByTarefaItem(opts.tarefaId, consumo.itemId);
+    if (existing) continue;
+    const { disponivel, item } = await saldoDisponivelEstoque(
+      consumo.itemId,
+      opts.organizationId,
+      opts.tarefaId,
+    );
+    if (
+      item.propriedadeId !== opts.propriedadeId ||
+      (item.organizationId != null && item.organizationId !== opts.organizationId)
+    ) {
+      throw new Error("Item de estoque não encontrado");
+    }
+    if (disponivel + 1e-9 < consumo.quantidade) {
+      throw new Error(`Saldo insuficiente para ${item.nome}`);
+    }
+    await registrarMovimentoEstoque({
+      itemId: consumo.itemId,
+      organizationId: opts.organizationId,
+      propriedadeId: opts.propriedadeId,
+      usuarioId: opts.usuarioId,
+      createdByUserId: opts.createdByUserId,
+      tipo: "consumo",
+      quantidade: consumo.quantidade.toFixed(3),
+      motivo: `Consumo automático da tarefa ${opts.tarefaId}`,
+      tarefaId: opts.tarefaId,
+    } as InsertEstoqueMovimento);
+  }
+}
+
+export async function liberarReservasDaTarefa(opts: {
+  organizationId: number;
+  tarefaId: number;
+  statusFinal?: "liberada" | "cancelada";
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const reservas = (await listReservasPorTarefa(opts.tarefaId, opts.organizationId)).filter(
+    (r) => r.status === "ativa",
+  );
+  for (const r of reservas) {
+    await db
+      .update(estoqueReservas)
+      .set({ status: opts.statusFinal ?? "liberada" })
+      .where(
+        and(
+          eq(estoqueReservas.id, r.id),
+          eq(estoqueReservas.organizationId, opts.organizationId),
+        ),
+      );
+  }
+  return reservas.length;
 }
 
 export async function listOrcamentos(propriedadeId: number) {
