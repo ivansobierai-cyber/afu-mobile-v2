@@ -25,7 +25,7 @@ export const CULTIVO_WORKSPACE_TABS: {
   { id: "ia", label: "IA", icon: "sparkles" },
   { id: "custos", label: "Custos", icon: "dollarsign.circle.fill" },
   { id: "historico", label: "Histórico", icon: "clock.fill" },
-  { id: "arquivos", label: "Arquivos", icon: "folder.fill" },
+  { id: "arquivos", label: "Arquivos", icon: "doc.fill" },
 ];
 
 export const CULTIVO_FASES = [

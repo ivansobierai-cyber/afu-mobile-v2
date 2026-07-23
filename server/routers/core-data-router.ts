@@ -536,6 +536,17 @@ const cultivosRouter = router({
       });
     }),
 
+  /** Dashboard operacional (Cultivos V2 Etapa 3) */
+  dashboard: organizationProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const cultura = await requireCulturaInTenant(tenant, input.id);
+      const { buildCultivoDashboard } = await import("../db-cultivo-dashboard");
+      return buildCultivoDashboard(tenant.organizationId, cultura);
+    }),
+
   delete: orgPermissionProcedure("property.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

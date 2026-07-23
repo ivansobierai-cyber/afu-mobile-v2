@@ -14,6 +14,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { CultivoHeader } from "@/components/cultivos/cultivo-header";
 import { CultivoVisaoGeral } from "@/components/cultivos/cultivo-visao-geral";
 import { CultivoTabPlaceholder } from "@/components/cultivos/cultivo-tab-placeholder";
+import { CultivoDashboardCards } from "@/components/cultivos/cultivo-dashboard";
 import { useColors } from "@/hooks/use-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import {
@@ -80,6 +81,11 @@ export default function CultivoDetailScreen() {
     },
   );
   const cultivo = cultivos.find((c) => c.id === cultivoId) ?? null;
+
+  const { data: dashboard } = trpc.coreData.cultivos.dashboard.useQuery(
+    { id: cultivoId },
+    { enabled: tenantReady && Number.isFinite(cultivoId) && cultivoId > 0 },
+  );
 
   const advanceFase = async () => {
     if (!cultivo) return;
@@ -201,11 +207,14 @@ export default function CultivoDetailScreen() {
         showsVerticalScrollIndicator={false}
       >
         {tab === "visao" && (
-          <CultivoVisaoGeral
-            cultivo={cultivo}
-            advancingFase={advancingFase}
-            onAdvanceFase={advanceFase}
-          />
+          <>
+            {dashboard ? <CultivoDashboardCards data={dashboard} /> : null}
+            <CultivoVisaoGeral
+              cultivo={cultivo}
+              advancingFase={advancingFase}
+              onAdvanceFase={advanceFase}
+            />
+          </>
         )}
         {tab === "operacoes" && (
           <CultivoTabPlaceholder
