@@ -1638,6 +1638,10 @@ export function PropriedadeMetricasPanel({ propriedadeId, nomeSafra, safraId }: 
     safraId,
     cacheScope: orgId,
   });
+  const { data: ind } = trpc.coreData.expansao.indicadores.useQuery({
+    propriedadeId,
+    safraId,
+  });
 
   if (isLoading) return <ScreenState status="loading" compact />;
   if (isError) return <ScreenState status="error" compact onAction={() => void refetch()} />;
@@ -1645,6 +1649,32 @@ export function PropriedadeMetricasPanel({ propriedadeId, nomeSafra, safraId }: 
 
   return (
     <View>
+      {ind ? (
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 12,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
+            Indicadores financeiros
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            Receita R$ {ind.receita.toFixed(2)} · Despesas R$ {ind.despesas.toFixed(2)}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            Custos R$ {ind.custosOperacionais.toFixed(2)}
+            {ind.custoPorHectare != null ? ` · R$ ${ind.custoPorHectare.toFixed(2)}/ha` : ""}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted }}>
+            Lucro R$ {ind.lucro.toFixed(2)} · Margem {ind.margemPct.toFixed(1)}% · ROI {ind.roiPct.toFixed(1)}%
+          </Text>
+        </View>
+      ) : null}
       <View
         style={{
           backgroundColor: colors.surface,

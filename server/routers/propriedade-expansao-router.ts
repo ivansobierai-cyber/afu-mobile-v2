@@ -1197,6 +1197,34 @@ export const propriedadeExpansaoRouter = router({
       }),
   }),
 
+  // ── Etapa 8 Passo 5: indicadores financeiros (não remove metricas) ─────────
+  indicadores: organizationProcedure
+    .input(
+      z.object({
+        propriedadeId: z.number().int().positive(),
+        safraId: z.number().int().positive().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "finance.read");
+      await requirePropertyInTenant(tenant, input.propriedadeId);
+      if (input.safraId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
+      const { getIndicadoresFinanceiros } = await import("../db-indicadores");
+      return getIndicadoresFinanceiros({
+        propriedadeId: input.propriedadeId,
+        organizationId: tenant.organizationId,
+        safraId: input.safraId,
+      });
+    }),
+
   // ── Etapa 10 / Segurança Etapa 7: métricas (tenant-db + safra) ─────────────
   metricas: organizationProcedure
     .input(
