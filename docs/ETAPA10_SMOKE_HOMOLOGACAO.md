@@ -24,6 +24,32 @@ Screenshots: `docs/evidencias/smoke-preview/` e `/opt/cursor/artifacts/smoke-eta
 
 ---
 
+## Plano auxiliar — custo médio + produtividade (2026-07-23)
+
+**Branch:** `cursor/etapa7-estoque-inteligente-fd64`  
+**API smoke:** `npm run smoke:plano-auxiliar` → `docs/evidencias/smoke-plano-auxiliar-latest.json`  
+**UI:** `localhost:8081` + API local  
+**Decisão:** **AVANÇAR**
+
+| # | Item | Resultado |
+|---|------|-----------|
+| 1 | Login demo → dashboard | PASS |
+| 2 | Estoque: item com custo → `Valor R$` no dashboard | PASS |
+| 3 | Cultivo → Custos → Registrar colheita real | PASS |
+| 4 | Produtividade `/ha (colheita real)` nos indicadores | PASS |
+| 5 | API: `valorDisponivel` + `produtividadeFonte=real` | PASS (8/8) |
+
+Screenshots: `docs/evidencias/smoke-plano-auxiliar/`.
+
+### Probe Railway (mesmo dia)
+
+`EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app npm run smoke:plano-auxiliar`  
+→ **BLOQUEADO** (`estoque.dashboard` / `cultivos.indicadores` NOT_FOUND) — API prod ainda sem o código do PR #20.  
+Evidência: `docs/evidencias/smoke-plano-auxiliar-railway-probe-latest.json`  
+Runbook pós-merge: `docs/MERGE_PR20_RAILWAY.md`.
+
+---
+
 ## Preview Vercel vs API Railway
 
 ### Re-smoke pós-deploy Railway (2026-07-22)

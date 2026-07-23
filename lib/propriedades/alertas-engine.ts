@@ -46,6 +46,24 @@ type EstoqueLike = {
   estoqueMinimo: string | number | null;
 };
 
+type LoteLike = {
+  id: number;
+  itemId: number;
+  itemNome?: string;
+  codigo: string;
+  validade: Date | string | null;
+  bloqueado: boolean;
+};
+
+type ReservaLike = {
+  id: number;
+  itemId: number;
+  itemNome?: string;
+  quantidade: string | number;
+  status: string;
+  tarefaId?: number | null;
+};
+
 type OrcamentoLike = {
   id: number;
   nomeSafra: string;
@@ -57,14 +75,16 @@ type OcorrenciaLike = {
   id: number;
   titulo: string;
   status: string;
-  severidade: string | null;
-  createdAt: Date | string;
+  severidade?: string | null;
+  createdAt?: Date | string | null;
 };
 
 export type AlertasInput = {
   tarefas: TarefaLike[];
   cultivos: CultivoLike[];
   estoque: EstoqueLike[];
+  lotes?: LoteLike[];
+  reservas?: ReservaLike[];
   orcamentos: OrcamentoLike[];
   ocorrencias: OcorrenciaLike[];
   temGeometriaPropriedade: boolean;
@@ -198,6 +218,83 @@ export function gerarAlertas(input: AlertasInput): AlertaPropriedade[] {
         acaoRecomendada: "Registrar entrada de insumo no estoque agrícola.",
         entidadeTipo: "estoque",
         entidadeId: e.id,
+        createdAt: now.toISOString(),
+      });
+    }
+  }
+
+  const validadeLimite = new Date(now);
+  validadeLimite.setDate(validadeLimite.getDate() + 30);
+  for (const lote of input.lotes ?? []) {
+    const nome = lote.itemNome ?? `item #${lote.itemId}`;
+    if (lote.bloqueado) {
+      alertas.push({
+        id: `lote-bloqueado-${lote.id}`,
+        titulo: `Produto bloqueado: ${nome}`,
+        motivo: `Lote ${lote.codigo} está bloqueado.`,
+        fonte: "estoque_lotes.bloqueado",
+        gravidade: "alto",
+        acaoRecomendada: "Revisar lote bloqueado antes de usar em operações.",
+        entidadeTipo: "estoque",
+        entidadeId: lote.itemId,
+        createdAt: now.toISOString(),
+      });
+    }
+    if (lote.validade) {
+      const validade = new Date(lote.validade);
+      if (!Number.isNaN(validade.getTime())) {
+        if (validade.getTime() < now.getTime()) {
+          alertas.push({
+            id: `lote-vencido-${lote.id}`,
+            titulo: `Lote vencido: ${nome}`,
+            motivo: `Lote ${lote.codigo} venceu em ${validade.toISOString().slice(0, 10)}.`,
+            fonte: "estoque_lotes.validade",
+            gravidade: "critico",
+            acaoRecomendada: "Isolar lote vencido e registrar perda/descarte.",
+            entidadeTipo: "estoque",
+            entidadeId: lote.itemId,
+            createdAt: now.toISOString(),
+          });
+        } else if (validade.getTime() <= validadeLimite.getTime()) {
+          alertas.push({
+            id: `lote-validade-${lote.id}`,
+            titulo: `Validade próxima: ${nome}`,
+            motivo: `Lote ${lote.codigo} vence em ${validade.toISOString().slice(0, 10)}.`,
+            fonte: "estoque_lotes.validade",
+            gravidade: "atencao",
+            acaoRecomendada: "Priorizar consumo do lote próximo do vencimento.",
+            entidadeTipo: "estoque",
+            entidadeId: lote.itemId,
+            createdAt: now.toISOString(),
+          });
+        }
+      }
+    }
+  }
+
+  const estoqueById = new Map(input.estoque.map((e) => [e.id, e]));
+  const reservasAtivasPorItem = new Map<number, number>();
+  for (const r of input.reservas ?? []) {
+    if (r.status !== "ativa") continue;
+    reservasAtivasPorItem.set(
+      r.itemId,
+      (reservasAtivasPorItem.get(r.itemId) ?? 0) + Number(r.quantidade),
+    );
+  }
+  for (const [itemId, reservado] of reservasAtivasPorItem) {
+    const item = estoqueById.get(itemId);
+    const saldo = Number(item?.saldo ?? 0);
+    if (reservado > saldo + 1e-9) {
+      const nome = item?.nome ?? `item #${itemId}`;
+      alertas.push({
+        id: `reserva-insuficiente-${itemId}`,
+        titulo: `Reserva insuficiente: ${nome}`,
+        motivo: `Reservado ${reservado} > saldo ${saldo}.`,
+        fonte: "estoque_reservas",
+        gravidade: "critico",
+        acaoRecomendada: "Repor estoque ou ajustar reservas das operações.",
+        entidadeTipo: "estoque",
+        entidadeId: itemId,
         createdAt: now.toISOString(),
       });
     }

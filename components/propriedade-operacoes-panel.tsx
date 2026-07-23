@@ -49,6 +49,8 @@ type Props = {
   propriedadeId: number;
   terrenos: { id: number; nome: string }[];
   safraId?: number;
+  /** Cultivos V2 — filtra e pré-preenche tarefas deste cultivo */
+  culturaId?: number;
   readOnly?: boolean;
   /** Incrementar para abrir o formulário de criação (menu + Registrar) */
   openCreateNonce?: number;
@@ -59,6 +61,7 @@ export function PropriedadeOperacoesPanel({
   propriedadeId,
   terrenos,
   safraId,
+  culturaId,
   readOnly = false,
   openCreateNonce = 0,
   onCreateOpened,
@@ -86,11 +89,18 @@ export function PropriedadeOperacoesPanel({
   const [consumoTarefa, setConsumoTarefa] = useState<{ id: number; status: string } | null>(null);
   const [consumoQtys, setConsumoQtys] = useState<Record<number, string>>({});
 
+  useEffect(() => {
+    if (culturaId && terrenos.length === 1) {
+      setSelectedTerrenoIds([terrenos[0].id]);
+    }
+  }, [culturaId, terrenos]);
+
   const { data: tarefas = [], isLoading, isError, refetch } =
     trpc.coreData.tarefas.listByPropriedade.useQuery({
       propriedadeId,
       abertasOnly: filtro === "abertas",
       safraId,
+      culturaId,
     });
   const { data: membros = [] } = trpc.organizations.members.useQuery(undefined, {
     enabled: !readOnly,
@@ -244,6 +254,7 @@ export function PropriedadeOperacoesPanel({
       const payload = {
         propriedadeId,
         safraId,
+        culturaId,
         tipoOperacao: tipo,
         titulo: titulo.trim(),
         instrucoes: instrucoes.trim() || undefined,

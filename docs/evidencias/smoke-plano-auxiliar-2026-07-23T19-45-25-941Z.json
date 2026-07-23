@@ -1,0 +1,56 @@
+{
+  "suite": "smoke-plano-auxiliar",
+  "at": "2026-07-23T19:45:25.941Z",
+  "environment": "railway",
+  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "branch": "cursor/etapa7-estoque-inteligente-fd64",
+  "decision": "BLOQUEADO",
+  "durationMs": 1396,
+  "timingsMs": {
+    "estoque": 321,
+    "produtividade": 353
+  },
+  "passed": 4,
+  "total": 6,
+  "checks": [
+    {
+      "id": "health",
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "id": "login",
+      "ok": true,
+      "detail": {
+        "email": "demo@afuagro.com.br"
+      }
+    },
+    {
+      "id": "propriedade",
+      "ok": true,
+      "detail": {
+        "id": 1,
+        "nome": "Fazenda Santa Clara"
+      }
+    },
+    {
+      "id": "talhao",
+      "ok": true,
+      "detail": {
+        "id": 1
+      }
+    },
+    {
+      "id": "estoque.dashboard",
+      "ok": false,
+      "detail": "No procedure found on path \"coreData.expansao.estoque.dashboard\""
+    },
+    {
+      "id": "produtividade",
+      "ok": false,
+      "detail": "No procedure found on path \"coreData.cultivos.indicadores\""
+    }
+  ]
+}

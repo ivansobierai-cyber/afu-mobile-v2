@@ -155,6 +155,41 @@
       "when": 1784376000000,
       "tag": "0023_maquinas_operacionais",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1784810000000,
+      "tag": "0024_estoque_inteligente",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1784811000000,
+      "tag": "0025_centros_custo",
+      "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "5",
+      "when": 1784812000000,
+      "tag": "0026_financeiro_lancamentos",
+      "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1784813000000,
+      "tag": "0027_maquinas_controle",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1784814000000,
+      "tag": "0028_tarefa_alocacoes",
+      "breakpoints": true
     }
   ]
 }

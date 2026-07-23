@@ -248,9 +248,9 @@ export const culturas = mysqlTable(
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(), // FK → propriedades.id
   organizationId: int("organizationId"),
-  /** Ciclo produtivo — nullable até backfill (correção Etapa 2) */
-  safraId: int("safraId"),
-  terrenoId: int("terrenoId"), // FK → terrenos.id (opcional)
+  /** Ciclo produtivo — obrigatório após backfill + migração 0030 */
+  safraId: int("safraId").notNull(),
+  terrenoId: int("terrenoId").notNull(), // FK → terrenos.id
   nomeCultura: varchar("nomeCultura", { length: 100 }).notNull(),
   variedade: varchar("variedade", { length: 100 }),
   dataPlantio: date("dataPlantio"),
@@ -258,6 +258,8 @@ export const culturas = mysqlTable(
   areaPlantada: decimal("areaPlantada", { precision: 12, scale: 2 }),
   previsaoColheita: date("previsaoColheita"),
   producaoEstimada: decimal("producaoEstimada", { precision: 12, scale: 2 }),
+  /** Produção real colhida (mesma unidade de `unidadeProducao`, tipicamente kg) */
+  producaoReal: decimal("producaoReal", { precision: 12, scale: 2 }),
   unidadeProducao: varchar("unidadeProducao", { length: 30 }),
   status: mysqlEnum("status", [
     "planejado",
@@ -274,11 +276,47 @@ export const culturas = mysqlTable(
     index("culturas_organization_idx").on(t.organizationId),
     index("culturas_org_prop_idx").on(t.organizationId, t.propriedadeId),
     index("culturas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("culturas_terreno_idx").on(t.terrenoId),
+    index("culturas_catalogo_idx").on(t.culturaCatalogoId),
   ],
 );
 
 export type Cultura = typeof culturas.$inferSelect;
 export type InsertCultura = typeof culturas.$inferInsert;
+
+/** Cultivos V2 — histórico de avanço fenológico (aditivo; faseAtual permanece na cultura) */
+export const cultivoFaseEventos = mysqlTable(
+  "cultivo_fase_eventos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    culturaId: int("culturaId").notNull(),
+    faseAnterior: varchar("faseAnterior", { length: 100 }),
+    faseNova: varchar("faseNova", { length: 100 }).notNull(),
+    dataEvento: timestamp("dataEvento").defaultNow().notNull(),
+    origem: mysqlEnum("origemFaseCultivo", [
+      "manual",
+      "api",
+      "backfill",
+      "sistema",
+    ])
+      .default("manual")
+      .notNull(),
+    userId: int("userId"),
+    observacao: text("observacao"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("cultivo_fase_org_idx").on(t.organizationId),
+    index("cultivo_fase_cultura_idx").on(t.culturaId),
+    index("cultivo_fase_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("cultivo_fase_cultura_data_idx").on(t.culturaId, t.dataEvento),
+  ],
+);
+
+export type CultivoFaseEvento = typeof cultivoFaseEventos.$inferSelect;
+export type InsertCultivoFaseEvento = typeof cultivoFaseEventos.$inferInsert;
 
 // ─────────────────────────────────────────────
 // TABELA: diagnosticos_ia
@@ -586,6 +624,39 @@ export const tarefasOperacionais = mysqlTable(
 
 export type TarefaOperacional = typeof tarefasOperacionais.$inferSelect;
 export type InsertTarefaOperacional = typeof tarefasOperacionais.$inferInsert;
+
+/** Etapa 8 Passo 4 — alocação de equipe em tarefas (N:N) */
+export const tarefaAlocacoes = mysqlTable(
+  "tarefa_alocacoes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    tarefaId: int("tarefaId").notNull(),
+    userId: int("userId").notNull(),
+    papelEquipe: mysqlEnum("papelEquipe", [
+      "funcionario",
+      "operador",
+      "tecnico",
+      "agronomo",
+    ])
+      .default("operador")
+      .notNull(),
+    horasPlanejadas: decimal("horasPlanejadas", { precision: 10, scale: 2 }),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("tarefa_aloc_org_idx").on(t.organizationId),
+    index("tarefa_aloc_tarefa_idx").on(t.tarefaId),
+    index("tarefa_aloc_user_idx").on(t.userId),
+    index("tarefa_aloc_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type TarefaAlocacao = typeof tarefaAlocacoes.$inferSelect;
+export type InsertTarefaAlocacao = typeof tarefaAlocacoes.$inferInsert;
 
 // ─────────────────────────────────────────────
 // TABELA: apontamentos_operacao (execução real)
@@ -1125,54 +1196,165 @@ export const ocorrenciasCampo = mysqlTable(
 export type OcorrenciaCampo = typeof ocorrenciasCampo.$inferSelect;
 export type InsertOcorrenciaCampo = typeof ocorrenciasCampo.$inferInsert;
 
-/** Etapa 7 — estoque agrícola (≠ marketplace) */
+/** Etapa 7 — estoque agrícola (≠ marketplace) — base + extensão inteligente */
+export const estoqueDepositos = mysqlTable(
+  "estoque_depositos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    nome: varchar("nome", { length: 120 }).notNull(),
+    descricao: text("descricao"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_depositos_org_idx").on(t.organizationId),
+    index("estoque_depositos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type EstoqueDeposito = typeof estoqueDepositos.$inferSelect;
+export type InsertEstoqueDeposito = typeof estoqueDepositos.$inferInsert;
+
 export const estoqueItens = mysqlTable(
   "estoque_itens",
   {
   id: int("id").autoincrement().primaryKey(),
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
+  depositoId: int("depositoId"),
   nome: varchar("nome", { length: 150 }).notNull(),
   categoria: mysqlEnum("categoriaEstoque", [
     "fertilizante",
     "defensivo",
+    "herbicida",
+    "fungicida",
+    "inseticida",
     "semente",
     "combustivel",
     "peca",
+    "ferramenta",
     "outro",
   ]).default("outro").notNull(),
   unidadeBase: varchar("unidadeBase", { length: 30 }).default("kg").notNull(),
   saldo: decimal("saldo", { precision: 14, scale: 3 }).default("0").notNull(),
+  /** Custo médio ponderado (R$/unidade) — alimentado por entradas com custoUnitario */
+  custoMedio: decimal("custoMedio", { precision: 14, scale: 4 }),
   estoqueMinimo: decimal("estoqueMinimo", { precision: 14, scale: 3 }).default("0"),
+  fabricante: varchar("fabricante", { length: 120 }),
+  observacoes: text("observacoes"),
+  createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("estoque_itens_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("estoque_itens_organization_idx").on(t.organizationId),
+    index("estoque_itens_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
 );
 
 export type EstoqueItem = typeof estoqueItens.$inferSelect;
 export type InsertEstoqueItem = typeof estoqueItens.$inferInsert;
 
-export const estoqueMovimentos = mysqlTable("estoque_movimentos", {
-  id: int("id").autoincrement().primaryKey(),
-  itemId: int("itemId").notNull(),
-  usuarioId: int("usuarioId").notNull(),
-  tipo: mysqlEnum("tipoMovimentoEstoque", [
-    "entrada",
-    "saida",
-    "reserva",
-    "consumo",
-    "ajuste",
-    "perda",
-  ]).notNull(),
-  quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
-  motivo: varchar("motivo", { length: 255 }),
-  tarefaId: int("tarefaId"),
-  createdAt: timestamp("createdAt").defaultNow().notNull(),
-});
+export const estoqueLotes = mysqlTable(
+  "estoque_lotes",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    itemId: int("itemId").notNull(),
+    depositoId: int("depositoId"),
+    codigo: varchar("codigo", { length: 80 }).notNull(),
+    validade: timestamp("validade"),
+    quantidadeInicial: decimal("quantidadeInicial", { precision: 14, scale: 3 }).default("0").notNull(),
+    bloqueado: boolean("bloqueado").default(false).notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_lotes_org_idx").on(t.organizationId),
+    index("estoque_lotes_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("estoque_lotes_item_idx").on(t.itemId),
+  ],
+);
+
+export type EstoqueLote = typeof estoqueLotes.$inferSelect;
+export type InsertEstoqueLote = typeof estoqueLotes.$inferInsert;
+
+export const estoqueMovimentos = mysqlTable(
+  "estoque_movimentos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId"),
+    propriedadeId: int("propriedadeId"),
+    itemId: int("itemId").notNull(),
+    loteId: int("loteId"),
+    depositoId: int("depositoId"),
+    usuarioId: int("usuarioId").notNull(),
+    tipo: mysqlEnum("tipoMovimentoEstoque", [
+      "entrada",
+      "saida",
+      "reserva",
+      "consumo",
+      "ajuste",
+      "perda",
+      "transferencia",
+    ]).notNull(),
+    quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+    /** Custo unitário da entrada (R$) — atualiza custoMedio do item */
+    custoUnitario: decimal("custoUnitario", { precision: 14, scale: 4 }),
+    motivo: varchar("motivo", { length: 255 }),
+    tarefaId: int("tarefaId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_movimentos_org_idx").on(t.organizationId),
+    index("estoque_movimentos_item_idx").on(t.itemId),
+    index("estoque_movimentos_tarefa_idx").on(t.tarefaId),
+  ],
+);
 
 export type EstoqueMovimento = typeof estoqueMovimentos.$inferSelect;
 export type InsertEstoqueMovimento = typeof estoqueMovimentos.$inferInsert;
+
+/** Reservas explícitas ligadas a tarefa/operação (Etapa 7 — Passo 1/4) */
+export const estoqueReservas = mysqlTable(
+  "estoque_reservas",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    itemId: int("itemId").notNull(),
+    loteId: int("loteId"),
+    tarefaId: int("tarefaId"),
+    quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+    status: mysqlEnum("statusReservaEstoque", [
+      "ativa",
+      "consumida",
+      "liberada",
+      "cancelada",
+    ])
+      .default("ativa")
+      .notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("estoque_reservas_org_idx").on(t.organizationId),
+    index("estoque_reservas_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("estoque_reservas_tarefa_idx").on(t.tarefaId),
+    index("estoque_reservas_item_idx").on(t.itemId),
+  ],
+);
+
+export type EstoqueReserva = typeof estoqueReservas.$inferSelect;
+export type InsertEstoqueReserva = typeof estoqueReservas.$inferInsert;
 
 /** Etapa 8 — orçamento e custos */
 export const orcamentosSafra = mysqlTable(
@@ -1205,6 +1387,8 @@ export const custosOperacao = mysqlTable(
   propriedadeId: int("propriedadeId").notNull(),
   organizationId: int("organizationId"),
   safraId: int("safraId"),
+  terrenoId: int("terrenoId"),
+  culturaId: int("culturaId"),
   orcamentoId: int("orcamentoId"),
   tarefaId: int("tarefaId"),
   categoria: mysqlEnum("categoriaCusto", [
@@ -1219,13 +1403,58 @@ export const custosOperacao = mysqlTable(
   valor: decimal("valor", { precision: 14, scale: 2 }).notNull(),
   dataCusto: timestamp("dataCusto").defaultNow().notNull(),
   usuarioId: int("usuarioId").notNull(),
+  createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("custos_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("custos_organization_idx").on(t.organizationId),
+    index("custos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("custos_safra_idx").on(t.safraId),
+    index("custos_terreno_idx").on(t.terrenoId),
+    index("custos_cultura_idx").on(t.culturaId),
+    index("custos_tarefa_idx").on(t.tarefaId),
+  ],
 );
 
 export type CustoOperacao = typeof custosOperacao.$inferSelect;
 export type InsertCustoOperacao = typeof custosOperacao.$inferInsert;
+
+/** Etapa 8 Passo 2 — lançamentos financeiros (despesa/receita/custo/investimento) */
+export const financeiroLancamentos = mysqlTable(
+  "financeiro_lancamentos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    safraId: int("safraId"),
+    terrenoId: int("terrenoId"),
+    culturaId: int("culturaId"),
+    tarefaId: int("tarefaId"),
+    tipo: mysqlEnum("tipoLancamentoFinanceiro", [
+      "despesa",
+      "receita",
+      "custo",
+      "investimento",
+    ]).notNull(),
+    categoriaAuto: varchar("categoriaAuto", { length: 60 }).notNull(),
+    descricao: varchar("descricao", { length: 200 }).notNull(),
+    valor: decimal("valor", { precision: 14, scale: 2 }).notNull(),
+    dataLancamento: timestamp("dataLancamento").defaultNow().notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("fin_lanc_org_idx").on(t.organizationId),
+    index("fin_lanc_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("fin_lanc_tipo_idx").on(t.tipo),
+    index("fin_lanc_safra_idx").on(t.safraId),
+  ],
+);
+
+export type FinanceiroLancamento = typeof financeiroLancamentos.$inferSelect;
+export type InsertFinanceiroLancamento = typeof financeiroLancamentos.$inferInsert;
 
 /** Etapa 4 — feed de atividade */
 export const atividadePropriedade = mysqlTable(
@@ -1248,7 +1477,7 @@ export const atividadePropriedade = mysqlTable(
 export type AtividadePropriedade = typeof atividadePropriedade.$inferSelect;
 export type InsertAtividadePropriedade = typeof atividadePropriedade.$inferInsert;
 
-/** P3 — máquinas e equipamentos operacionais */
+/** P3 / Etapa 8 Passo 3 — máquinas e equipamentos operacionais */
 export const maquinasOperacionais = mysqlTable(
   "maquinas_operacionais",
   {
@@ -1260,6 +1489,7 @@ export const maquinasOperacionais = mysqlTable(
     "trator",
     "pulverizador",
     "colheitadeira",
+    "caminhao",
     "implemento",
     "irrigacao",
     "outro",
@@ -1271,7 +1501,11 @@ export const maquinasOperacionais = mysqlTable(
     "manutencao",
     "inativa",
   ]).default("disponivel").notNull(),
+  /** Horímetro acumulado (horas) */
   horasUso: decimal("horasUso", { precision: 12, scale: 1 }),
+  /** Nível atual de combustível (litros) */
+  combustivelLitros: decimal("combustivelLitros", { precision: 12, scale: 2 }),
+  ultimaManutencaoAt: timestamp("ultimaManutencaoAt"),
   notas: text("notas"),
   createdByUserId: int("createdByUserId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -1285,6 +1519,40 @@ export const maquinasOperacionais = mysqlTable(
 
 export type MaquinaOperacional = typeof maquinasOperacionais.$inferSelect;
 export type InsertMaquinaOperacional = typeof maquinasOperacionais.$inferInsert;
+
+/** Etapa 8 Passo 3 — eventos de máquina (horímetro, combustível, manutenção) */
+export const maquinaEventos = mysqlTable(
+  "maquina_eventos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    maquinaId: int("maquinaId").notNull(),
+    tipo: mysqlEnum("tipoEventoMaquina", [
+      "horimetro",
+      "combustivel",
+      "manutencao",
+      "disponibilidade",
+    ]).notNull(),
+    /** Horímetro registrado / litros / etc. */
+    valor: decimal("valor", { precision: 14, scale: 3 }),
+    /** Para combustível: entrada | saida */
+    sentido: varchar("sentido", { length: 20 }),
+    descricao: varchar("descricao", { length: 255 }),
+    tarefaId: int("tarefaId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("maquina_eventos_org_idx").on(t.organizationId),
+    index("maquina_eventos_maquina_idx").on(t.maquinaId),
+    index("maquina_eventos_org_prop_idx").on(t.organizationId, t.propriedadeId),
+  ],
+);
+
+export type MaquinaEvento = typeof maquinaEventos.$inferSelect;
+export type InsertMaquinaEvento = typeof maquinaEventos.$inferInsert;
 
 // ─────────────────────────────────────────────
 // SEGURANÇA ETAPA 2 — organizações e memberships

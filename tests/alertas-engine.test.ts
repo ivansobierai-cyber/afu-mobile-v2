@@ -143,6 +143,53 @@ describe("alertas-engine", () => {
     expect(alertas.some((a) => a.id === "cultivo-vistoria-pendente-10")).toBe(false);
   });
 
+  it("gera alertas de validade, lote vencido, bloqueado e reserva insuficiente", () => {
+    const alertas = gerarAlertas({
+      tarefas: [],
+      cultivos: [],
+      estoque: [
+        { id: 1, nome: "Herbicida", saldo: 5, estoqueMinimo: 10 },
+        { id: 2, nome: "Semente", saldo: 2, estoqueMinimo: 0 },
+      ],
+      lotes: [
+        {
+          id: 10,
+          itemId: 1,
+          itemNome: "Herbicida",
+          codigo: "L-A",
+          validade: "2026-07-20T00:00:00Z",
+          bloqueado: false,
+        },
+        {
+          id: 11,
+          itemId: 1,
+          itemNome: "Herbicida",
+          codigo: "L-B",
+          validade: "2026-06-01T00:00:00Z",
+          bloqueado: false,
+        },
+        {
+          id: 12,
+          itemId: 2,
+          itemNome: "Semente",
+          codigo: "L-C",
+          validade: null,
+          bloqueado: true,
+        },
+      ],
+      reservas: [{ id: 99, itemId: 2, quantidade: 10, status: "ativa", tarefaId: 1 }],
+      orcamentos: [],
+      ocorrencias: [],
+      temGeometriaPropriedade: true,
+      now,
+    });
+    expect(alertas.some((a) => a.id === "estoque-minimo-1")).toBe(true);
+    expect(alertas.some((a) => a.id === "lote-validade-10")).toBe(true);
+    expect(alertas.some((a) => a.id === "lote-vencido-11")).toBe(true);
+    expect(alertas.some((a) => a.id === "lote-bloqueado-12")).toBe(true);
+    expect(alertas.some((a) => a.id === "reserva-insuficiente-2")).toBe(true);
+  });
+
   it("expõe catálogo de métricas da etapa 10", () => {
     expect(METRICAS_CATALOGO.length).toBeGreaterThanOrEqual(5);
     expect(METRICAS_CATALOGO.every((m) => m.formula && m.fonte)).toBe(true);

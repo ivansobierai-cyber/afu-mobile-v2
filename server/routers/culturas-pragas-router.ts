@@ -43,7 +43,7 @@ const culturaFiltrosSchema = z.object({
 
 const culturaCreateSchema = z.object({
   propriedadeId: z.number().int().min(1),
-  terrenoId: z.number().int().optional().nullable(),
+  terrenoId: z.number().int().min(1),
   nomeCultura: z.string().min(1).max(100),
   variedade: z.string().max(100).optional().nullable(),
   dataPlantio: z.string().optional().nullable(),
@@ -51,6 +51,7 @@ const culturaCreateSchema = z.object({
   areaPlantada: z.string().optional().nullable(),
   previsaoColheita: z.string().optional().nullable(),
   producaoEstimada: z.string().optional().nullable(),
+  producaoReal: z.string().optional().nullable(),
   unidadeProducao: z.string().max(30).optional().nullable(),
   status: statusCulturaSchema.default("em_andamento"),
   observacoes: z.string().optional().nullable(),
@@ -113,6 +114,19 @@ const culturasRouter = router({
   create: adminProcedure
     .input(culturaCreateSchema)
     .mutation(async ({ input }) => {
+      // Admin: valida talhão pertence à propriedade (sem ctx.tenant)
+      const { getTerrenoById, getPropriedadeById } = await import("../db");
+      const prop = await getPropriedadeById(input.propriedadeId);
+      if (!prop) {
+        throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+      }
+      const terreno = await getTerrenoById(input.terrenoId);
+      if (!terreno || terreno.propriedadeId !== input.propriedadeId) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Talhão inválido para a propriedade informada",
+        });
+      }
       return adminCreateCultura(input);
     }),
 

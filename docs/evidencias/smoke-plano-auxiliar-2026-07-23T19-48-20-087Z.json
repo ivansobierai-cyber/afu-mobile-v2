@@ -1,0 +1,78 @@
+{
+  "suite": "smoke-plano-auxiliar",
+  "at": "2026-07-23T19:48:20.087Z",
+  "environment": "local",
+  "api": "http://localhost:3000",
+  "readOnly": false,
+  "branch": "cursor/etapa7-estoque-inteligente-fd64",
+  "decision": "AVANCAR",
+  "durationMs": 201,
+  "timingsMs": {
+    "estoque": 41,
+    "produtividade": 40
+  },
+  "passed": 8,
+  "total": 8,
+  "checks": [
+    {
+      "id": "health",
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "id": "login",
+      "ok": true,
+      "detail": {
+        "email": "demo@afuagro.com.br"
+      }
+    },
+    {
+      "id": "propriedade",
+      "ok": true,
+      "detail": {
+        "id": 1,
+        "nome": "Fazenda Santa Clara"
+      }
+    },
+    {
+      "id": "talhao",
+      "ok": true,
+      "detail": {
+        "id": 1
+      }
+    },
+    {
+      "id": "estoque.valorDisponivel",
+      "ok": true,
+      "detail": {
+        "valorDisponivel": true,
+        "valorTotalEstoque": 21000
+      }
+    },
+    {
+      "id": "estoque.valorTotalEstoque",
+      "ok": true,
+      "detail": {
+        "valorTotalEstoque": 21000
+      }
+    },
+    {
+      "id": "cultivo.produtividade",
+      "ok": true,
+      "detail": {
+        "fonte": "real",
+        "produtividade": 550
+      }
+    },
+    {
+      "id": "propriedade.produtividadeFonte",
+      "ok": true,
+      "detail": {
+        "fonte": "real",
+        "produtividade": 386.21
+      }
+    }
+  ]
+}
