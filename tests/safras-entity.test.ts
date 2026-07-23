@@ -180,6 +180,28 @@ describe.skipIf(!hasDb)("safras entity (correção Etapa 2)", () => {
       message: expect.stringContaining("SAFRA_READ_ONLY"),
     });
   });
+
+  it("createCusto em safra encerrada é negado (SAFRA_READ_ONLY)", async () => {
+    const { createSafra } = await import("../server/db-safras");
+    const histId = await createSafra({
+      organizationId: a.organizationId,
+      propriedadeId: a.propriedadeId,
+      nome: "Safra Custo Histórica",
+      status: "encerrada",
+      isDefault: false,
+    });
+    await expect(
+      a.caller.coreData.expansao.custos.createCusto({
+        propriedadeId: a.propriedadeId,
+        safraId: histId,
+        descricao: "Custo bloqueado",
+        valor: 10,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringContaining("SAFRA_READ_ONLY"),
+    });
+  });
 });
 
 describe.skipIf(!hasDb)("property archive (correção Etapa 7)", () => {
@@ -256,5 +278,32 @@ describe.skipIf(!hasDb)("property archive (correção Etapa 7)", () => {
       cacheScope: a.organizationId,
     });
     expect(list.some((p) => p.id === created)).toBe(false);
+  });
+
+  it("propriedade arquivada bloqueia escritas operacionais (PROPERTY_ARCHIVED)", async () => {
+    await a.caller.coreData.propriedades.archive({
+      id: a.propriedadeId,
+      motivo: "Bloqueio de write",
+    });
+    await expect(
+      a.caller.coreData.terrenos.create({
+        propriedadeId: a.propriedadeId,
+        nome: "Talhao arquivado",
+        area: 1,
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringContaining("PROPERTY_ARCHIVED"),
+    });
+    await expect(
+      a.caller.coreData.expansao.estoque.createItem({
+        propriedadeId: a.propriedadeId,
+        nome: "Insumo bloqueado",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+      message: expect.stringContaining("PROPERTY_ARCHIVED"),
+    });
+    await a.caller.coreData.propriedades.restore({ id: a.propriedadeId });
   });
 });
