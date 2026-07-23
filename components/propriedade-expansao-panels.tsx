@@ -1179,6 +1179,129 @@ export function PropriedadeCustosPanel({ propriedadeId, safraLabel, safraId }: C
           </Text>
         </View>
       ))}
+
+      <View
+        style={{
+          backgroundColor: colors.surface,
+          borderRadius: 12,
+          padding: 14,
+          borderWidth: 1,
+          borderColor: colors.border,
+          marginTop: 12,
+          marginBottom: 12,
+        }}
+      >
+        <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
+          Lançamento financeiro
+        </Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", marginBottom: 8 }}>
+          {(["despesa", "receita", "custo", "investimento"] as const).map((t) => (
+            <TouchableOpacity
+              key={t}
+              onPress={() => setFinTipo(t)}
+              style={{
+                borderWidth: 1,
+                borderColor: finTipo === t ? colors.primary : colors.border,
+                backgroundColor: finTipo === t ? colors.primary + "18" : "transparent",
+                borderRadius: 999,
+                paddingHorizontal: 10,
+                paddingVertical: 6,
+                marginRight: 6,
+                marginBottom: 6,
+              }}
+            >
+              <Text style={{ fontSize: 12, color: colors.foreground }}>{t}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 10,
+            padding: 10,
+            color: colors.foreground,
+            minHeight: 44,
+            marginBottom: 8,
+          }}
+          placeholder="Descrição (classificação automática)"
+          placeholderTextColor={colors.muted}
+          value={finDesc}
+          onChangeText={setFinDesc}
+        />
+        <TextInput
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 10,
+            padding: 10,
+            color: colors.foreground,
+            minHeight: 44,
+            marginBottom: 8,
+          }}
+          placeholder="Valor (BRL)"
+          placeholderTextColor={colors.muted}
+          keyboardType="decimal-pad"
+          value={finValor}
+          onChangeText={setFinValor}
+        />
+        <TouchableOpacity
+          style={{
+            minHeight: 44,
+            borderRadius: 12,
+            backgroundColor: colors.primary,
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+          onPress={() => {
+            if (!finDesc.trim() || !finValor) return Alert.alert("Preencha descrição e valor");
+            void createFin
+              .mutateAsync({
+                propriedadeId,
+                safraId,
+                tipo: finTipo,
+                descricao: finDesc.trim(),
+                valor: Number(finValor),
+              })
+              .then((r) => {
+                setFinDesc("");
+                setFinValor("");
+                Alert.alert("Salvo", `Categoria: ${r.categoriaAuto}`);
+              })
+              .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"));
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700" }}>Salvar lançamento</Text>
+        </TouchableOpacity>
+      </View>
+
+      {lancamentos.slice(0, 8).map((l) => (
+        <View
+          key={`fin-${l.id}`}
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 12,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginBottom: 8,
+            flexDirection: "row",
+            justifyContent: "space-between",
+          }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground }}>
+              {l.descricao}
+            </Text>
+            <Text style={{ fontSize: 11, color: colors.muted }}>
+              {l.tipo} · {l.categoriaAuto}
+            </Text>
+          </View>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
+            R$ {Number(l.valor).toFixed(2)}
+          </Text>
+        </View>
+      ))}
     </View>
   );
 }
