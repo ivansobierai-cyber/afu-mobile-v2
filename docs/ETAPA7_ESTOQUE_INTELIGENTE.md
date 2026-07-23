@@ -11,7 +11,7 @@
 | 2 | Cadastro de insumos | **concluído** |
 | 3 | Movimentações (saldo só via movimentos) | **concluído** |
 | 4 | Integração com operações (reserva→consumo) | **concluído** |
-| 5 | Alertas | pendente |
+| 5 | Alertas | **concluído** |
 | 6 | Dashboard | pendente |
 
 ## Passo 1 — entregue
@@ -71,3 +71,13 @@
 - [x] Consumo na conclusão
 - [x] Liberação no cancelamento
 - [x] Nenhum consumo sem operação relacionada
+
+## Passo 5 — entregue
+
+- Alertas: estoque mínimo, validade próxima, lote vencido, produto bloqueado, reserva insuficiente
+- Alimentam `expansao.alertas` e painel principal (`PropriedadeAlertasFeed`)
+- Testes em `tests/alertas-engine.test.ts`
+
+## Critérios de aceite Passo 5
+
+- [x] Alertas no painel principal

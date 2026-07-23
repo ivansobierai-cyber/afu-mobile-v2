@@ -171,6 +171,75 @@ export async function listMovimentosEstoque(opts: {
     .limit(limit);
 }
 
+/** Etapa 7 Passo 6 — indicadores do dashboard de estoque */
+export async function getEstoqueDashboard(propriedadeId: number, organizationId: number) {
+  const db = await getDb();
+  if (!db) {
+    return {
+      estoqueAtual: { itens: 0, saldoTotal: 0 },
+      consumoMensal: 0,
+      reservas: { ativas: 0, quantidade: 0 },
+      perdasMensal: 0,
+      itensCriticos: [] as Array<{ id: number; nome: string; saldo: number; estoqueMinimo: number }>,
+      valorTotalEstoque: 0,
+      valorDisponivel: false,
+    };
+  }
+
+  const itens = await listEstoque(propriedadeId, organizationId);
+  const reservas = await listReservasPorPropriedade(propriedadeId, organizationId);
+  const movimentos = await db
+    .select()
+    .from(estoqueMovimentos)
+    .where(
+      and(
+        eq(estoqueMovimentos.propriedadeId, propriedadeId),
+        eq(estoqueMovimentos.organizationId, organizationId),
+      ),
+    );
+
+  const inicioMes = new Date();
+  inicioMes.setDate(1);
+  inicioMes.setHours(0, 0, 0, 0);
+
+  let consumoMensal = 0;
+  let perdasMensal = 0;
+  for (const m of movimentos) {
+    const created = new Date(m.createdAt);
+    if (created < inicioMes) continue;
+    const q = Number(m.quantidade);
+    if (m.tipo === "consumo" || m.tipo === "saida") consumoMensal += q;
+    if (m.tipo === "perda") perdasMensal += q;
+  }
+
+  const reservasAtivas = reservas.filter((r) => r.status === "ativa");
+  const itensCriticos = itens
+    .filter((i) => Number(i.saldo) <= Number(i.estoqueMinimo ?? 0))
+    .map((i) => ({
+      id: i.id,
+      nome: i.nome,
+      saldo: Number(i.saldo),
+      estoqueMinimo: Number(i.estoqueMinimo ?? 0),
+    }));
+
+  const saldoTotal = itens.reduce((acc, i) => acc + Number(i.saldo), 0);
+  // Sem coluna de custo médio ainda: valor monetário indisponível (0 + flag)
+  return {
+    estoqueAtual: { itens: itens.length, saldoTotal: Math.round(saldoTotal * 1000) / 1000 },
+    consumoMensal: Math.round(consumoMensal * 1000) / 1000,
+    reservas: {
+      ativas: reservasAtivas.length,
+      quantidade: Math.round(
+        reservasAtivas.reduce((acc, r) => acc + Number(r.quantidade), 0) * 1000,
+      ) / 1000,
+    },
+    perdasMensal: Math.round(perdasMensal * 1000) / 1000,
+    itensCriticos,
+    valorTotalEstoque: 0,
+    valorDisponivel: false,
+  };
+}
+
 export async function findConsumoEstoqueByTarefaItem(tarefaId: number, itemId: number) {
   const db = await getDb();
   if (!db) return undefined;
@@ -322,6 +391,20 @@ export async function listReservasPorPropriedade(propriedadeId: number, organiza
     .where(
       and(
         eq(estoqueReservas.propriedadeId, propriedadeId),
+        eq(estoqueReservas.organizationId, organizationId),
+      ),
+    );
+}
+
+export async function listReservasPorTarefa(tarefaId: number, organizationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(estoqueReservas)
+    .where(
+      and(
+        eq(estoqueReservas.tarefaId, tarefaId),
         eq(estoqueReservas.organizationId, organizationId),
       ),
     );

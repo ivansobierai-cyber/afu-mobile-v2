@@ -648,10 +648,12 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
     propriedadeId,
     limit: 12,
   });
+  const { data: dash } = trpc.coreData.expansao.estoque.dashboard.useQuery({ propriedadeId });
   const createItem = trpc.coreData.expansao.estoque.createItem.useMutation({
     onSuccess: async () => {
       await utils.coreData.expansao.estoque.list.invalidate({ propriedadeId });
       await utils.coreData.expansao.estoque.historico.invalidate({ propriedadeId });
+      await utils.coreData.expansao.estoque.dashboard.invalidate({ propriedadeId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
     },
   });
@@ -659,6 +661,7 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
     onSuccess: async () => {
       await utils.coreData.expansao.estoque.list.invalidate({ propriedadeId });
       await utils.coreData.expansao.estoque.historico.invalidate({ propriedadeId });
+      await utils.coreData.expansao.estoque.dashboard.invalidate({ propriedadeId });
       await utils.coreData.expansao.alertas.invalidate({ propriedadeId });
     },
   });
@@ -668,6 +671,37 @@ export function PropriedadeEstoquePanel({ propriedadeId }: EstoqueProps) {
 
   return (
     <View>
+      {dash ? (
+        <View
+          style={{
+            backgroundColor: colors.surface,
+            borderRadius: 12,
+            padding: 14,
+            borderWidth: 1,
+            borderColor: colors.border,
+            marginBottom: 12,
+          }}
+        >
+          <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 8 }}>
+            Dashboard de estoque
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 2 }}>
+            Itens {dash.estoqueAtual.itens} · Saldo total {dash.estoqueAtual.saldoTotal}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 2 }}>
+            Consumo no mês {dash.consumoMensal} · Perdas {dash.perdasMensal}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 2 }}>
+            Reservas ativas {dash.reservas.ativas} ({dash.reservas.quantidade})
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 2 }}>
+            Críticos {dash.itensCriticos.length}
+            {dash.valorDisponivel
+              ? ` · Valor R$ ${dash.valorTotalEstoque.toFixed(2)}`
+              : " · Valor monetário indisponível (sem custo médio)"}
+          </Text>
+        </View>
+      ) : null}
       <View
         style={{
           backgroundColor: colors.surface,

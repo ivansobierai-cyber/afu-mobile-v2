@@ -28,6 +28,7 @@ import {
   listMovimentosEstoque,
   listLotesPorPropriedade,
   listReservasPorPropriedade,
+  getEstoqueDashboard,
   listOrcamentos,
   createOrcamento,
   listCustos,
@@ -620,6 +621,14 @@ export const propriedadeExpansaoRouter = router({
           itemId: input.itemId,
           limit: input.limit,
         });
+      }),
+
+    dashboard: organizationProcedure
+      .input(z.object({ propriedadeId: z.number().int().positive() }))
+      .query(async ({ ctx, input }) => {
+        const tenant = getCtxTenant(ctx);
+        await assertPropertyInTenant(tenant, input.propriedadeId);
+        return getEstoqueDashboard(input.propriedadeId, tenant.organizationId);
       }),
   }),
 
