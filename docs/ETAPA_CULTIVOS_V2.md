@@ -66,3 +66,5 @@ Testes: `tests/resultado-cultivo-report.test.ts`
 - [x] Fluxo integrado dashboard → timeline → ops → indicadores
 - [x] Isolamento multitenant nas procedures novas
 - [x] Código legado (admin culturasPragas, estoque, financeiro) intacto
+- [x] Loading das abas via `ScreenState` (compact)
+- [x] Relatório PDF `resultado_cultivo` na aba Custos
