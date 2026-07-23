@@ -12,7 +12,17 @@
 | 3 | Movimentações (saldo só via movimentos) | **concluído** |
 | 4 | Integração com operações (reserva→consumo) | **concluído** |
 | 5 | Alertas | **concluído** |
-| 6 | Dashboard | pendente |
+| 6 | Dashboard | **concluído** |
+
+## Conclusão da Etapa 7
+
+- [x] Saldo reconstruído pelos movimentos
+- [x] Reservas funcionando
+- [x] Operações consomem estoque automaticamente
+- [x] Auditoria ativa
+- [x] Testes obrigatórios aprovados (entrada/saída/reserva/consumo/transferência/cancelamento/multitenant/RBAC via suites 1–6)
+
+**Pendência conhecida:** valor monetário total do estoque depende de custo médio (ainda não modelado) — dashboard expõe `valorDisponivel: false`.
 
 ## Passo 1 — entregue
 
@@ -81,3 +91,9 @@
 ## Critérios de aceite Passo 5
 
 - [x] Alertas no painel principal
+
+## Passo 6 — entregue
+
+- API `estoque.dashboard`: estoque atual, consumo mensal, reservas, perdas, itens críticos, valor total (flag)
+- UI no painel de estoque da propriedade
+- Testes `tests/estoque-passo6-dashboard.test.ts`
