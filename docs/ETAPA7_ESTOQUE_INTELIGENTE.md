@@ -10,7 +10,7 @@
 | 1 | Estrutura do banco | **concluído** |
 | 2 | Cadastro de insumos | **concluído** |
 | 3 | Movimentações (saldo só via movimentos) | **concluído** |
-| 4 | Integração com operações (reserva→consumo) | pendente |
+| 4 | Integração com operações (reserva→consumo) | **concluído** |
 | 5 | Alertas | pendente |
 | 6 | Dashboard | pendente |
 
@@ -54,3 +54,20 @@
 - [x] Histórico completo
 - [x] Auditoria automática
 - [x] Saldo nunca alterado fora de movimentos
+
+## Passo 4 — entregue
+
+- `reservas` na criação de tarefa → `estoque_reservas` + movimento `reserva`
+- Início (`em_execucao`): valida disponibilidade das reservas
+- Conclusão: reserva → consumo (tarefaId obrigatório)
+- Cancelamento: libera/cancela reservas ativas
+- Consumo avulso sem tarefa bloqueado no servidor
+- Testes `tests/estoque-passo4-operacoes.test.ts`
+
+## Critérios de aceite Passo 4
+
+- [x] Reserva na criação
+- [x] Validação ao iniciar
+- [x] Consumo na conclusão
+- [x] Liberação no cancelamento
+- [x] Nenhum consumo sem operação relacionada

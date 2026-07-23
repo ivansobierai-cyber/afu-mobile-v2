@@ -26,6 +26,8 @@ import {
   getEstoqueItem,
   registrarMovimentoEstoque,
   listMovimentosEstoque,
+  listLotesPorPropriedade,
+  listReservasPorPropriedade,
   listOrcamentos,
   createOrcamento,
   listCustos,
@@ -106,18 +108,38 @@ export const propriedadeExpansaoRouter = router({
       const tenant = getCtxTenant(ctx);
       await assertPropertyInTenant(tenant, input.propriedadeId);
       const tdb = createTenantDb(tenant.organizationId);
-      const [tarefas, cultivos, estoque, orcamentos, ocorrencias, prop] = await Promise.all([
-        tdb.listTarefasByPropriedade(input.propriedadeId),
-        tdb.listCulturasByPropriedade(input.propriedadeId),
-        tdb.listEstoque(input.propriedadeId),
-        tdb.listOrcamentos(input.propriedadeId),
-        tdb.listOcorrencias(input.propriedadeId),
-        tdb.requirePropriedade(input.propriedadeId),
-      ]);
+      const [tarefas, cultivos, estoque, orcamentos, ocorrencias, prop, lotes, reservas] =
+        await Promise.all([
+          tdb.listTarefasByPropriedade(input.propriedadeId),
+          tdb.listCulturasByPropriedade(input.propriedadeId),
+          tdb.listEstoque(input.propriedadeId),
+          tdb.listOrcamentos(input.propriedadeId),
+          tdb.listOcorrencias(input.propriedadeId),
+          tdb.requirePropriedade(input.propriedadeId),
+          listLotesPorPropriedade(input.propriedadeId, tenant.organizationId),
+          listReservasPorPropriedade(input.propriedadeId, tenant.organizationId),
+        ]);
+      const estoqueNome = new Map(estoque.map((e) => [e.id, e.nome]));
       return gerarAlertas({
         tarefas,
         cultivos,
         estoque,
+        lotes: lotes.map((l) => ({
+          id: l.id,
+          itemId: l.itemId,
+          itemNome: estoqueNome.get(l.itemId),
+          codigo: l.codigo,
+          validade: l.validade,
+          bloqueado: Boolean(l.bloqueado),
+        })),
+        reservas: reservas.map((r) => ({
+          id: r.id,
+          itemId: r.itemId,
+          itemNome: estoqueNome.get(r.itemId),
+          quantidade: r.quantidade,
+          status: r.status,
+          tarefaId: r.tarefaId,
+        })),
         orcamentos,
         ocorrencias: ocorrencias.map((o) => ({
           id: o.id,
@@ -1158,6 +1180,8 @@ export const propriedadeExpansaoRouter = router({
         ocorrenciasAll,
         atividadesAll,
         prop,
+        lotes,
+        reservas,
       ] = await Promise.all([
         tdb.listTarefasByPropriedade(input.propriedadeId),
         tdb.listCulturasByPropriedade(input.propriedadeId),
@@ -1167,6 +1191,8 @@ export const propriedadeExpansaoRouter = router({
         tdb.listOcorrencias(input.propriedadeId),
         tdb.listAtividades(input.propriedadeId, 30),
         tdb.requirePropriedade(input.propriedadeId),
+        listLotesPorPropriedade(input.propriedadeId, tenant.organizationId),
+        listReservasPorPropriedade(input.propriedadeId, tenant.organizationId),
       ]);
 
       const tarefasF = filterRowsBySafraId(tarefasAll, resolvedSafraId);
@@ -1199,10 +1225,27 @@ export const propriedadeExpansaoRouter = router({
       const ocorrencias = ocorrenciasF.matched;
       const atividades = atividadesF.matched.slice(0, 10);
 
+      const estoqueNomeDash = new Map(estoque.map((e) => [e.id, e.nome]));
       const alertas = gerarAlertas({
         tarefas,
         cultivos,
         estoque,
+        lotes: lotes.map((l) => ({
+          id: l.id,
+          itemId: l.itemId,
+          itemNome: estoqueNomeDash.get(l.itemId),
+          codigo: l.codigo,
+          validade: l.validade,
+          bloqueado: Boolean(l.bloqueado),
+        })),
+        reservas: reservas.map((r) => ({
+          id: r.id,
+          itemId: r.itemId,
+          itemNome: estoqueNomeDash.get(r.itemId),
+          quantidade: r.quantidade,
+          status: r.status,
+          tarefaId: r.tarefaId,
+        })),
         orcamentos,
         ocorrencias: ocorrencias.map((o) => ({
           id: o.id,

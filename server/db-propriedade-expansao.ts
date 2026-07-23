@@ -7,6 +7,7 @@ import {
   InsertEstoqueItem,
   estoqueMovimentos,
   InsertEstoqueMovimento,
+  estoqueLotes,
   estoqueReservas,
   InsertEstoqueReserva,
   orcamentosSafra,
@@ -298,7 +299,21 @@ export async function saldoDisponivelEstoque(
   return { saldo, reservado, disponivel: Math.round((saldo - reservado) * 1000) / 1000, item };
 }
 
-export async function listReservasPorTarefa(tarefaId: number, organizationId: number) {
+export async function listLotesPorPropriedade(propriedadeId: number, organizationId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(estoqueLotes)
+    .where(
+      and(
+        eq(estoqueLotes.propriedadeId, propriedadeId),
+        eq(estoqueLotes.organizationId, organizationId),
+      ),
+    );
+}
+
+export async function listReservasPorPropriedade(propriedadeId: number, organizationId: number) {
   const db = await getDb();
   if (!db) return [];
   return db
@@ -306,7 +321,7 @@ export async function listReservasPorTarefa(tarefaId: number, organizationId: nu
     .from(estoqueReservas)
     .where(
       and(
-        eq(estoqueReservas.tarefaId, tarefaId),
+        eq(estoqueReservas.propriedadeId, propriedadeId),
         eq(estoqueReservas.organizationId, organizationId),
       ),
     );
