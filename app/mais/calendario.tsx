@@ -6,6 +6,10 @@ import { ScreenState } from "@/components/screen-state";
 import { EventoAgendaList } from "@/components/eventos/evento-agenda-list";
 import { EventoCreateModal, type EventoFormState } from "@/components/eventos/evento-create-modal";
 import { EventoFab } from "@/components/eventos/evento-fab";
+import {
+  EventoFiltersBar,
+  type EventoFilters,
+} from "@/components/eventos/evento-filters-bar";
 import { EventoMonthCalendar } from "@/components/eventos/evento-month-calendar";
 import { EventoTimeline } from "@/components/eventos/evento-timeline";
 import { EventoViewTabs } from "@/components/eventos/evento-view-tabs";
@@ -19,12 +23,35 @@ import { cancelEventReminder, scheduleEventReminder } from "@/lib/notifications"
 import { trpc } from "@/lib/trpc";
 
 /**
- * Centro de Eventos (Etapa 1) — Calendário mensal · Agenda · Timeline.
- * Preserva CRUD, filtros de status, lembretes e offline via useRunCoreMutation.
+ * Centro de Eventos — Etapas 1–2
+ * Calendário / Agenda / Timeline + filtros fazenda/propriedade/talhão/cultivo/safra/responsável.
  */
 export default function CalendarioScreen() {
   const { runMutation } = useRunCoreMutation();
-  const { cacheInput, tenantReady } = useTenantQueryScope();
+  const { cacheInput, tenantReady, activeOrganizationId, organizations } =
+    useTenantQueryScope();
+
+  const [view, setView] = useState<EventoViewId>("calendario");
+  const [filter, setFilter] = useState<StatusFilterId>("todos");
+  const [filters, setFilters] = useState<EventoFilters>({});
+  const [month, setMonth] = useState(() => new Date());
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => toDateKey(new Date()));
+  const [modalVisible, setModalVisible] = useState(false);
+  const [formInitial, setFormInitial] = useState<Partial<EventoFormState> | undefined>();
+  const [saving, setSaving] = useState(false);
+
+  const listInput = useMemo(
+    () => ({
+      ...cacheInput,
+      propriedadeId: filters.propriedadeId,
+      terrenoId: filters.terrenoId,
+      culturaId: filters.culturaId,
+      safraId: filters.safraId,
+      responsavelUserId: filters.responsavelUserId,
+    }),
+    [cacheInput, filters],
+  );
+
   const {
     data: eventos = [],
     isLoading,
@@ -32,20 +59,97 @@ export default function CalendarioScreen() {
     refetch,
     isError,
     error,
-  } = trpc.coreData.calendario.list.useQuery(cacheInput, { enabled: tenantReady });
+  } = trpc.coreData.calendario.list.useQuery(listInput, { enabled: tenantReady });
 
-  const [view, setView] = useState<EventoViewId>("calendario");
-  const [filter, setFilter] = useState<StatusFilterId>("todos");
-  const [month, setMonth] = useState(() => new Date());
-  const [selectedKey, setSelectedKey] = useState<string | null>(() => toDateKey(new Date()));
-  const [modalVisible, setModalVisible] = useState(false);
-  const [formInitial, setFormInitial] = useState<Partial<EventoFormState> | undefined>();
-  const [saving, setSaving] = useState(false);
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
+  const { data: cultivosAll = [] } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
+  const { data: members = [] } = trpc.organizations.members.useQuery(undefined, {
+    enabled: tenantReady && !!activeOrganizationId,
+  });
 
-  const openCreate = useCallback((dateKey?: string) => {
-    setFormInitial(dateKey ? { dataProgramada: dateKey } : undefined);
-    setModalVisible(true);
-  }, []);
+  const propId = filters.propriedadeId;
+  const { data: terrenosRaw = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: propId!, ...cacheInput },
+    { enabled: tenantReady && !!propId },
+  );
+  const { data: safrasRaw = [] } = trpc.coreData.expansao.safras.list.useQuery(
+    { propriedadeId: propId!, ...cacheInput },
+    { enabled: tenantReady && !!propId },
+  );
+
+  const fazendaLabel =
+    organizations.find((o) => o.id === activeOrganizationId)?.nome ?? "Organização ativa";
+
+  const propriedadeOptions = useMemo(
+    () => propriedades.map((p) => ({ id: p.id, label: p.nome })),
+    [propriedades],
+  );
+  const terrenoOptions = useMemo(
+    () => terrenosRaw.map((t) => ({ id: t.id, label: t.nome ?? `Talhão #${t.id}` })),
+    [terrenosRaw],
+  );
+  const cultivoOptions = useMemo(() => {
+    const list = propId
+      ? cultivosAll.filter((c) => c.propriedadeId === propId)
+      : cultivosAll;
+    return list.map((c) => ({
+      id: c.id,
+      label: c.nomeCultura ?? `Cultivo #${c.id}`,
+    }));
+  }, [cultivosAll, propId]);
+  const safraOptions = useMemo(
+    () => safrasRaw.map((s) => ({ id: s.id, label: s.nome ?? `Safra #${s.id}` })),
+    [safrasRaw],
+  );
+  const responsavelOptions = useMemo(
+    () =>
+      members.map((m) => ({
+        id: m.userId,
+        label: m.userName?.trim() || m.userEmail || `User #${m.userId}`,
+      })),
+    [members],
+  );
+
+  /** Opções do modal — usam propriedade do form se houver, senão filtro ativo. */
+  const [formPropId, setFormPropId] = useState<number | undefined>();
+  const modalPropId = formPropId ?? filters.propriedadeId;
+  const { data: modalTerrenos = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: modalPropId!, ...cacheInput },
+    { enabled: tenantReady && !!modalPropId && modalVisible },
+  );
+  const { data: modalSafras = [] } = trpc.coreData.expansao.safras.list.useQuery(
+    { propriedadeId: modalPropId!, ...cacheInput },
+    { enabled: tenantReady && !!modalPropId && modalVisible },
+  );
+  const modalCultivoOptions = useMemo(() => {
+    const list = modalPropId
+      ? cultivosAll.filter((c) => c.propriedadeId === modalPropId)
+      : cultivosAll;
+    return list.map((c) => ({
+      id: c.id,
+      label: c.nomeCultura ?? `Cultivo #${c.id}`,
+    }));
+  }, [cultivosAll, modalPropId]);
+
+  const openCreate = useCallback(
+    (dateKey?: string) => {
+      setFormPropId(filters.propriedadeId);
+      setFormInitial({
+        dataProgramada: dateKey,
+        propriedadeId: filters.propriedadeId,
+        terrenoId: filters.terrenoId,
+        culturaId: filters.culturaId,
+        safraId: filters.safraId,
+        responsavelUserId: filters.responsavelUserId,
+      });
+      setModalVisible(true);
+    },
+    [filters],
+  );
 
   const handleSave = async (form: EventoFormState) => {
     if (!form.titulo.trim() || !form.dataProgramada.trim()) {
@@ -62,6 +166,11 @@ export default function CalendarioScreen() {
         descricao: form.descricao.trim() || undefined,
         status: "pendente",
         lembreteAtivo: form.lembreteAtivo,
+        propriedadeId: form.propriedadeId,
+        terrenoId: form.terrenoId,
+        culturaId: form.culturaId,
+        safraId: form.safraId,
+        responsavelUserId: form.responsavelUserId,
       });
       if (!result.queued && form.lembreteAtivo && result.result) {
         const eventId = Number(result.result);
@@ -150,6 +259,17 @@ export default function CalendarioScreen() {
 
       <EventoViewTabs value={view} onChange={setView} />
 
+      <EventoFiltersBar
+        fazendaLabel={fazendaLabel}
+        filters={filters}
+        onChange={setFilters}
+        propriedades={propriedadeOptions}
+        terrenos={terrenoOptions}
+        cultivos={cultivoOptions}
+        safras={safraOptions}
+        responsaveis={responsavelOptions}
+      />
+
       {isError ? (
         <ScreenState
           status="error"
@@ -211,6 +331,18 @@ export default function CalendarioScreen() {
         saving={saving}
         onClose={() => setModalVisible(false)}
         onSave={handleSave}
+        onPropriedadeChange={setFormPropId}
+        propriedades={propriedadeOptions}
+        terrenos={modalTerrenos.map((t) => ({
+          id: t.id,
+          label: t.nome ?? `Talhão #${t.id}`,
+        }))}
+        cultivos={modalCultivoOptions}
+        safras={modalSafras.map((s) => ({
+          id: s.id,
+          label: s.nome ?? `Safra #${s.id}`,
+        }))}
+        responsaveis={responsavelOptions}
       />
     </ScreenContainer>
   );

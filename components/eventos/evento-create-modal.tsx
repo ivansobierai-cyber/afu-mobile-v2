@@ -19,6 +19,11 @@ export type EventoFormState = {
   dataProgramada: string;
   descricao: string;
   lembreteAtivo: boolean;
+  propriedadeId?: number;
+  terrenoId?: number;
+  culturaId?: number;
+  safraId?: number;
+  responsavelUserId?: number;
 };
 
 export const EMPTY_EVENTO_FORM: EventoFormState = {
@@ -30,13 +35,97 @@ export const EMPTY_EVENTO_FORM: EventoFormState = {
   lembreteAtivo: true,
 };
 
+type LinkOption = { id: number; label: string };
+
 type Props = {
   visible: boolean;
   initial?: Partial<EventoFormState>;
   saving: boolean;
   onClose: () => void;
   onSave: (form: EventoFormState) => void;
+  propriedades?: LinkOption[];
+  terrenos?: LinkOption[];
+  cultivos?: LinkOption[];
+  safras?: LinkOption[];
+  responsaveis?: LinkOption[];
+  /** Notifica o parent para recarregar talhões/safras da propriedade escolhida. */
+  onPropriedadeChange?: (propriedadeId?: number) => void;
 };
+
+function LinkChips({
+  label,
+  options,
+  value,
+  onChange,
+  colors,
+}: {
+  label: string;
+  options: LinkOption[];
+  value?: number;
+  onChange: (id?: number) => void;
+  colors: ReturnType<typeof useColors>;
+}) {
+  if (!options.length) return null;
+  return (
+    <>
+      <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4, fontWeight: "500" }}>
+        {label}
+      </Text>
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+        <TouchableOpacity
+          onPress={() => onChange(undefined)}
+          style={{
+            borderRadius: 20,
+            paddingHorizontal: 12,
+            paddingVertical: 6,
+            borderWidth: 1,
+            backgroundColor: value == null ? colors.primary : colors.surface,
+            borderColor: value == null ? colors.primary : colors.border,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "600",
+              color: value == null ? "#fff" : colors.foreground,
+            }}
+          >
+            —
+          </Text>
+        </TouchableOpacity>
+        {options.map((opt) => {
+          const active = value === opt.id;
+          return (
+            <TouchableOpacity
+              key={opt.id}
+              onPress={() => onChange(opt.id)}
+              style={{
+                borderRadius: 20,
+                paddingHorizontal: 12,
+                paddingVertical: 6,
+                borderWidth: 1,
+                backgroundColor: active ? colors.primary : colors.surface,
+                borderColor: active ? colors.primary : colors.border,
+                maxWidth: 200,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 12,
+                  fontWeight: "600",
+                  color: active ? "#fff" : colors.foreground,
+                }}
+                numberOfLines={1}
+              >
+                {opt.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </>
+  );
+}
 
 export function EventoCreateModal({
   visible,
@@ -44,15 +133,23 @@ export function EventoCreateModal({
   saving,
   onClose,
   onSave,
+  propriedades = [],
+  terrenos = [],
+  cultivos = [],
+  safras = [],
+  responsaveis = [],
+  onPropriedadeChange,
 }: Props) {
   const colors = useColors();
   const [form, setForm] = useState<EventoFormState>(EMPTY_EVENTO_FORM);
+  const initialKey = JSON.stringify(initial ?? {});
 
   useEffect(() => {
     if (visible) {
       setForm({ ...EMPTY_EVENTO_FORM, ...initial });
     }
-  }, [visible, initial]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when sheet opens / seed changes
+  }, [visible, initialKey]);
 
   const styles = StyleSheet.create({
     overlay: {
@@ -211,17 +308,62 @@ export function EventoCreateModal({
             multiline
           />
 
-          <TouchableOpacity
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 12,
-            }}
-            onPress={() =>
-              setForm((f) => ({ ...f, lembreteAtivo: !f.lembreteAtivo }))
-            }
-          >
+            <LinkChips
+              label="Propriedade"
+              options={propriedades}
+              value={form.propriedadeId}
+              colors={colors}
+              onChange={(id) => {
+                setForm((f) => ({
+                  ...f,
+                  propriedadeId: id,
+                  terrenoId: undefined,
+                  culturaId: undefined,
+                  safraId: undefined,
+                }));
+                onPropriedadeChange?.(id);
+              }}
+            />
+            <LinkChips
+              label="Talhão"
+              options={terrenos}
+              value={form.terrenoId}
+              colors={colors}
+              onChange={(id) => setForm((f) => ({ ...f, terrenoId: id }))}
+            />
+            <LinkChips
+              label="Cultivo"
+              options={cultivos}
+              value={form.culturaId}
+              colors={colors}
+              onChange={(id) => setForm((f) => ({ ...f, culturaId: id }))}
+            />
+            <LinkChips
+              label="Safra"
+              options={safras}
+              value={form.safraId}
+              colors={colors}
+              onChange={(id) => setForm((f) => ({ ...f, safraId: id }))}
+            />
+            <LinkChips
+              label="Responsável"
+              options={responsaveis}
+              value={form.responsavelUserId}
+              colors={colors}
+              onChange={(id) => setForm((f) => ({ ...f, responsavelUserId: id }))}
+            />
+
+            <TouchableOpacity
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 10,
+                marginBottom: 12,
+              }}
+              onPress={() =>
+                setForm((f) => ({ ...f, lembreteAtivo: !f.lembreteAtivo }))
+              }
+            >
             <View
               style={{
                 width: 22,

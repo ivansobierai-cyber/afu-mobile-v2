@@ -95,6 +95,9 @@ const cultivoUpdateInput = cultivoInput.partial().extend({
 const eventoInput = z.object({
   propriedadeId: z.number().int().positive().optional(),
   culturaId: z.number().int().positive().optional(),
+  terrenoId: z.number().int().positive().optional(),
+  safraId: z.number().int().positive().optional(),
+  responsavelUserId: z.number().int().positive().optional(),
   tipoAtividade: z.enum([
     "plantio", "irrigacao", "adubacao", "pulverizacao",
     "monitoramento", "colheita", "analise", "manutencao", "outro",
@@ -693,6 +696,9 @@ const calendarioRouter = router({
           prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
           culturaId: z.number().int().positive().optional(),
           propriedadeId: z.number().int().positive().optional(),
+          terrenoId: z.number().int().positive().optional(),
+          safraId: z.number().int().positive().optional(),
+          responsavelUserId: z.number().int().positive().optional(),
           cacheScope: z.number().int().positive().optional(),
         })
         .optional(),
@@ -705,6 +711,17 @@ const calendarioRouter = router({
       }
       if (input?.culturaId) {
         await requireCulturaInTenant(tenant, input.culturaId, input.propriedadeId);
+      }
+      if (input?.terrenoId) {
+        await requireTerrenoInTenant(tenant, input.terrenoId, input.propriedadeId);
+      }
+      if (input?.safraId && input.propriedadeId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
       }
       const db = await getDb();
       if (!db) return [];
@@ -720,6 +737,15 @@ const calendarioRouter = router({
       if (input?.propriedadeId) {
         filtrados = filtrados.filter((e) => e.propriedadeId === input.propriedadeId);
       }
+      if (input?.terrenoId) {
+        filtrados = filtrados.filter((e) => e.terrenoId === input.terrenoId);
+      }
+      if (input?.safraId) {
+        filtrados = filtrados.filter((e) => e.safraId === input.safraId);
+      }
+      if (input?.responsavelUserId) {
+        filtrados = filtrados.filter((e) => e.responsavelUserId === input.responsavelUserId);
+      }
       return filtrados;
     }),
 
@@ -730,7 +756,16 @@ const calendarioRouter = router({
       await assertRelatedIdsInTenant(tenant, {
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
+        terrenoId: input.terrenoId,
       });
+      if (input.safraId && input.propriedadeId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
       const eventId = await createEvento({
         ...input,
         usuarioId: tenant.perfilId,
@@ -755,11 +790,21 @@ const calendarioRouter = router({
     .input(z.object({ id: z.number().int().positive(), data: eventoInput.partial() }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requireEventoInTenant(tenant, input.id);
+      const atual = await requireEventoInTenant(tenant, input.id);
       await assertRelatedIdsInTenant(tenant, {
-        propriedadeId: input.data.propriedadeId,
+        propriedadeId: input.data.propriedadeId ?? atual.propriedadeId ?? undefined,
         culturaId: input.data.culturaId,
+        terrenoId: input.data.terrenoId,
       });
+      const propId = input.data.propriedadeId ?? atual.propriedadeId;
+      if (input.data.safraId != null && propId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          propId,
+          input.data.safraId,
+        );
+      }
       return updateEvento(
         input.id,
         {
