@@ -901,6 +901,77 @@ const calendarioRouter = router({
       return { created: createdIds.length, ids: createdIds };
     }),
 
+  /** Etapa 5 — sugestões IA (conflitos, atrasos, clima, otimização). */
+  sugestoesIA: organizationProcedure
+    .input(
+      z
+        .object({
+          propriedadeId: z.number().int().positive().optional(),
+          cacheScope: z.number().int().positive().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const db = await getDb();
+      if (!db) return { sugestoes: [] as const, climaUsado: false };
+
+      let eventos = await db
+        .select()
+        .from(calendarioCuidados)
+        .where(eq(calendarioCuidados.organizationId, tenant.organizationId))
+        .orderBy(calendarioCuidados.dataProgramada);
+
+      if (input?.propriedadeId) {
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        eventos = eventos.filter((e) => e.propriedadeId === input.propriedadeId);
+      }
+
+      type ClimaDia = { date: string; precipitationSumMm?: number; weatherLabel?: string };
+      let climaDias: ClimaDia[] = [];
+      let climaUsado = false;
+      const propId =
+        input?.propriedadeId ??
+        eventos.find((e) => e.propriedadeId != null)?.propriedadeId ??
+        null;
+      if (propId) {
+        try {
+          const prop = await requirePropertyInTenant(tenant, propId);
+          const lat = prop.latitude != null ? parseFloat(String(prop.latitude)) : NaN;
+          const lng = prop.longitude != null ? parseFloat(String(prop.longitude)) : NaN;
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            const { fetchPropertyWeather } = await import("../services/open-meteo");
+            const weather = await fetchPropertyWeather(lat, lng, prop.nome);
+            climaDias = (weather.daily ?? []).map((d) => ({
+              date: d.date,
+              precipitationSumMm: d.precipitationSum,
+              weatherLabel: d.weatherLabel,
+            }));
+            climaUsado = true;
+          }
+        } catch {
+          /* clima opcional */
+        }
+      }
+
+      const { montarSugestoesIA } = await import("../../lib/eventos/ia-sugestoes");
+      const sugestoes = montarSugestoesIA({
+        eventos: eventos.map((e) => ({
+          id: e.id,
+          titulo: e.titulo,
+          tipoAtividade: e.tipoAtividade,
+          prioridade: e.prioridade,
+          status: e.status,
+          dataProgramada: e.dataProgramada,
+          propriedadeId: e.propriedadeId,
+        })),
+        climaDias,
+      });
+
+      return { sugestoes, climaUsado };
+    }),
+
   delete: orgPermissionProcedure("operations.write")
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {

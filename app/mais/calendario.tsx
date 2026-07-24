@@ -12,6 +12,7 @@ import {
 } from "@/components/eventos/evento-filters-bar";
 import { EventoMonthCalendar } from "@/components/eventos/evento-month-calendar";
 import { EventoTimeline } from "@/components/eventos/evento-timeline";
+import { EventoIaPanel } from "@/components/eventos/evento-ia-panel";
 import { EventoSmartTemplates } from "@/components/eventos/evento-smart-templates";
 import { EventoViewTabs } from "@/components/eventos/evento-view-tabs";
 import { MODULE_COLORS } from "@/constants/module-colors";
@@ -44,6 +45,17 @@ export default function CalendarioScreen() {
   const [gerandoCiclo, setGerandoCiclo] = useState(false);
   const utils = trpc.useUtils();
   const gerarCicloMut = trpc.coreData.calendario.gerarDoCiclo.useMutation();
+  const {
+    data: iaData,
+    isLoading: iaLoading,
+    refetch: refetchIa,
+  } = trpc.coreData.calendario.sugestoesIA.useQuery(
+    {
+      ...cacheInput,
+      propriedadeId: filters.propriedadeId,
+    },
+    { enabled: tenantReady },
+  );
 
   const listInput = useMemo(
     () => ({
@@ -310,6 +322,13 @@ export default function CalendarioScreen() {
       <EventoSmartTemplates
         compact
         onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
+      />
+
+      <EventoIaPanel
+        sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
+        climaUsado={iaData?.climaUsado}
+        loading={iaLoading}
+        onRefresh={() => refetchIa()}
       />
 
       {isError ? (
