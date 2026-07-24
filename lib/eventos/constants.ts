@@ -34,9 +34,12 @@ export const STATUS_FILTERS = [
 export type StatusFilterId = (typeof STATUS_FILTERS)[number]["id"];
 
 export const EVENTO_VIEWS = [
-  { id: "calendario", label: "Calendário", icon: "calendar" },
+  { id: "calendario", label: "Mês", icon: "calendar" },
+  { id: "semana", label: "Semana", icon: "calendar" },
+  { id: "dia", label: "Dia", icon: "calendar" },
   { id: "agenda", label: "Agenda", icon: "list.bullet" },
   { id: "timeline", label: "Timeline", icon: "clock.fill" },
+  { id: "kanban", label: "Kanban", icon: "square.grid.2x2.fill" },
 ] as const;
 
 export type EventoViewId = (typeof EVENTO_VIEWS)[number]["id"];

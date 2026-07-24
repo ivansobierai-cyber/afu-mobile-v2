@@ -996,17 +996,36 @@ const calendarioRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.read");
       const db = await getDb();
-      if (!db) return { total: 0, pendentes: 0, criticos: 0 };
+      if (!db) {
+        return {
+          total: 0,
+          pendentes: 0,
+          emAndamento: 0,
+          concluidos: 0,
+          criticos: 0,
+          atrasados: 0,
+          taxaConclusao: 0,
+        };
+      }
       const eventos = await db
         .select()
         .from(calendarioCuidados)
         .where(eq(calendarioCuidados.organizationId, tenant.organizationId));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const concluidos = eventos.filter((e) => e.status === "concluido").length;
+      const atrasados = eventos.filter((e) => {
+        if (e.status === "concluido" || e.status === "cancelado") return false;
+        return e.dataProgramada && new Date(e.dataProgramada) < today;
+      }).length;
       return {
         total: eventos.length,
         pendentes: eventos.filter((e) => e.status === "pendente").length,
         emAndamento: eventos.filter((e) => e.status === "em_andamento").length,
-        concluidos: eventos.filter((e) => e.status === "concluido").length,
+        concluidos,
         criticos: eventos.filter((e) => e.prioridade === "critica" && e.status === "pendente").length,
+        atrasados,
+        taxaConclusao: eventos.length ? (concluidos / eventos.length) * 100 : 0,
       };
     }),
 });

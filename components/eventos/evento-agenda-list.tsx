@@ -1,4 +1,13 @@
-import { View, Text, TouchableOpacity, FlatList, RefreshControl, StyleSheet } from "react-native";
+import { useMemo, useState } from "react";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  RefreshControl,
+  StyleSheet,
+  TextInput,
+} from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { ScreenState } from "@/components/screen-state";
 import { EventoCard } from "@/components/eventos/evento-card";
@@ -40,10 +49,41 @@ export function EventoAgendaList({
   loading,
 }: Props) {
   const colors = useColors();
-  const filtered = eventos.filter((e) => matchesFilter(e, filter));
+  const [query, setQuery] = useState("");
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return eventos.filter((e) => {
+      if (!matchesFilter(e, filter)) return false;
+      if (!q) return true;
+      return (
+        e.titulo.toLowerCase().includes(q) ||
+        (e.descricao ?? "").toLowerCase().includes(q) ||
+        (e.tipoAtividade ?? "").toLowerCase().includes(q)
+      );
+    });
+  }, [eventos, filter, query]);
 
   return (
     <View style={{ flex: 1 }}>
+      <View style={{ paddingHorizontal: 12, paddingTop: 8, backgroundColor: colors.surface }}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Pesquisar eventos…"
+          placeholderTextColor={colors.muted}
+          accessibilityLabel="Pesquisar eventos"
+          style={{
+            borderWidth: 1,
+            borderColor: colors.border,
+            borderRadius: 10,
+            paddingHorizontal: 12,
+            paddingVertical: 8,
+            fontSize: 14,
+            color: colors.foreground,
+            marginBottom: 4,
+          }}
+        />
+      </View>
       <View
         style={[
           styles.filterBar,

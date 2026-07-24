@@ -12,9 +12,14 @@ import {
 } from "@/components/eventos/evento-filters-bar";
 import { EventoMonthCalendar } from "@/components/eventos/evento-month-calendar";
 import { EventoTimeline } from "@/components/eventos/evento-timeline";
+import { EventoAnalyticsStrip } from "@/components/eventos/evento-analytics-strip";
+import { EventoDayView } from "@/components/eventos/evento-day-view";
 import { EventoIaPanel } from "@/components/eventos/evento-ia-panel";
+import { EventoIntegrationsBar } from "@/components/eventos/evento-integrations-bar";
+import { EventoKanban } from "@/components/eventos/evento-kanban";
 import { EventoSmartTemplates } from "@/components/eventos/evento-smart-templates";
 import { EventoViewTabs } from "@/components/eventos/evento-view-tabs";
+import { EventoWeekView } from "@/components/eventos/evento-week-view";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
@@ -56,6 +61,9 @@ export default function CalendarioScreen() {
     },
     { enabled: tenantReady },
   );
+  const { data: stats } = trpc.coreData.calendario.stats.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
   const listInput = useMemo(
     () => ({
@@ -285,6 +293,8 @@ export default function CalendarioScreen() {
       />
 
       <EventoViewTabs value={view} onChange={setView} />
+      <EventoAnalyticsStrip stats={stats} />
+      <EventoIntegrationsBar />
 
       <EventoFiltersBar
         fazendaLabel={fazendaLabel}
@@ -352,6 +362,49 @@ export default function CalendarioScreen() {
                 onToggleStatus={toggleStatus}
                 onDelete={handleDelete}
                 onCreateForDay={(key) => openCreate(key)}
+              />
+            )
+          ) : null}
+
+          {view === "semana" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando semana…" />
+            ) : (
+              <EventoWeekView
+                eventos={sortedEventos}
+                anchor={month}
+                selectedKey={selectedKey}
+                onAnchorChange={setMonth}
+                onSelectDay={setSelectedKey}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
+              />
+            )
+          ) : null}
+
+          {view === "dia" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando dia…" />
+            ) : (
+              <EventoDayView
+                eventos={sortedEventos}
+                dayKey={selectedKey ?? toDateKey(new Date())}
+                onDayChange={setSelectedKey}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
+                onCreate={() => openCreate(selectedKey ?? undefined)}
+              />
+            )
+          ) : null}
+
+          {view === "kanban" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando kanban…" />
+            ) : (
+              <EventoKanban
+                eventos={sortedEventos}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
               />
             )
           ) : null}
