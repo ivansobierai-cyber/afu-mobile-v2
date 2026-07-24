@@ -95,9 +95,15 @@ const cultivoUpdateInput = cultivoInput.partial().extend({
 const eventoInput = z.object({
   propriedadeId: z.number().int().positive().optional(),
   culturaId: z.number().int().positive().optional(),
+  terrenoId: z.number().int().positive().optional(),
+  safraId: z.number().int().positive().optional(),
+  responsavelUserId: z.number().int().positive().optional(),
+  dependsOnEventoId: z.number().int().positive().optional(),
+  recurrenceParentId: z.number().int().positive().optional(),
   tipoAtividade: z.enum([
     "plantio", "irrigacao", "adubacao", "pulverizacao",
-    "monitoramento", "colheita", "analise", "manutencao", "outro",
+    "monitoramento", "colheita", "analise", "manutencao",
+    "inspecao", "laboratorio", "outro",
   ]),
   titulo: z.string().min(1).max(200),
   descricao: z.string().optional(),
@@ -693,6 +699,9 @@ const calendarioRouter = router({
           prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
           culturaId: z.number().int().positive().optional(),
           propriedadeId: z.number().int().positive().optional(),
+          terrenoId: z.number().int().positive().optional(),
+          safraId: z.number().int().positive().optional(),
+          responsavelUserId: z.number().int().positive().optional(),
           cacheScope: z.number().int().positive().optional(),
         })
         .optional(),
@@ -705,6 +714,17 @@ const calendarioRouter = router({
       }
       if (input?.culturaId) {
         await requireCulturaInTenant(tenant, input.culturaId, input.propriedadeId);
+      }
+      if (input?.terrenoId) {
+        await requireTerrenoInTenant(tenant, input.terrenoId, input.propriedadeId);
+      }
+      if (input?.safraId && input.propriedadeId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
       }
       const db = await getDb();
       if (!db) return [];
@@ -720,6 +740,15 @@ const calendarioRouter = router({
       if (input?.propriedadeId) {
         filtrados = filtrados.filter((e) => e.propriedadeId === input.propriedadeId);
       }
+      if (input?.terrenoId) {
+        filtrados = filtrados.filter((e) => e.terrenoId === input.terrenoId);
+      }
+      if (input?.safraId) {
+        filtrados = filtrados.filter((e) => e.safraId === input.safraId);
+      }
+      if (input?.responsavelUserId) {
+        filtrados = filtrados.filter((e) => e.responsavelUserId === input.responsavelUserId);
+      }
       return filtrados;
     }),
 
@@ -730,7 +759,16 @@ const calendarioRouter = router({
       await assertRelatedIdsInTenant(tenant, {
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
+        terrenoId: input.terrenoId,
       });
+      if (input.safraId && input.propriedadeId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
       const eventId = await createEvento({
         ...input,
         usuarioId: tenant.perfilId,
@@ -755,12 +793,22 @@ const calendarioRouter = router({
     .input(z.object({ id: z.number().int().positive(), data: eventoInput.partial() }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requireEventoInTenant(tenant, input.id);
+      const atual = await requireEventoInTenant(tenant, input.id);
       await assertRelatedIdsInTenant(tenant, {
-        propriedadeId: input.data.propriedadeId,
+        propriedadeId: input.data.propriedadeId ?? atual.propriedadeId ?? undefined,
         culturaId: input.data.culturaId,
+        terrenoId: input.data.terrenoId,
       });
-      return updateEvento(
+      const propId = input.data.propriedadeId ?? atual.propriedadeId;
+      if (input.data.safraId != null && propId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          propId,
+          input.data.safraId,
+        );
+      }
+      await updateEvento(
         input.id,
         {
           ...input.data,
@@ -768,6 +816,160 @@ const calendarioRouter = router({
         } as any,
         tenant.organizationId,
       );
+
+      /** Etapa 4 — ao concluir evento recorrente, materializa a próxima ocorrência. */
+      let nextEventId: number | null = null;
+      const becomingDone =
+        input.data.status === "concluido" && atual.status !== "concluido";
+      if (becomingDone && atual.recorrencia && atual.recorrencia !== "nenhuma") {
+        const { nextOccurrenceDate } = await import("../../lib/eventos/recurrence");
+        const nextDate = nextOccurrenceDate(atual.dataProgramada, atual.recorrencia);
+        if (nextDate) {
+          nextEventId = await createEvento({
+            usuarioId: tenant.perfilId,
+            organizationId: tenant.organizationId,
+            propriedadeId: atual.propriedadeId ?? undefined,
+            culturaId: atual.culturaId ?? undefined,
+            terrenoId: atual.terrenoId ?? undefined,
+            safraId: atual.safraId ?? undefined,
+            responsavelUserId: atual.responsavelUserId ?? undefined,
+            dependsOnEventoId: atual.id,
+            recurrenceParentId: atual.recurrenceParentId ?? atual.id,
+            tipoAtividade: atual.tipoAtividade,
+            titulo: atual.titulo,
+            descricao: atual.descricao ?? undefined,
+            dataProgramada: nextDate,
+            recorrencia: atual.recorrencia,
+            prioridade: atual.prioridade ?? "normal",
+            status: "pendente",
+            lembreteAtivo: atual.lembreteAtivo ?? false,
+          } as any);
+        }
+      }
+
+      return { success: true, nextEventId };
+    }),
+
+  /**
+   * Etapa 4 — gera eventos do ciclo da cultura (plantio→colheita) com dependências.
+   */
+  gerarDoCiclo: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        culturaId: z.number().int().positive(),
+        propriedadeId: z.number().int().positive().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const cultura = await requireCulturaInTenant(
+        tenant,
+        input.culturaId,
+        input.propriedadeId,
+      );
+      const { gerarEventosDoCiclo } = await import("../../lib/eventos/ciclo-cultura");
+      const drafts = gerarEventosDoCiclo({
+        nomeCultura: cultura.nomeCultura ?? "Cultivo",
+        dataPlantio: cultura.dataPlantio,
+        previsaoColheita: cultura.previsaoColheita,
+      });
+
+      const createdIds: number[] = [];
+      for (const draft of drafts) {
+        const dependsOnEventoId =
+          draft.dependsOnIndex != null ? createdIds[draft.dependsOnIndex] : undefined;
+        const id = await createEvento({
+          usuarioId: tenant.perfilId,
+          organizationId: tenant.organizationId,
+          propriedadeId: cultura.propriedadeId,
+          culturaId: cultura.id,
+          terrenoId: cultura.terrenoId ?? undefined,
+          safraId: cultura.safraId ?? undefined,
+          dependsOnEventoId,
+          tipoAtividade: draft.tipoAtividade,
+          titulo: draft.titulo,
+          descricao: draft.descricao,
+          dataProgramada: new Date(`${draft.dataProgramada}T08:00:00`),
+          recorrencia: draft.recorrencia,
+          prioridade: draft.prioridade,
+          status: "pendente",
+          lembreteAtivo: true,
+        } as any);
+        createdIds.push(id);
+      }
+
+      return { created: createdIds.length, ids: createdIds };
+    }),
+
+  /** Etapa 5 — sugestões IA (conflitos, atrasos, clima, otimização). */
+  sugestoesIA: organizationProcedure
+    .input(
+      z
+        .object({
+          propriedadeId: z.number().int().positive().optional(),
+          cacheScope: z.number().int().positive().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const db = await getDb();
+      if (!db) return { sugestoes: [] as const, climaUsado: false };
+
+      let eventos = await db
+        .select()
+        .from(calendarioCuidados)
+        .where(eq(calendarioCuidados.organizationId, tenant.organizationId))
+        .orderBy(calendarioCuidados.dataProgramada);
+
+      if (input?.propriedadeId) {
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        eventos = eventos.filter((e) => e.propriedadeId === input.propriedadeId);
+      }
+
+      type ClimaDia = { date: string; precipitationSumMm?: number; weatherLabel?: string };
+      let climaDias: ClimaDia[] = [];
+      let climaUsado = false;
+      const propId =
+        input?.propriedadeId ??
+        eventos.find((e) => e.propriedadeId != null)?.propriedadeId ??
+        null;
+      if (propId) {
+        try {
+          const prop = await requirePropertyInTenant(tenant, propId);
+          const lat = prop.latitude != null ? parseFloat(String(prop.latitude)) : NaN;
+          const lng = prop.longitude != null ? parseFloat(String(prop.longitude)) : NaN;
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            const { fetchPropertyWeather } = await import("../services/open-meteo");
+            const weather = await fetchPropertyWeather(lat, lng, prop.nome);
+            climaDias = (weather.daily ?? []).map((d) => ({
+              date: d.date,
+              precipitationSumMm: d.precipitationSum,
+              weatherLabel: d.weatherLabel,
+            }));
+            climaUsado = true;
+          }
+        } catch {
+          /* clima opcional */
+        }
+      }
+
+      const { montarSugestoesIA } = await import("../../lib/eventos/ia-sugestoes");
+      const sugestoes = montarSugestoesIA({
+        eventos: eventos.map((e) => ({
+          id: e.id,
+          titulo: e.titulo,
+          tipoAtividade: e.tipoAtividade,
+          prioridade: e.prioridade,
+          status: e.status,
+          dataProgramada: e.dataProgramada,
+          propriedadeId: e.propriedadeId,
+        })),
+        climaDias,
+      });
+
+      return { sugestoes, climaUsado };
     }),
 
   delete: orgPermissionProcedure("operations.write")
@@ -794,17 +996,36 @@ const calendarioRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.read");
       const db = await getDb();
-      if (!db) return { total: 0, pendentes: 0, criticos: 0 };
+      if (!db) {
+        return {
+          total: 0,
+          pendentes: 0,
+          emAndamento: 0,
+          concluidos: 0,
+          criticos: 0,
+          atrasados: 0,
+          taxaConclusao: 0,
+        };
+      }
       const eventos = await db
         .select()
         .from(calendarioCuidados)
         .where(eq(calendarioCuidados.organizationId, tenant.organizationId));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const concluidos = eventos.filter((e) => e.status === "concluido").length;
+      const atrasados = eventos.filter((e) => {
+        if (e.status === "concluido" || e.status === "cancelado") return false;
+        return e.dataProgramada && new Date(e.dataProgramada) < today;
+      }).length;
       return {
         total: eventos.length,
         pendentes: eventos.filter((e) => e.status === "pendente").length,
         emAndamento: eventos.filter((e) => e.status === "em_andamento").length,
-        concluidos: eventos.filter((e) => e.status === "concluido").length,
+        concluidos,
         criticos: eventos.filter((e) => e.prioridade === "critica" && e.status === "pendente").length,
+        atrasados,
+        taxaConclusao: eventos.length ? (concluidos / eventos.length) * 100 : 0,
       };
     }),
 });

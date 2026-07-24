@@ -511,6 +511,13 @@ export const calendarioCuidados = mysqlTable(
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
+  /** Etapa 2 Eventos — vínculos operacionais */
+  terrenoId: int("terrenoId"), // FK → terrenos.id (talhão)
+  safraId: int("safraId"), // FK → safras.id
+  responsavelUserId: int("responsavelUserId"), // FK → users.id
+  /** Etapa 4 — dependência / série de recorrência */
+  dependsOnEventoId: int("dependsOnEventoId"),
+  recurrenceParentId: int("recurrenceParentId"),
   tipoAtividade: mysqlEnum("tipoAtividade", [
     "plantio",
     "irrigacao",
@@ -520,6 +527,8 @@ export const calendarioCuidados = mysqlTable(
     "colheita",
     "analise",
     "manutencao",
+    "inspecao",
+    "laboratorio",
     "outro",
   ]).notNull(),
   titulo: varchar("titulo", { length: 200 }).notNull(),
@@ -548,7 +557,15 @@ export const calendarioCuidados = mysqlTable(
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("calendario_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("calendario_organization_idx").on(t.organizationId),
+    index("calendario_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("calendario_org_safra_idx").on(t.organizationId, t.safraId),
+    index("calendario_org_terreno_idx").on(t.organizationId, t.terrenoId),
+    index("calendario_org_resp_idx").on(t.organizationId, t.responsavelUserId),
+    index("calendario_depends_idx").on(t.dependsOnEventoId),
+    index("calendario_recurrence_idx").on(t.recurrenceParentId),
+  ],
 );
 
 export type CalendarioCuidado = typeof calendarioCuidados.$inferSelect;

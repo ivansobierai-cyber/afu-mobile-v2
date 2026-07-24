@@ -1,61 +1,191 @@
-import { useState } from "react";
-import {
-  View, Text, FlatList, TouchableOpacity, Modal, TextInput,
-  ScrollView, StyleSheet, Alert, ActivityIndicator, RefreshControl,
-} from "react-native";
-import { useRouter } from "expo-router";
+import { useCallback, useMemo, useState } from "react";
+import { View, Alert, StyleSheet } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { ScreenHeader, ScreenHeaderIconButton } from "@/components/screen-header";
-import { IconSymbol } from "@/components/ui/icon-symbol";
-import { useColors } from "@/hooks/use-colors";
+import { ScreenHeader } from "@/components/screen-header";
+import { ScreenState } from "@/components/screen-state";
+import { EventoAgendaList } from "@/components/eventos/evento-agenda-list";
+import { EventoCreateModal, type EventoFormState } from "@/components/eventos/evento-create-modal";
+import { EventoFab } from "@/components/eventos/evento-fab";
+import {
+  EventoFiltersBar,
+  type EventoFilters,
+} from "@/components/eventos/evento-filters-bar";
+import { EventoMonthCalendar } from "@/components/eventos/evento-month-calendar";
+import { EventoTimeline } from "@/components/eventos/evento-timeline";
+import { EventoAnalyticsStrip } from "@/components/eventos/evento-analytics-strip";
+import { EventoDayView } from "@/components/eventos/evento-day-view";
+import { EventoIaPanel } from "@/components/eventos/evento-ia-panel";
+import { EventoIntegrationsBar } from "@/components/eventos/evento-integrations-bar";
+import { EventoKanban } from "@/components/eventos/evento-kanban";
+import { EventoSmartTemplates } from "@/components/eventos/evento-smart-templates";
+import { EventoViewTabs } from "@/components/eventos/evento-view-tabs";
+import { EventoWeekView } from "@/components/eventos/evento-week-view";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
-import { trpc } from "@/lib/trpc";
-import { scheduleEventReminder, cancelEventReminder } from "@/lib/notifications";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
+import type { EventoViewId, StatusFilterId } from "@/lib/eventos/constants";
+import { toDateKey } from "@/lib/eventos/date-utils";
+import type { SmartEventTemplate } from "@/lib/eventos/smart-templates";
+import type { EventoItem } from "@/lib/eventos/types";
+import { cancelEventReminder, scheduleEventReminder } from "@/lib/notifications";
+import { trpc } from "@/lib/trpc";
 
-const TIPO_EVENTO = [
-  { value: "plantio", label: "Plantio", color: "#38A169" },
-  { value: "irrigacao", label: "Irrigação", color: "#3B82F6" },
-  { value: "adubacao", label: "Adubação", color: "#D97706" },
-  { value: "monitoramento", label: "Monitoramento", color: "#8B5CF6" },
-  { value: "colheita", label: "Colheita", color: "#2D6A4F" },
-  { value: "outro", label: "Outro", color: "#6B7C6E" },
-];
-const PRIORIDADES = [
-  { value: "baixa", label: "Baixa", color: "#6B7C6E" },
-  { value: "normal", label: "Normal", color: "#3B82F6" },
-  { value: "alta", label: "Alta", color: "#D97706" },
-  { value: "critica", label: "Crítica", color: "#E53E3E" },
-];
-
-interface FormState {
-  titulo: string;
-  tipoAtividade: string;
-  prioridade: string;
-  dataProgramada: string;
-  descricao: string;
-  lembreteAtivo: boolean;
-}
-const EMPTY_FORM: FormState = { titulo: "", tipoAtividade: "plantio", prioridade: "normal", dataProgramada: "", descricao: "", lembreteAtivo: true };
-
+/**
+ * Centro de Eventos — Etapas 1–2
+ * Calendário / Agenda / Timeline + filtros fazenda/propriedade/talhão/cultivo/safra/responsável.
+ */
 export default function CalendarioScreen() {
-  const colors = useColors();
-  const router = useRouter();
   const { runMutation } = useRunCoreMutation();
+  const { cacheInput, tenantReady, activeOrganizationId, organizations } =
+    useTenantQueryScope();
 
-  const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
-  const { data: eventos = [], isLoading, refetch } = trpc.coreData.calendario.list.useQuery(
-    cacheInput,
+  const [view, setView] = useState<EventoViewId>("calendario");
+  const [filter, setFilter] = useState<StatusFilterId>("todos");
+  const [filters, setFilters] = useState<EventoFilters>({});
+  const [month, setMonth] = useState(() => new Date());
+  const [selectedKey, setSelectedKey] = useState<string | null>(() => toDateKey(new Date()));
+  const [modalVisible, setModalVisible] = useState(false);
+  const [formInitial, setFormInitial] = useState<Partial<EventoFormState> | undefined>();
+  const [saving, setSaving] = useState(false);
+  const [gerandoCiclo, setGerandoCiclo] = useState(false);
+  const utils = trpc.useUtils();
+  const gerarCicloMut = trpc.coreData.calendario.gerarDoCiclo.useMutation();
+  const {
+    data: iaData,
+    isLoading: iaLoading,
+    refetch: refetchIa,
+  } = trpc.coreData.calendario.sugestoesIA.useQuery(
+    {
+      ...cacheInput,
+      propriedadeId: filters.propriedadeId,
+    },
     { enabled: tenantReady },
   );
+  const { data: stats } = trpc.coreData.calendario.stats.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
 
-  const [modalVisible, setModalVisible] = useState(false);
-  const [filter, setFilter] = useState<"todos" | "pendente" | "concluido">("todos");
-  const [form, setForm] = useState<FormState>(EMPTY_FORM);
-  const [saving, setSaving] = useState(false);
+  const listInput = useMemo(
+    () => ({
+      ...cacheInput,
+      propriedadeId: filters.propriedadeId,
+      terrenoId: filters.terrenoId,
+      culturaId: filters.culturaId,
+      safraId: filters.safraId,
+      responsavelUserId: filters.responsavelUserId,
+    }),
+    [cacheInput, filters],
+  );
 
-  const handleSave = async () => {
+  const {
+    data: eventos = [],
+    isLoading,
+    isRefetching,
+    refetch,
+    isError,
+    error,
+  } = trpc.coreData.calendario.list.useQuery(listInput, { enabled: tenantReady });
+
+  const { data: propriedades = [] } = trpc.coreData.propriedades.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
+  const { data: cultivosAll = [] } = trpc.coreData.cultivos.list.useQuery(cacheInput, {
+    enabled: tenantReady,
+  });
+  const { data: members = [] } = trpc.organizations.members.useQuery(undefined, {
+    enabled: tenantReady && !!activeOrganizationId,
+  });
+
+  const propId = filters.propriedadeId;
+  const { data: terrenosRaw = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: propId!, ...cacheInput },
+    { enabled: tenantReady && !!propId },
+  );
+  const { data: safrasRaw = [] } = trpc.coreData.expansao.safras.list.useQuery(
+    { propriedadeId: propId!, ...cacheInput },
+    { enabled: tenantReady && !!propId },
+  );
+
+  const fazendaLabel =
+    organizations.find((o) => o.id === activeOrganizationId)?.nome ?? "Organização ativa";
+
+  const propriedadeOptions = useMemo(
+    () => propriedades.map((p) => ({ id: p.id, label: p.nome })),
+    [propriedades],
+  );
+  const terrenoOptions = useMemo(
+    () => terrenosRaw.map((t) => ({ id: t.id, label: t.nome ?? `Talhão #${t.id}` })),
+    [terrenosRaw],
+  );
+  const cultivoOptions = useMemo(() => {
+    const list = propId
+      ? cultivosAll.filter((c) => c.propriedadeId === propId)
+      : cultivosAll;
+    return list.map((c) => ({
+      id: c.id,
+      label: c.nomeCultura ?? `Cultivo #${c.id}`,
+    }));
+  }, [cultivosAll, propId]);
+  const safraOptions = useMemo(
+    () => safrasRaw.map((s) => ({ id: s.id, label: s.nome ?? `Safra #${s.id}` })),
+    [safrasRaw],
+  );
+  const responsavelOptions = useMemo(
+    () =>
+      members.map((m) => ({
+        id: m.userId,
+        label: m.userName?.trim() || m.userEmail || `User #${m.userId}`,
+      })),
+    [members],
+  );
+
+  /** Opções do modal — usam propriedade do form se houver, senão filtro ativo. */
+  const [formPropId, setFormPropId] = useState<number | undefined>();
+  const modalPropId = formPropId ?? filters.propriedadeId;
+  const { data: modalTerrenos = [] } = trpc.coreData.terrenos.listByPropriedade.useQuery(
+    { propriedadeId: modalPropId!, ...cacheInput },
+    { enabled: tenantReady && !!modalPropId && modalVisible },
+  );
+  const { data: modalSafras = [] } = trpc.coreData.expansao.safras.list.useQuery(
+    { propriedadeId: modalPropId!, ...cacheInput },
+    { enabled: tenantReady && !!modalPropId && modalVisible },
+  );
+  const modalCultivoOptions = useMemo(() => {
+    const list = modalPropId
+      ? cultivosAll.filter((c) => c.propriedadeId === modalPropId)
+      : cultivosAll;
+    return list.map((c) => ({
+      id: c.id,
+      label: c.nomeCultura ?? `Cultivo #${c.id}`,
+    }));
+  }, [cultivosAll, modalPropId]);
+
+  const openCreate = useCallback(
+    (dateKey?: string, template?: SmartEventTemplate) => {
+      setFormPropId(filters.propriedadeId);
+      setFormInitial({
+        dataProgramada: dateKey ?? toDateKey(new Date()),
+        propriedadeId: filters.propriedadeId,
+        terrenoId: filters.terrenoId,
+        culturaId: filters.culturaId,
+        safraId: filters.safraId,
+        responsavelUserId: filters.responsavelUserId,
+        ...(template
+          ? {
+              titulo: template.tituloSugerido,
+              tipoAtividade: template.tipoAtividade,
+              prioridade: template.prioridade,
+              recorrencia: template.recorrencia,
+              descricao: template.descricaoHint,
+            }
+          : {}),
+      });
+      setModalVisible(true);
+    },
+    [filters],
+  );
+
+  const handleSave = async (form: EventoFormState) => {
     if (!form.titulo.trim() || !form.dataProgramada.trim()) {
       Alert.alert("Atenção", "Preencha o título e a data do evento.");
       return;
@@ -64,12 +194,18 @@ export default function CalendarioScreen() {
     try {
       const result = await runMutation("evento", "create", {
         titulo: form.titulo.trim(),
-        tipoAtividade: form.tipoAtividade as "plantio" | "irrigacao" | "adubacao" | "pulverizacao" | "monitoramento" | "colheita" | "analise" | "manutencao" | "outro",
-        prioridade: form.prioridade as "baixa" | "normal" | "alta" | "critica",
+        tipoAtividade: form.tipoAtividade as EventoItem["tipoAtividade"],
+        prioridade: form.prioridade as NonNullable<EventoItem["prioridade"]>,
         dataProgramada: form.dataProgramada,
         descricao: form.descricao.trim() || undefined,
         status: "pendente",
         lembreteAtivo: form.lembreteAtivo,
+        recorrencia: (form.recorrencia as EventoItem["recorrencia"]) ?? "nenhuma",
+        propriedadeId: form.propriedadeId,
+        terrenoId: form.terrenoId,
+        culturaId: form.culturaId,
+        safraId: form.safraId,
+        responsavelUserId: form.responsavelUserId,
       });
       if (!result.queued && form.lembreteAtivo && result.result) {
         const eventId = Number(result.result);
@@ -84,195 +220,248 @@ export default function CalendarioScreen() {
         });
       }
       setModalVisible(false);
-      setForm(EMPTY_FORM);
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível salvar o evento.");
+      setFormInitial(undefined);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível salvar o evento.";
+      Alert.alert("Erro", message);
     } finally {
       setSaving(false);
     }
   };
 
-  const toggleStatus = async (id: number, currentStatus: string, titulo: string, dataProgramada?: Date | string | null) => {
+  const toggleStatus = async (item: EventoItem) => {
+    const currentStatus = item.status ?? "pendente";
     const newStatus = currentStatus === "concluido" ? "pendente" : "concluido";
     try {
-      const result = await runMutation("evento", "update", { id, data: { status: newStatus as "pendente" | "concluido" } });
+      const result = await runMutation("evento", "update", {
+        id: item.id,
+        data: { status: newStatus as "pendente" | "concluido" },
+      });
       if (result.queued) return;
       if (newStatus === "concluido") {
-        await cancelEventReminder(id);
-      } else if (dataProgramada) {
-        const dataStr = dataProgramada instanceof Date
-          ? dataProgramada.toISOString()
-          : String(dataProgramada);
-        await scheduleEventReminder({ eventId: id, titulo, dataProgramada: dataStr });
+        await cancelEventReminder(item.id);
+      } else if (item.dataProgramada) {
+        const dataStr =
+          item.dataProgramada instanceof Date
+            ? item.dataProgramada.toISOString()
+            : String(item.dataProgramada);
+        await scheduleEventReminder({
+          eventId: item.id,
+          titulo: item.titulo,
+          dataProgramada: dataStr,
+        });
       }
-    } catch (e: any) {
-      Alert.alert("Erro", e.message ?? "Não foi possível atualizar.");
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível atualizar.";
+      Alert.alert("Erro", message);
     }
   };
 
-  const handleDelete = (id: number, titulo: string) => {
-    Alert.alert("Excluir evento?", `"${titulo}"`, [
+  const handleDelete = (item: EventoItem) => {
+    Alert.alert("Excluir evento?", `"${item.titulo}"`, [
       { text: "Cancelar", style: "cancel" },
-      { text: "Excluir", style: "destructive", onPress: async () => {
-        try {
-          const result = await runMutation("evento", "delete", { id });
-          if (!result.queued) await cancelEventReminder(id);
-        }
-        catch (e: any) { Alert.alert("Erro", e.message ?? "Não foi possível excluir."); }
-      }},
+      {
+        text: "Excluir",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            const result = await runMutation("evento", "delete", { id: item.id });
+            if (!result.queued) await cancelEventReminder(item.id);
+          } catch (e: unknown) {
+            const message = e instanceof Error ? e.message : "Não foi possível excluir.";
+            Alert.alert("Erro", message);
+          }
+        },
+      },
     ]);
   };
 
-  const filtered = eventos.filter((e) => {
-    if (filter === "pendente") return e.status === "pendente" || e.status === "em_andamento";
-    if (filter === "concluido") return e.status === "concluido" || e.status === "cancelado";
-    return true;
-  });
-
-  const styles = StyleSheet.create({
-    card: { backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "flex-start", gap: 12 },
-    label: { fontSize: 12, color: colors.muted, marginBottom: 4, fontWeight: "500" },
-    input: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, fontSize: 15, color: colors.foreground, marginBottom: 12 },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 12 },
-    chip: { borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
-    overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-    sheet: { backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "90%", padding: 20 },
-    sheetTitle: { fontSize: 18, fontWeight: "700", color: colors.foreground, marginBottom: 16 },
-    saveBtn: { backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 16 },
-    saveBtnText: { color: "#fff", fontWeight: "700", fontSize: 16 },
-    cancelBtn: { borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 8 },
-    cancelBtnText: { color: colors.muted, fontSize: 14 },
-  });
-
-  const getTipoInfo = (tipo: string) => TIPO_EVENTO.find((t) => t.value === tipo) ?? TIPO_EVENTO[5];
+  const sortedEventos = useMemo(() => {
+    return [...eventos].sort((a, b) => {
+      const da = a.dataProgramada ? new Date(a.dataProgramada).getTime() : 0;
+      const db = b.dataProgramada ? new Date(b.dataProgramada).getTime() : 0;
+      return da - db;
+    });
+  }, [eventos]);
 
   return (
     <ScreenContainer>
       <ScreenHeader
         title="Eventos"
-        subtitle="Calendário agrícola"
+        subtitle="Centro de planejamento agrícola"
         accentColor={MODULE_COLORS.eventos}
-        right={
-          <ScreenHeaderIconButton
-            icon="plus"
-            accessibilityLabel="Novo evento"
-            onPress={() => { setForm(EMPTY_FORM); setModalVisible(true); }}
-          />
-        }
       />
 
-      {/* Filtro */}
-      <View style={{ flexDirection: "row", backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}>
-        {(["todos", "pendente", "concluido"] as const).map((f) => (
-          <TouchableOpacity key={f} style={{ flex: 1, paddingVertical: 12, alignItems: "center", borderBottomWidth: 2, borderBottomColor: filter === f ? colors.primary : "transparent" }} onPress={() => setFilter(f)}>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: filter === f ? colors.primary : colors.muted }}>
-              {f === "todos" ? "Todos" : f === "pendente" ? "Pendentes" : "Concluídos"}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <EventoViewTabs value={view} onChange={setView} />
+      <EventoAnalyticsStrip stats={stats} />
+      <EventoIntegrationsBar />
 
-      {isLoading ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : filtered.length === 0 ? (
-        <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 32 }}>
-          <IconSymbol name="calendar" size={48} color={colors.muted} />
-          <Text style={{ fontSize: 16, color: colors.muted, marginTop: 12, fontWeight: "600" }}>Nenhum evento encontrado</Text>
-          <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4, textAlign: "center" }}>Toque em "+" para adicionar um evento ao calendário.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(item) => String(item.id)}
-          contentContainerStyle={{ padding: 16 }}
-          showsVerticalScrollIndicator={false}
-          refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
-          renderItem={({ item }) => {
-            const tipoInfo = getTipoInfo(item.tipoAtividade ?? "outro");
-            const isConcluido = item.status === "concluido";
-            return (
-              <View style={styles.card}>
-                <TouchableOpacity onPress={() => toggleStatus(item.id, item.status ?? "pendente", item.titulo, item.dataProgramada)} style={{ paddingTop: 2 }}>
-                  <View style={{ width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: isConcluido ? colors.success : colors.border, backgroundColor: isConcluido ? colors.success : "transparent", alignItems: "center", justifyContent: "center" }}>
-                    {isConcluido && <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>}
-                  </View>
-                </TouchableOpacity>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: isConcluido ? colors.muted : colors.foreground, textDecorationLine: isConcluido ? "line-through" : "none" }}>{item.titulo}</Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginTop: 4 }}>
-                    <View style={{ backgroundColor: tipoInfo.color + "20", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
-                      <Text style={{ fontSize: 11, fontWeight: "700", color: tipoInfo.color }}>{tipoInfo.label}</Text>
-                    </View>
-                    {item.dataProgramada && (
-                      <Text style={{ fontSize: 12, color: colors.muted }}>
-                        {new Date(item.dataProgramada).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
-                      </Text>
-                    )}
-                  </View>
-                  {item.descricao && <Text style={{ fontSize: 13, color: colors.muted, marginTop: 4 }} numberOfLines={2}>{item.descricao}</Text>}
-                </View>
-                <TouchableOpacity onPress={() => handleDelete(item.id, item.titulo)}>
-                  <IconSymbol name="trash.fill" size={16} color={colors.error} />
-                </TouchableOpacity>
-              </View>
+      <EventoFiltersBar
+        fazendaLabel={fazendaLabel}
+        filters={filters}
+        onChange={setFilters}
+        propriedades={propriedadeOptions}
+        terrenos={terrenoOptions}
+        cultivos={cultivoOptions}
+        safras={safraOptions}
+        responsaveis={responsavelOptions}
+        gerandoCiclo={gerandoCiclo}
+        onGerarCiclo={async () => {
+          if (!filters.culturaId) return;
+          setGerandoCiclo(true);
+          try {
+            const res = await gerarCicloMut.mutateAsync({
+              culturaId: filters.culturaId,
+              propriedadeId: filters.propriedadeId,
+            });
+            await utils.coreData.calendario.list.invalidate();
+            Alert.alert(
+              "Ciclo gerado",
+              `${res.created} eventos criados a partir do cultivo (com dependências).`,
             );
-          }}
+          } catch (e: unknown) {
+            const message =
+              e instanceof Error ? e.message : "Não foi possível gerar o ciclo.";
+            Alert.alert("Erro", message);
+          } finally {
+            setGerandoCiclo(false);
+          }
+        }}
+      />
+
+      <EventoSmartTemplates
+        compact
+        onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
+      />
+
+      <EventoIaPanel
+        sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
+        climaUsado={iaData?.climaUsado}
+        loading={iaLoading}
+        onRefresh={() => refetchIa()}
+      />
+
+      {isError ? (
+        <ScreenState
+          status="error"
+          message={error?.message ?? "Falha ao carregar eventos."}
+          onAction={() => refetch()}
         />
+      ) : (
+        <View style={styles.body}>
+          {view === "calendario" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando calendário…" />
+            ) : (
+              <EventoMonthCalendar
+                eventos={sortedEventos}
+                month={month}
+                selectedKey={selectedKey}
+                onMonthChange={setMonth}
+                onSelectDay={setSelectedKey}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
+                onCreateForDay={(key) => openCreate(key)}
+              />
+            )
+          ) : null}
+
+          {view === "semana" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando semana…" />
+            ) : (
+              <EventoWeekView
+                eventos={sortedEventos}
+                anchor={month}
+                selectedKey={selectedKey}
+                onAnchorChange={setMonth}
+                onSelectDay={setSelectedKey}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
+              />
+            )
+          ) : null}
+
+          {view === "dia" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando dia…" />
+            ) : (
+              <EventoDayView
+                eventos={sortedEventos}
+                dayKey={selectedKey ?? toDateKey(new Date())}
+                onDayChange={setSelectedKey}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
+                onCreate={() => openCreate(selectedKey ?? undefined)}
+              />
+            )
+          ) : null}
+
+          {view === "kanban" ? (
+            isLoading ? (
+              <ScreenState status="loading" message="Carregando kanban…" />
+            ) : (
+              <EventoKanban
+                eventos={sortedEventos}
+                onToggleStatus={toggleStatus}
+                onDelete={handleDelete}
+              />
+            )
+          ) : null}
+
+          {view === "agenda" ? (
+            <EventoAgendaList
+              eventos={sortedEventos}
+              filter={filter}
+              onFilterChange={setFilter}
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
+              onToggleStatus={toggleStatus}
+              onDelete={handleDelete}
+              onCreate={() => openCreate()}
+              loading={isLoading}
+            />
+          ) : null}
+
+          {view === "timeline" ? (
+            <EventoTimeline
+              eventos={sortedEventos}
+              refreshing={isRefetching}
+              onRefresh={() => refetch()}
+              onToggleStatus={toggleStatus}
+              onDelete={handleDelete}
+              onCreate={() => openCreate()}
+              loading={isLoading}
+            />
+          ) : null}
+        </View>
       )}
 
-      <Modal visible={modalVisible} transparent animationType="slide">
-        <View style={styles.overlay}>
-          <ScrollView style={styles.sheet} keyboardShouldPersistTaps="handled">
-            <Text style={styles.sheetTitle}>Novo Evento</Text>
+      <EventoFab onPress={() => openCreate(selectedKey ?? undefined)} />
 
-            <Text style={styles.label}>Título *</Text>
-            <TextInput style={styles.input} value={form.titulo} onChangeText={(v) => setForm((f) => ({ ...f, titulo: v }))} placeholder="Ex: Aplicação de fungicida" placeholderTextColor={colors.muted} />
-
-            <Text style={styles.label}>Tipo</Text>
-            <View style={styles.chipRow}>
-              {TIPO_EVENTO.map((t) => (
-                <TouchableOpacity key={t.value} style={[styles.chip, { backgroundColor: form.tipoAtividade === t.value ? t.color : colors.surface, borderColor: form.tipoAtividade === t.value ? t.color : colors.border }]} onPress={() => setForm((f) => ({ ...f, tipoAtividade: t.value }))}>
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: form.tipoAtividade === t.value ? "#fff" : colors.foreground }}>{t.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.label}>Prioridade</Text>
-            <View style={styles.chipRow}>
-              {PRIORIDADES.map((p) => (
-                <TouchableOpacity key={p.value} style={[styles.chip, { backgroundColor: form.prioridade === p.value ? p.color : colors.surface, borderColor: form.prioridade === p.value ? p.color : colors.border }]} onPress={() => setForm((f) => ({ ...f, prioridade: p.value }))}>
-                  <Text style={{ fontSize: 12, fontWeight: "600", color: form.prioridade === p.value ? "#fff" : colors.foreground }}>{p.label}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.label}>Data Programada * (AAAA-MM-DD)</Text>
-            <TextInput style={styles.input} value={form.dataProgramada} onChangeText={(v) => setForm((f) => ({ ...f, dataProgramada: v }))} placeholder="Ex: 2026-07-15" placeholderTextColor={colors.muted} />
-
-            <Text style={styles.label}>Descrição</Text>
-            <TextInput style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]} value={form.descricao} onChangeText={(v) => setForm((f) => ({ ...f, descricao: v }))} placeholder="Detalhes do evento..." placeholderTextColor={colors.muted} multiline />
-
-            <TouchableOpacity
-              style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}
-              onPress={() => setForm((f) => ({ ...f, lembreteAtivo: !f.lembreteAtivo }))}
-            >
-              <View style={{ width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: colors.primary, backgroundColor: form.lembreteAtivo ? colors.primary : "transparent", alignItems: "center", justifyContent: "center" }}>
-                {form.lembreteAtivo && <Text style={{ color: "#fff", fontSize: 12, fontWeight: "700" }}>✓</Text>}
-              </View>
-              <Text style={{ fontSize: 14, color: colors.foreground }}>Lembrete local (1 dia antes)</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salvar Evento</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
-              <Text style={styles.cancelBtnText}>Cancelar</Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </Modal>
+      <EventoCreateModal
+        visible={modalVisible}
+        initial={formInitial}
+        saving={saving}
+        onClose={() => setModalVisible(false)}
+        onSave={handleSave}
+        onPropriedadeChange={setFormPropId}
+        propriedades={propriedadeOptions}
+        terrenos={modalTerrenos.map((t) => ({
+          id: t.id,
+          label: t.nome ?? `Talhão #${t.id}`,
+        }))}
+        cultivos={modalCultivoOptions}
+        safras={modalSafras.map((s) => ({
+          id: s.id,
+          label: s.nome ?? `Safra #${s.id}`,
+        }))}
+        responsaveis={responsavelOptions}
+      />
     </ScreenContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  body: { flex: 1 },
+});
