@@ -524,6 +524,8 @@ export const calendarioCuidados = mysqlTable(
     "colheita",
     "analise",
     "manutencao",
+    "inspecao",
+    "laboratorio",
     "outro",
   ]).notNull(),
   titulo: varchar("titulo", { length: 200 }).notNull(),

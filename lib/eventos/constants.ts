@@ -6,8 +6,10 @@ export const TIPO_EVENTO = [
   { value: "adubacao", label: "Adubação", color: "#D97706", icon: "leaf.fill" },
   { value: "pulverizacao", label: "Pulverização", color: "#0EA5E9", icon: "sparkles" },
   { value: "monitoramento", label: "Monitoramento", color: "#8B5CF6", icon: "eye.fill" },
+  { value: "inspecao", label: "Inspeção", color: "#7C3AED", icon: "eye.fill" },
   { value: "colheita", label: "Colheita", color: "#2D6A4F", icon: "scalemass.fill" },
   { value: "analise", label: "Análise", color: "#1565C0", icon: "doc.fill" },
+  { value: "laboratorio", label: "Laboratório", color: "#1D4ED8", icon: "flask.fill" },
   { value: "manutencao", label: "Manutenção", color: "#6B7C6E", icon: "wrench.fill" },
   { value: "outro", label: "Outro", color: "#6B7C6E", icon: "circle.fill" },
 ] as const;

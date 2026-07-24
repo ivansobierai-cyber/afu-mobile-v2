@@ -100,7 +100,8 @@ const eventoInput = z.object({
   responsavelUserId: z.number().int().positive().optional(),
   tipoAtividade: z.enum([
     "plantio", "irrigacao", "adubacao", "pulverizacao",
-    "monitoramento", "colheita", "analise", "manutencao", "outro",
+    "monitoramento", "colheita", "analise", "manutencao",
+    "inspecao", "laboratorio", "outro",
   ]),
   titulo: z.string().min(1).max(200),
   descricao: z.string().optional(),

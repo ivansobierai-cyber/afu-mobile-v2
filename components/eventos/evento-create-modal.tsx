@@ -19,6 +19,7 @@ export type EventoFormState = {
   dataProgramada: string;
   descricao: string;
   lembreteAtivo: boolean;
+  recorrencia?: string;
   propriedadeId?: number;
   terrenoId?: number;
   culturaId?: number;
@@ -33,6 +34,7 @@ export const EMPTY_EVENTO_FORM: EventoFormState = {
   dataProgramada: "",
   descricao: "",
   lembreteAtivo: true,
+  recorrencia: "nenhuma",
 };
 
 type LinkOption = { id: number; label: string };
@@ -297,6 +299,12 @@ export function EventoCreateModal({
             placeholder="Ex: 2026-07-15"
             placeholderTextColor={colors.muted}
           />
+
+          {form.recorrencia && form.recorrencia !== "nenhuma" ? (
+            <Text style={[styles.label, { color: colors.primary }]}>
+              Recorrência sugerida: {form.recorrencia}
+            </Text>
+          ) : null}
 
           <Text style={styles.label}>Descrição</Text>
           <TextInput

@@ -12,12 +12,14 @@ import {
 } from "@/components/eventos/evento-filters-bar";
 import { EventoMonthCalendar } from "@/components/eventos/evento-month-calendar";
 import { EventoTimeline } from "@/components/eventos/evento-timeline";
+import { EventoSmartTemplates } from "@/components/eventos/evento-smart-templates";
 import { EventoViewTabs } from "@/components/eventos/evento-view-tabs";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import type { EventoViewId, StatusFilterId } from "@/lib/eventos/constants";
 import { toDateKey } from "@/lib/eventos/date-utils";
+import type { SmartEventTemplate } from "@/lib/eventos/smart-templates";
 import type { EventoItem } from "@/lib/eventos/types";
 import { cancelEventReminder, scheduleEventReminder } from "@/lib/notifications";
 import { trpc } from "@/lib/trpc";
@@ -136,15 +138,24 @@ export default function CalendarioScreen() {
   }, [cultivosAll, modalPropId]);
 
   const openCreate = useCallback(
-    (dateKey?: string) => {
+    (dateKey?: string, template?: SmartEventTemplate) => {
       setFormPropId(filters.propriedadeId);
       setFormInitial({
-        dataProgramada: dateKey,
+        dataProgramada: dateKey ?? toDateKey(new Date()),
         propriedadeId: filters.propriedadeId,
         terrenoId: filters.terrenoId,
         culturaId: filters.culturaId,
         safraId: filters.safraId,
         responsavelUserId: filters.responsavelUserId,
+        ...(template
+          ? {
+              titulo: template.tituloSugerido,
+              tipoAtividade: template.tipoAtividade,
+              prioridade: template.prioridade,
+              recorrencia: template.recorrencia,
+              descricao: template.descricaoHint,
+            }
+          : {}),
       });
       setModalVisible(true);
     },
@@ -166,6 +177,7 @@ export default function CalendarioScreen() {
         descricao: form.descricao.trim() || undefined,
         status: "pendente",
         lembreteAtivo: form.lembreteAtivo,
+        recorrencia: (form.recorrencia as EventoItem["recorrencia"]) ?? "nenhuma",
         propriedadeId: form.propriedadeId,
         terrenoId: form.terrenoId,
         culturaId: form.culturaId,
@@ -268,6 +280,11 @@ export default function CalendarioScreen() {
         cultivos={cultivoOptions}
         safras={safraOptions}
         responsaveis={responsavelOptions}
+      />
+
+      <EventoSmartTemplates
+        compact
+        onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
       />
 
       {isError ? (
