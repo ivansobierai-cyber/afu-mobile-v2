@@ -25,6 +25,7 @@
     "test:security:etapa10": "tsx scripts/run-etapa10-security.ts",
     "test:propriedades:etapa2": "tsx scripts/run-propriedades-etapa2-aceitacao.ts",
     "smoke:plano-auxiliar": "tsx scripts/smoke-plano-auxiliar-local.ts",
+    "smoke:eventos": "tsx scripts/smoke-eventos-centro.ts",
     "check:tenant-queries": "node scripts/check-tenant-queries.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",

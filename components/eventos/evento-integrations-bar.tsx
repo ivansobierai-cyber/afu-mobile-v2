@@ -13,7 +13,7 @@ export function EventoIntegrationsBar() {
     { label: "Diagnóstico", href: "/(tabs)/diagnostico", color: MODULE_COLORS.diagnostico },
     { label: "Cultivos", href: "/(tabs)/cultivos", color: MODULE_COLORS.cultivos },
     { label: "Propriedades", href: "/(tabs)/propriedades", color: MODULE_COLORS.propriedades },
-    { label: "Marketplace", href: "/(tabs)/marketplace", color: MODULE_COLORS.marketplace },
+    { label: "Marketplace", href: "/mais/marketplace", color: MODULE_COLORS.marketplace },
   ] as const;
 
   return (
