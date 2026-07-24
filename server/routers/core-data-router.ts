@@ -98,6 +98,8 @@ const eventoInput = z.object({
   terrenoId: z.number().int().positive().optional(),
   safraId: z.number().int().positive().optional(),
   responsavelUserId: z.number().int().positive().optional(),
+  dependsOnEventoId: z.number().int().positive().optional(),
+  recurrenceParentId: z.number().int().positive().optional(),
   tipoAtividade: z.enum([
     "plantio", "irrigacao", "adubacao", "pulverizacao",
     "monitoramento", "colheita", "analise", "manutencao",
@@ -806,7 +808,7 @@ const calendarioRouter = router({
           input.data.safraId,
         );
       }
-      return updateEvento(
+      await updateEvento(
         input.id,
         {
           ...input.data,
@@ -814,6 +816,89 @@ const calendarioRouter = router({
         } as any,
         tenant.organizationId,
       );
+
+      /** Etapa 4 — ao concluir evento recorrente, materializa a próxima ocorrência. */
+      let nextEventId: number | null = null;
+      const becomingDone =
+        input.data.status === "concluido" && atual.status !== "concluido";
+      if (becomingDone && atual.recorrencia && atual.recorrencia !== "nenhuma") {
+        const { nextOccurrenceDate } = await import("../../lib/eventos/recurrence");
+        const nextDate = nextOccurrenceDate(atual.dataProgramada, atual.recorrencia);
+        if (nextDate) {
+          nextEventId = await createEvento({
+            usuarioId: tenant.perfilId,
+            organizationId: tenant.organizationId,
+            propriedadeId: atual.propriedadeId ?? undefined,
+            culturaId: atual.culturaId ?? undefined,
+            terrenoId: atual.terrenoId ?? undefined,
+            safraId: atual.safraId ?? undefined,
+            responsavelUserId: atual.responsavelUserId ?? undefined,
+            dependsOnEventoId: atual.id,
+            recurrenceParentId: atual.recurrenceParentId ?? atual.id,
+            tipoAtividade: atual.tipoAtividade,
+            titulo: atual.titulo,
+            descricao: atual.descricao ?? undefined,
+            dataProgramada: nextDate,
+            recorrencia: atual.recorrencia,
+            prioridade: atual.prioridade ?? "normal",
+            status: "pendente",
+            lembreteAtivo: atual.lembreteAtivo ?? false,
+          } as any);
+        }
+      }
+
+      return { success: true, nextEventId };
+    }),
+
+  /**
+   * Etapa 4 — gera eventos do ciclo da cultura (plantio→colheita) com dependências.
+   */
+  gerarDoCiclo: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        culturaId: z.number().int().positive(),
+        propriedadeId: z.number().int().positive().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const cultura = await requireCulturaInTenant(
+        tenant,
+        input.culturaId,
+        input.propriedadeId,
+      );
+      const { gerarEventosDoCiclo } = await import("../../lib/eventos/ciclo-cultura");
+      const drafts = gerarEventosDoCiclo({
+        nomeCultura: cultura.nomeCultura ?? "Cultivo",
+        dataPlantio: cultura.dataPlantio,
+        previsaoColheita: cultura.previsaoColheita,
+      });
+
+      const createdIds: number[] = [];
+      for (const draft of drafts) {
+        const dependsOnEventoId =
+          draft.dependsOnIndex != null ? createdIds[draft.dependsOnIndex] : undefined;
+        const id = await createEvento({
+          usuarioId: tenant.perfilId,
+          organizationId: tenant.organizationId,
+          propriedadeId: cultura.propriedadeId,
+          culturaId: cultura.id,
+          terrenoId: cultura.terrenoId ?? undefined,
+          safraId: cultura.safraId ?? undefined,
+          dependsOnEventoId,
+          tipoAtividade: draft.tipoAtividade,
+          titulo: draft.titulo,
+          descricao: draft.descricao,
+          dataProgramada: new Date(`${draft.dataProgramada}T08:00:00`),
+          recorrencia: draft.recorrencia,
+          prioridade: draft.prioridade,
+          status: "pendente",
+          lembreteAtivo: true,
+        } as any);
+        createdIds.push(id);
+      }
+
+      return { created: createdIds.length, ids: createdIds };
     }),
 
   delete: orgPermissionProcedure("operations.write")

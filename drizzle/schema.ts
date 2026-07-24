@@ -515,6 +515,9 @@ export const calendarioCuidados = mysqlTable(
   terrenoId: int("terrenoId"), // FK → terrenos.id (talhão)
   safraId: int("safraId"), // FK → safras.id
   responsavelUserId: int("responsavelUserId"), // FK → users.id
+  /** Etapa 4 — dependência / série de recorrência */
+  dependsOnEventoId: int("dependsOnEventoId"),
+  recurrenceParentId: int("recurrenceParentId"),
   tipoAtividade: mysqlEnum("tipoAtividade", [
     "plantio",
     "irrigacao",
@@ -560,6 +563,8 @@ export const calendarioCuidados = mysqlTable(
     index("calendario_org_safra_idx").on(t.organizationId, t.safraId),
     index("calendario_org_terreno_idx").on(t.organizationId, t.terrenoId),
     index("calendario_org_resp_idx").on(t.organizationId, t.responsavelUserId),
+    index("calendario_depends_idx").on(t.dependsOnEventoId),
+    index("calendario_recurrence_idx").on(t.recurrenceParentId),
   ],
 );
 

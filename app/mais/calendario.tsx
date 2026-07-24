@@ -41,6 +41,9 @@ export default function CalendarioScreen() {
   const [modalVisible, setModalVisible] = useState(false);
   const [formInitial, setFormInitial] = useState<Partial<EventoFormState> | undefined>();
   const [saving, setSaving] = useState(false);
+  const [gerandoCiclo, setGerandoCiclo] = useState(false);
+  const utils = trpc.useUtils();
+  const gerarCicloMut = trpc.coreData.calendario.gerarDoCiclo.useMutation();
 
   const listInput = useMemo(
     () => ({
@@ -280,6 +283,28 @@ export default function CalendarioScreen() {
         cultivos={cultivoOptions}
         safras={safraOptions}
         responsaveis={responsavelOptions}
+        gerandoCiclo={gerandoCiclo}
+        onGerarCiclo={async () => {
+          if (!filters.culturaId) return;
+          setGerandoCiclo(true);
+          try {
+            const res = await gerarCicloMut.mutateAsync({
+              culturaId: filters.culturaId,
+              propriedadeId: filters.propriedadeId,
+            });
+            await utils.coreData.calendario.list.invalidate();
+            Alert.alert(
+              "Ciclo gerado",
+              `${res.created} eventos criados a partir do cultivo (com dependências).`,
+            );
+          } catch (e: unknown) {
+            const message =
+              e instanceof Error ? e.message : "Não foi possível gerar o ciclo.";
+            Alert.alert("Erro", message);
+          } finally {
+            setGerandoCiclo(false);
+          }
+        }}
       />
 
       <EventoSmartTemplates

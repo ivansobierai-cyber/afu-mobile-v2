@@ -21,6 +21,9 @@ type Props = {
   cultivos: Option[];
   safras: Option[];
   responsaveis: Option[];
+  /** Etapa 4 — gera plano do ciclo quando há cultivo filtrado. */
+  onGerarCiclo?: () => void;
+  gerandoCiclo?: boolean;
 };
 
 function Chip({
@@ -105,6 +108,8 @@ export function EventoFiltersBar({
   cultivos,
   safras,
   responsaveis,
+  onGerarCiclo,
+  gerandoCiclo,
 }: Props) {
   const colors = useColors();
   const activeCount = [
@@ -128,14 +133,27 @@ export function EventoFiltersBar({
             Fazenda · {fazendaLabel}
           </Text>
         </View>
-        {activeCount > 0 ? (
-          <TouchableOpacity
-            onPress={() => onChange({})}
-            accessibilityLabel="Limpar filtros"
-          >
-            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Limpar</Text>
-          </TouchableOpacity>
-        ) : null}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 12 }}>
+          {filters.culturaId && onGerarCiclo ? (
+            <TouchableOpacity
+              onPress={onGerarCiclo}
+              disabled={gerandoCiclo}
+              accessibilityLabel="Gerar eventos do ciclo do cultivo"
+            >
+              <Text style={{ fontSize: 12, fontWeight: "800", color: MODULE_COLORS.eventos }}>
+                {gerandoCiclo ? "Gerando…" : "Gerar ciclo"}
+              </Text>
+            </TouchableOpacity>
+          ) : null}
+          {activeCount > 0 ? (
+            <TouchableOpacity
+              onPress={() => onChange({})}
+              accessibilityLabel="Limpar filtros"
+            >
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Limpar</Text>
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
 
       <FilterRow

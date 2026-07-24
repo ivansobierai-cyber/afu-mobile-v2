@@ -98,6 +98,16 @@ export function EventoCard({ item, onToggleStatus, onDelete, onPress }: Props) {
           {item.status === "em_andamento" ? (
             <Text style={[styles.statusHint, { color: colors.primary }]}>Em andamento</Text>
           ) : null}
+          {item.dependsOnEventoId ? (
+            <Text style={[styles.statusHint, { color: colors.muted }]}>
+              Depende #{item.dependsOnEventoId}
+            </Text>
+          ) : null}
+          {item.recorrencia && item.recorrencia !== "nenhuma" ? (
+            <Text style={[styles.statusHint, { color: colors.primary }]}>
+              Rec. {item.recorrencia}
+            </Text>
+          ) : null}
         </View>
 
         {item.descricao ? (
