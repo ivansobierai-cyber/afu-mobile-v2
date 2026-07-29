@@ -12,6 +12,7 @@ import { useColors } from "@/hooks/use-colors";
 import { ScreenState } from "@/components/screen-state";
 import { EventoCard } from "@/components/eventos/evento-card";
 import { STATUS_FILTERS, type StatusFilterId } from "@/lib/eventos/constants";
+import { parseEtiquetas } from "@/lib/eventos/produtividade";
 import type { EventoItem } from "@/lib/eventos/types";
 
 type Props = {
@@ -23,6 +24,7 @@ type Props = {
   onToggleStatus: (item: EventoItem) => void;
   onDelete: (item: EventoItem) => void;
   onCreate: () => void;
+  onOpenDetail?: (item: EventoItem) => void;
   loading?: boolean;
 };
 
@@ -46,6 +48,7 @@ export function EventoAgendaList({
   onToggleStatus,
   onDelete,
   onCreate,
+  onOpenDetail,
   loading,
 }: Props) {
   const colors = useColors();
@@ -55,10 +58,12 @@ export function EventoAgendaList({
     return eventos.filter((e) => {
       if (!matchesFilter(e, filter)) return false;
       if (!q) return true;
+      const tags = parseEtiquetas(e.etiquetas).join(" ");
       return (
         e.titulo.toLowerCase().includes(q) ||
         (e.descricao ?? "").toLowerCase().includes(q) ||
-        (e.tipoAtividade ?? "").toLowerCase().includes(q)
+        (e.tipoAtividade ?? "").toLowerCase().includes(q) ||
+        tags.includes(q)
       );
     });
   }, [eventos, filter, query]);
@@ -141,6 +146,7 @@ export function EventoAgendaList({
               item={item}
               onToggleStatus={() => onToggleStatus(item)}
               onDelete={() => onDelete(item)}
+              onPress={onOpenDetail ? () => onOpenDetail(item) : undefined}
             />
           )}
         />

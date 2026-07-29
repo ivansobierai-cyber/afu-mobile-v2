@@ -14,6 +14,7 @@ type Props = {
   onToggleStatus: (item: EventoItem) => void;
   onDelete: (item: EventoItem) => void;
   onCreate: () => void;
+  onOpenDetail?: (item: EventoItem) => void;
 };
 
 export function EventoDayView({
@@ -23,6 +24,7 @@ export function EventoDayView({
   onToggleStatus,
   onDelete,
   onCreate,
+  onOpenDetail,
 }: Props) {
   const colors = useColors();
   const day = parseDateKey(dayKey);
@@ -66,6 +68,7 @@ export function EventoDayView({
             item={item}
             onToggleStatus={() => onToggleStatus(item)}
             onDelete={() => onDelete(item)}
+            onPress={onOpenDetail ? () => onOpenDetail(item) : undefined}
           />
         ))
       )}

@@ -29,7 +29,11 @@ import {
 import { tarefasRouter } from "./tarefas-router";
 import { propriedadeExpansaoRouter } from "./propriedade-expansao-router";
 import { sendPushToUsuario } from "../services/push-delivery";
-import { culturas, calendarioCuidados } from "../../drizzle/schema";
+import { culturas, calendarioCuidados, eventoComentarios, eventoAnexos } from "../../drizzle/schema";
+import {
+  serializeChecklist,
+  serializeEtiquetas,
+} from "../../lib/eventos/produtividade";
 import {
   getCtxTenant,
   requireOrgPermission,
@@ -112,6 +116,18 @@ const eventoInput = z.object({
   prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
   status: z.enum(["pendente", "em_andamento", "concluido", "cancelado"]).optional(),
   lembreteAtivo: z.boolean().optional(),
+  /** Etapa 8 — etiquetas e checklist (serializados no servidor) */
+  etiquetas: z.array(z.string().min(1).max(40)).max(20).optional(),
+  checklist: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(64),
+        texto: z.string().min(1).max(200),
+        feito: z.boolean(),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 
 // ─── Router de Propriedades ───────────────────────────────────────────────────
@@ -769,8 +785,11 @@ const calendarioRouter = router({
           input.safraId,
         );
       }
+      const { etiquetas, checklist, ...rest } = input;
       const eventId = await createEvento({
-        ...input,
+        ...rest,
+        etiquetas: etiquetas !== undefined ? serializeEtiquetas(etiquetas) : undefined,
+        checklistJson: checklist !== undefined ? serializeChecklist(checklist) : undefined,
         usuarioId: tenant.perfilId,
         organizationId: tenant.organizationId,
         dataProgramada: new Date(input.dataProgramada),
@@ -808,10 +827,13 @@ const calendarioRouter = router({
           input.data.safraId,
         );
       }
+      const { etiquetas, checklist, ...restData } = input.data;
       await updateEvento(
         input.id,
         {
-          ...input.data,
+          ...restData,
+          etiquetas: etiquetas !== undefined ? serializeEtiquetas(etiquetas) : undefined,
+          checklistJson: checklist !== undefined ? serializeChecklist(checklist) : undefined,
           dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
         } as any,
         tenant.organizationId,
@@ -970,6 +992,128 @@ const calendarioRouter = router({
       });
 
       return { sugestoes, climaUsado };
+    }),
+
+  /** Etapa 8 — comentários */
+  listComentarios: organizationProcedure
+    .input(z.object({ eventoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(eventoComentarios)
+        .where(
+          and(
+            eq(eventoComentarios.organizationId, tenant.organizationId),
+            eq(eventoComentarios.eventoId, input.eventoId),
+          ),
+        )
+        .orderBy(desc(eventoComentarios.createdAt));
+    }),
+
+  addComentario: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        eventoId: z.number().int().positive(),
+        texto: z.string().min(1).max(2000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const result = await db.insert(eventoComentarios).values({
+        organizationId: tenant.organizationId,
+        eventoId: input.eventoId,
+        autorUserId: tenant.userId,
+        autorNome: ctx.user?.name ?? ctx.user?.email ?? null,
+        texto: input.texto.trim(),
+      });
+      return { id: result[0].insertId };
+    }),
+
+  deleteComentario: orgPermissionProcedure("operations.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db
+        .delete(eventoComentarios)
+        .where(
+          and(
+            eq(eventoComentarios.id, input.id),
+            eq(eventoComentarios.organizationId, tenant.organizationId),
+          ),
+        );
+      return { success: true };
+    }),
+
+  /** Etapa 8 — anexos (links) */
+  listAnexos: organizationProcedure
+    .input(z.object({ eventoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(eventoAnexos)
+        .where(
+          and(
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+            eq(eventoAnexos.eventoId, input.eventoId),
+          ),
+        )
+        .orderBy(desc(eventoAnexos.createdAt));
+    }),
+
+  addAnexoLink: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        eventoId: z.number().int().positive(),
+        nome: z.string().min(1).max(200),
+        url: z.string().url().max(2000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const result = await db.insert(eventoAnexos).values({
+        organizationId: tenant.organizationId,
+        eventoId: input.eventoId,
+        nome: input.nome.trim(),
+        url: input.url.trim(),
+        contentType: "text/uri-list",
+        createdByUserId: tenant.userId,
+      });
+      return { id: result[0].insertId };
+    }),
+
+  deleteAnexo: orgPermissionProcedure("operations.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db
+        .delete(eventoAnexos)
+        .where(
+          and(
+            eq(eventoAnexos.id, input.id),
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+          ),
+        );
+      return { success: true };
     }),
 
   delete: orgPermissionProcedure("operations.write")

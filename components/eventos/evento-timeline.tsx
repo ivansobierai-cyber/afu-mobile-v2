@@ -14,6 +14,7 @@ type Props = {
   onToggleStatus: (item: EventoItem) => void;
   onDelete: (item: EventoItem) => void;
   onCreate: () => void;
+  onOpenDetail?: (item: EventoItem) => void;
   loading?: boolean;
 };
 
@@ -25,6 +26,7 @@ export function EventoTimeline({
   onToggleStatus,
   onDelete,
   onCreate,
+  onOpenDetail,
   loading,
 }: Props) {
   const colors = useColors();
@@ -83,6 +85,7 @@ export function EventoTimeline({
                     item={item}
                     onToggleStatus={() => onToggleStatus(item)}
                     onDelete={() => onDelete(item)}
+                    onPress={onOpenDetail ? () => onOpenDetail(item) : undefined}
                   />
                 </View>
               </View>

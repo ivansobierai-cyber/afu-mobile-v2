@@ -341,6 +341,7 @@ export async function putPrivateFile(opts: {
   relatorioId?: number;
   diagnosticoId?: number;
   propriedadeId?: number;
+  calendarioCuidadoId?: number;
 }): Promise<{ key: string; proxyUrl: string; fileId: number }> {
   const relKey = buildTenantStorageKey(opts.organizationId, opts.category, opts.filename);
   const put = await storagePut(relKey, opts.data, opts.contentType);
@@ -356,6 +357,7 @@ export async function putPrivateFile(opts: {
     relatorioId: opts.relatorioId,
     diagnosticoId: opts.diagnosticoId,
     propriedadeId: opts.propriedadeId,
+    calendarioCuidadoId: opts.calendarioCuidadoId,
     createdByUserId: opts.createdByUserId,
   });
   await writeAuditLog({

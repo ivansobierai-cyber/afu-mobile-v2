@@ -78,6 +78,7 @@ npm run db:producao-real:apply || echo "[api] WARN: db:producao-real:apply faile
 npm run db:eventos-filtros:apply || echo "[api] WARN: db:eventos-filtros:apply failed (non-fatal)"
 npm run db:eventos-tipos:apply || echo "[api] WARN: db:eventos-tipos:apply failed (non-fatal)"
 npm run db:eventos-automacoes:apply || echo "[api] WARN: db:eventos-automacoes:apply failed (non-fatal)"
+npm run db:eventos-produtividade:apply || echo "[api] WARN: db:eventos-produtividade:apply failed (non-fatal)"
 
 run_seeds() {
   echo "[api] Running demo seeds (background)..."

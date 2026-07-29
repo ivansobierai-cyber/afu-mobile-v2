@@ -1,11 +1,13 @@
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { MODULE_COLORS } from "@/constants/module-colors";
 import {
   getPrioridadeInfo,
   getTipoInfo,
 } from "@/lib/eventos/constants";
 import { formatShortDate } from "@/lib/eventos/date-utils";
+import { parseEtiquetas } from "@/lib/eventos/produtividade";
 import type { EventoItem } from "@/lib/eventos/types";
 
 type Props = {
@@ -115,6 +117,15 @@ export function EventoCard({ item, onToggleStatus, onDelete, onPress }: Props) {
             {item.descricao}
           </Text>
         ) : null}
+        {parseEtiquetas(item.etiquetas).length > 0 ? (
+          <View style={styles.tagRow}>
+            {parseEtiquetas(item.etiquetas).slice(0, 4).map((tag) => (
+              <Text key={tag} style={[styles.tag, { color: MODULE_COLORS.eventos }]}>
+                #{tag}
+              </Text>
+            ))}
+          </View>
+        ) : null}
       </View>
 
       <TouchableOpacity
@@ -210,6 +221,16 @@ const styles = StyleSheet.create({
   desc: {
     fontSize: 13,
     marginTop: 6,
+  },
+  tagRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+  },
+  tag: {
+    fontSize: 11,
+    fontWeight: "700",
   },
   deleteBtn: {
     paddingTop: 14,

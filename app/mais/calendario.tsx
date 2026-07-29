@@ -5,6 +5,7 @@ import { ScreenHeader } from "@/components/screen-header";
 import { ScreenState } from "@/components/screen-state";
 import { EventoAgendaList } from "@/components/eventos/evento-agenda-list";
 import { EventoCreateModal, type EventoFormState } from "@/components/eventos/evento-create-modal";
+import { EventoDetailModal } from "@/components/eventos/evento-detail-modal";
 import { EventoFab } from "@/components/eventos/evento-fab";
 import {
   EventoFiltersBar,
@@ -45,6 +46,7 @@ export default function CalendarioScreen() {
   const [month, setMonth] = useState(() => new Date());
   const [selectedKey, setSelectedKey] = useState<string | null>(() => toDateKey(new Date()));
   const [modalVisible, setModalVisible] = useState(false);
+  const [detailItem, setDetailItem] = useState<EventoItem | null>(null);
   const [formInitial, setFormInitial] = useState<Partial<EventoFormState> | undefined>();
   const [saving, setSaving] = useState(false);
   const [gerandoCiclo, setGerandoCiclo] = useState(false);
@@ -362,6 +364,7 @@ export default function CalendarioScreen() {
                 onToggleStatus={toggleStatus}
                 onDelete={handleDelete}
                 onCreateForDay={(key) => openCreate(key)}
+                onOpenDetail={setDetailItem}
               />
             )
           ) : null}
@@ -378,6 +381,7 @@ export default function CalendarioScreen() {
                 onSelectDay={setSelectedKey}
                 onToggleStatus={toggleStatus}
                 onDelete={handleDelete}
+                onOpenDetail={setDetailItem}
               />
             )
           ) : null}
@@ -393,6 +397,7 @@ export default function CalendarioScreen() {
                 onToggleStatus={toggleStatus}
                 onDelete={handleDelete}
                 onCreate={() => openCreate(selectedKey ?? undefined)}
+                onOpenDetail={setDetailItem}
               />
             )
           ) : null}
@@ -405,6 +410,7 @@ export default function CalendarioScreen() {
                 eventos={sortedEventos}
                 onToggleStatus={toggleStatus}
                 onDelete={handleDelete}
+                onOpenDetail={setDetailItem}
               />
             )
           ) : null}
@@ -419,6 +425,7 @@ export default function CalendarioScreen() {
               onToggleStatus={toggleStatus}
               onDelete={handleDelete}
               onCreate={() => openCreate()}
+              onOpenDetail={setDetailItem}
               loading={isLoading}
             />
           ) : null}
@@ -431,6 +438,7 @@ export default function CalendarioScreen() {
               onToggleStatus={toggleStatus}
               onDelete={handleDelete}
               onCreate={() => openCreate()}
+              onOpenDetail={setDetailItem}
               loading={isLoading}
             />
           ) : null}
@@ -457,6 +465,19 @@ export default function CalendarioScreen() {
           label: s.nome ?? `Safra #${s.id}`,
         }))}
         responsaveis={responsavelOptions}
+      />
+
+      <EventoDetailModal
+        visible={!!detailItem}
+        item={
+          detailItem
+            ? (sortedEventos.find((e) => e.id === detailItem.id) ?? detailItem)
+            : null
+        }
+        onClose={() => setDetailItem(null)}
+        onSaved={() => {
+          void refetch();
+        }}
       />
     </ScreenContainer>
   );

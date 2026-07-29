@@ -23,6 +23,7 @@ type Props = {
   onToggleStatus: (item: EventoItem) => void;
   onDelete: (item: EventoItem) => void;
   onCreateForDay?: (key: string) => void;
+  onOpenDetail?: (item: EventoItem) => void;
 };
 
 function dotsForDay(items: EventoItem[]): string[] {
@@ -40,6 +41,7 @@ export function EventoMonthCalendar({
   onToggleStatus,
   onDelete,
   onCreateForDay,
+  onOpenDetail,
 }: Props) {
   const colors = useColors();
   const grid = buildMonthGrid(month);
@@ -189,6 +191,7 @@ export function EventoMonthCalendar({
               item={item}
               onToggleStatus={() => onToggleStatus(item)}
               onDelete={() => onDelete(item)}
+              onPress={onOpenDetail ? () => onOpenDetail(item) : undefined}
             />
           ))
         )}

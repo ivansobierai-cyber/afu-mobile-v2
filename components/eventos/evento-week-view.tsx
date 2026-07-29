@@ -16,6 +16,7 @@ type Props = {
   onSelectDay: (key: string) => void;
   onToggleStatus: (item: EventoItem) => void;
   onDelete: (item: EventoItem) => void;
+  onOpenDetail?: (item: EventoItem) => void;
 };
 
 export function EventoWeekView({
@@ -26,6 +27,7 @@ export function EventoWeekView({
   onSelectDay,
   onToggleStatus,
   onDelete,
+  onOpenDetail,
 }: Props) {
   const colors = useColors();
   const days = buildWeekDays(anchor);
@@ -113,6 +115,7 @@ export function EventoWeekView({
           item={item}
           onToggleStatus={() => onToggleStatus(item)}
           onDelete={() => onDelete(item)}
+          onPress={onOpenDetail ? () => onOpenDetail(item) : undefined}
         />
       ))}
       {selectedKey && selectedItems.length === 0 ? (

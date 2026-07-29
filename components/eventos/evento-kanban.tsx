@@ -7,6 +7,7 @@ type Props = {
   eventos: EventoItem[];
   onToggleStatus: (item: EventoItem) => void;
   onDelete: (item: EventoItem) => void;
+  onOpenDetail?: (item: EventoItem) => void;
 };
 
 const COLUMNS: { id: string; label: string; match: (e: EventoItem) => boolean }[] = [
@@ -27,7 +28,7 @@ const COLUMNS: { id: string; label: string; match: (e: EventoItem) => boolean }[
   },
 ];
 
-export function EventoKanban({ eventos, onToggleStatus, onDelete }: Props) {
+export function EventoKanban({ eventos, onToggleStatus, onDelete, onOpenDetail }: Props) {
   const colors = useColors();
 
   return (
@@ -56,6 +57,7 @@ export function EventoKanban({ eventos, onToggleStatus, onDelete }: Props) {
                   item={item}
                   onToggleStatus={() => onToggleStatus(item)}
                   onDelete={() => onDelete(item)}
+                  onPress={onOpenDetail ? () => onOpenDetail(item) : undefined}
                 />
               ))}
               {items.length === 0 ? (
