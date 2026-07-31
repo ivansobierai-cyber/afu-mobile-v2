@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  assertAnexoContentType,
+  assertAnexoUploadSize,
+  fileCategoryFromContentType,
+  parseUploadBase64,
+  sanitizeAnexoFilename,
+} from "../lib/eventos/anexo-upload";
+import {
   checklistProgress,
   newChecklistItem,
   parseChecklist,
@@ -30,5 +37,27 @@ describe("eventos produtividade", () => {
   it("serializa lista vazia de etiquetas", () => {
     expect(serializeEtiquetas([])).toBe("[]");
     expect(parseEtiquetas("[]")).toEqual([]);
+  });
+});
+
+describe("eventos anexo upload", () => {
+  it("decodifica base64 com ou sem prefixo data URL", () => {
+    const buf = Buffer.from("ok", "utf8");
+    expect(parseUploadBase64(buf.toString("base64")).toString("utf8")).toBe("ok");
+    expect(
+      parseUploadBase64(`data:image/png;base64,${buf.toString("base64")}`).toString("utf8"),
+    ).toBe("ok");
+  });
+
+  it("valida tamanho e tipo", () => {
+    expect(() => assertAnexoUploadSize(0)).toThrow();
+    expect(assertAnexoContentType("image/jpeg")).toBe("image/jpeg");
+    expect(() => assertAnexoContentType("application/x-msdownload")).toThrow();
+    expect(fileCategoryFromContentType("image/png")).toBe("foto");
+    expect(fileCategoryFromContentType("application/pdf")).toBe("documento");
+  });
+
+  it("sanitiza nome de arquivo", () => {
+    expect(sanitizeAnexoFilename("  foto/../x.jpg  ")).toBe("foto_.._x.jpg");
   });
 });

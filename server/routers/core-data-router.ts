@@ -35,6 +35,14 @@ import {
   serializeEtiquetas,
 } from "../../lib/eventos/produtividade";
 import {
+  assertAnexoContentType,
+  assertAnexoUploadSize,
+  fileCategoryFromContentType,
+  parseUploadBase64,
+  sanitizeAnexoFilename,
+} from "../../lib/eventos/anexo-upload";
+import { createTemporaryDownloadUrl, putPrivateFile } from "../private-files";
+import {
   getCtxTenant,
   requireOrgPermission,
   requirePropertyInTenant,
@@ -1138,6 +1146,106 @@ const calendarioRouter = router({
         createdByUserId: tenant.userId,
       });
       return { id: result[0].insertId };
+    }),
+
+  addAnexoArquivo: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        eventoId: z.number().int().positive(),
+        nome: z.string().max(200).optional(),
+        filename: z.string().min(1).max(200),
+        contentType: z.string().min(3).max(120),
+        dataBase64: z.string().min(1).max(12_000_000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await requireEventoInTenant(tenant, input.eventoId);
+      let contentType: string;
+      let data: Buffer;
+      try {
+        contentType = assertAnexoContentType(input.contentType);
+        data = parseUploadBase64(input.dataBase64);
+        assertAnexoUploadSize(data.byteLength);
+      } catch (err) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: err instanceof Error ? err.message : "Arquivo inválido.",
+        });
+      }
+      const filename = sanitizeAnexoFilename(input.filename);
+      const nome = (input.nome?.trim() || filename).slice(0, 200);
+      const category = fileCategoryFromContentType(contentType);
+      let put: { key: string; fileId: number };
+      try {
+        put = await putPrivateFile({
+          organizationId: tenant.organizationId,
+          category,
+          filename,
+          data,
+          contentType,
+          createdByUserId: tenant.userId,
+          calendarioCuidadoId: input.eventoId,
+        });
+      } catch (err) {
+        console.error("[calendario.addAnexoArquivo]", err);
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Falha ao armazenar o arquivo.",
+        });
+      }
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const result = await db.insert(eventoAnexos).values({
+        organizationId: tenant.organizationId,
+        eventoId: input.eventoId,
+        nome,
+        contentType,
+        storageKey: put.key,
+        privateFileId: put.fileId,
+        sizeBytes: data.byteLength,
+        createdByUserId: tenant.userId,
+      });
+      return { id: result[0].insertId };
+    }),
+
+  getAnexoDownloadUrl: orgPermissionProcedure("operations.read")
+    .input(z.object({ anexoId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [row] = await db
+        .select({
+          id: eventoAnexos.id,
+          eventoId: eventoAnexos.eventoId,
+          storageKey: eventoAnexos.storageKey,
+          privateFileId: eventoAnexos.privateFileId,
+        })
+        .from(eventoAnexos)
+        .where(
+          and(
+            eq(eventoAnexos.id, input.anexoId),
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Anexo não encontrado." });
+      await requireEventoInTenant(tenant, row.eventoId);
+      const key = row.storageKey?.replace(/^\/?manus-storage\//, "").replace(/^\/+/, "");
+      if (!key) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Este anexo não possui arquivo." });
+      }
+      const tmp = await createTemporaryDownloadUrl({
+        userId: tenant.userId,
+        userRole: ctx.user?.role,
+        storageKey: key,
+        permission: "operations.read",
+        auditAction: "file.download",
+        resourceType: "evento_anexo",
+        resourceId: String(row.id),
+      });
+      return { url: tmp.url, expiresAt: tmp.expiresAt.toISOString() };
     }),
 
   deleteAnexo: orgPermissionProcedure("operations.write")
