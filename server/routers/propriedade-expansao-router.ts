@@ -1208,7 +1208,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         try {
           return await registrarManutencaoMaquina({
             maquinaId: input.maquinaId,
@@ -1240,7 +1240,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         return setDisponibilidadeMaquina({
           maquinaId: input.maquinaId,
           organizationId: tenant.organizationId,
