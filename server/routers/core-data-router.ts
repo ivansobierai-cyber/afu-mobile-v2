@@ -29,7 +29,11 @@ import {
 import { tarefasRouter } from "./tarefas-router";
 import { propriedadeExpansaoRouter } from "./propriedade-expansao-router";
 import { sendPushToUsuario } from "../services/push-delivery";
-import { culturas, calendarioCuidados } from "../../drizzle/schema";
+import { culturas, calendarioCuidados, eventoComentarios, eventoAnexos } from "../../drizzle/schema";
+import {
+  serializeChecklist,
+  serializeEtiquetas,
+} from "../../lib/eventos/produtividade";
 import {
   getCtxTenant,
   requireOrgPermission,
@@ -95,9 +99,15 @@ const cultivoUpdateInput = cultivoInput.partial().extend({
 const eventoInput = z.object({
   propriedadeId: z.number().int().positive().optional(),
   culturaId: z.number().int().positive().optional(),
+  terrenoId: z.number().int().positive().optional(),
+  safraId: z.number().int().positive().optional(),
+  responsavelUserId: z.number().int().positive().optional(),
+  dependsOnEventoId: z.number().int().positive().optional(),
+  recurrenceParentId: z.number().int().positive().optional(),
   tipoAtividade: z.enum([
     "plantio", "irrigacao", "adubacao", "pulverizacao",
-    "monitoramento", "colheita", "analise", "manutencao", "outro",
+    "monitoramento", "colheita", "analise", "manutencao",
+    "inspecao", "laboratorio", "outro",
   ]),
   titulo: z.string().min(1).max(200),
   descricao: z.string().optional(),
@@ -106,6 +116,18 @@ const eventoInput = z.object({
   prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
   status: z.enum(["pendente", "em_andamento", "concluido", "cancelado"]).optional(),
   lembreteAtivo: z.boolean().optional(),
+  /** Etapa 8 — etiquetas e checklist (serializados no servidor) */
+  etiquetas: z.array(z.string().min(1).max(40)).max(20).optional(),
+  checklist: z
+    .array(
+      z.object({
+        id: z.string().min(1).max(64),
+        texto: z.string().min(1).max(200),
+        feito: z.boolean(),
+      }),
+    )
+    .max(50)
+    .optional(),
 });
 
 // ─── Router de Propriedades ───────────────────────────────────────────────────
@@ -693,6 +715,9 @@ const calendarioRouter = router({
           prioridade: z.enum(["baixa", "normal", "alta", "critica"]).optional(),
           culturaId: z.number().int().positive().optional(),
           propriedadeId: z.number().int().positive().optional(),
+          terrenoId: z.number().int().positive().optional(),
+          safraId: z.number().int().positive().optional(),
+          responsavelUserId: z.number().int().positive().optional(),
           cacheScope: z.number().int().positive().optional(),
         })
         .optional(),
@@ -705,6 +730,17 @@ const calendarioRouter = router({
       }
       if (input?.culturaId) {
         await requireCulturaInTenant(tenant, input.culturaId, input.propriedadeId);
+      }
+      if (input?.terrenoId) {
+        await requireTerrenoInTenant(tenant, input.terrenoId, input.propriedadeId);
+      }
+      if (input?.safraId && input.propriedadeId) {
+        const { requireSafraInProperty } = await import("../db-safras");
+        await requireSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
       }
       const db = await getDb();
       if (!db) return [];
@@ -720,6 +756,15 @@ const calendarioRouter = router({
       if (input?.propriedadeId) {
         filtrados = filtrados.filter((e) => e.propriedadeId === input.propriedadeId);
       }
+      if (input?.terrenoId) {
+        filtrados = filtrados.filter((e) => e.terrenoId === input.terrenoId);
+      }
+      if (input?.safraId) {
+        filtrados = filtrados.filter((e) => e.safraId === input.safraId);
+      }
+      if (input?.responsavelUserId) {
+        filtrados = filtrados.filter((e) => e.responsavelUserId === input.responsavelUserId);
+      }
       return filtrados;
     }),
 
@@ -730,9 +775,21 @@ const calendarioRouter = router({
       await assertRelatedIdsInTenant(tenant, {
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
+        terrenoId: input.terrenoId,
       });
+      if (input.safraId && input.propriedadeId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          input.propriedadeId,
+          input.safraId,
+        );
+      }
+      const { etiquetas, checklist, ...rest } = input;
       const eventId = await createEvento({
-        ...input,
+        ...rest,
+        etiquetas: etiquetas !== undefined ? serializeEtiquetas(etiquetas) : undefined,
+        checklistJson: checklist !== undefined ? serializeChecklist(checklist) : undefined,
         usuarioId: tenant.perfilId,
         organizationId: tenant.organizationId,
         dataProgramada: new Date(input.dataProgramada),
@@ -755,19 +812,350 @@ const calendarioRouter = router({
     .input(z.object({ id: z.number().int().positive(), data: eventoInput.partial() }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requireEventoInTenant(tenant, input.id);
+      const atual = await requireEventoInTenant(tenant, input.id);
       await assertRelatedIdsInTenant(tenant, {
-        propriedadeId: input.data.propriedadeId,
+        propriedadeId: input.data.propriedadeId ?? atual.propriedadeId ?? undefined,
         culturaId: input.data.culturaId,
+        terrenoId: input.data.terrenoId,
       });
-      return updateEvento(
+      const propId = input.data.propriedadeId ?? atual.propriedadeId;
+      if (input.data.safraId != null && propId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          propId,
+          input.data.safraId,
+        );
+      }
+      const { etiquetas, checklist, ...restData } = input.data;
+      await updateEvento(
         input.id,
         {
-          ...input.data,
+          ...restData,
+          etiquetas: etiquetas !== undefined ? serializeEtiquetas(etiquetas) : undefined,
+          checklistJson: checklist !== undefined ? serializeChecklist(checklist) : undefined,
           dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
         } as any,
         tenant.organizationId,
       );
+
+      /** Etapa 4 — ao concluir evento recorrente, materializa a próxima ocorrência. */
+      let nextEventId: number | null = null;
+      const becomingDone =
+        input.data.status === "concluido" && atual.status !== "concluido";
+      if (becomingDone && atual.recorrencia && atual.recorrencia !== "nenhuma") {
+        const { nextOccurrenceDate } = await import("../../lib/eventos/recurrence");
+        const nextDate = nextOccurrenceDate(atual.dataProgramada, atual.recorrencia);
+        if (nextDate) {
+          nextEventId = await createEvento({
+            usuarioId: tenant.perfilId,
+            organizationId: tenant.organizationId,
+            propriedadeId: atual.propriedadeId ?? undefined,
+            culturaId: atual.culturaId ?? undefined,
+            terrenoId: atual.terrenoId ?? undefined,
+            safraId: atual.safraId ?? undefined,
+            responsavelUserId: atual.responsavelUserId ?? undefined,
+            dependsOnEventoId: atual.id,
+            recurrenceParentId: atual.recurrenceParentId ?? atual.id,
+            tipoAtividade: atual.tipoAtividade,
+            titulo: atual.titulo,
+            descricao: atual.descricao ?? undefined,
+            dataProgramada: nextDate,
+            recorrencia: atual.recorrencia,
+            prioridade: atual.prioridade ?? "normal",
+            status: "pendente",
+            lembreteAtivo: atual.lembreteAtivo ?? false,
+          } as any);
+        }
+      }
+
+      return { success: true, nextEventId };
+    }),
+
+  /**
+   * Etapa 4 — gera eventos do ciclo da cultura (plantio→colheita) com dependências.
+   */
+  gerarDoCiclo: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        culturaId: z.number().int().positive(),
+        propriedadeId: z.number().int().positive().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const cultura = await requireCulturaInTenant(
+        tenant,
+        input.culturaId,
+        input.propriedadeId,
+      );
+      const { gerarEventosDoCiclo } = await import("../../lib/eventos/ciclo-cultura");
+      const drafts = gerarEventosDoCiclo({
+        nomeCultura: cultura.nomeCultura ?? "Cultivo",
+        dataPlantio: cultura.dataPlantio,
+        previsaoColheita: cultura.previsaoColheita,
+      });
+
+      const createdIds: number[] = [];
+      for (const draft of drafts) {
+        const dependsOnEventoId =
+          draft.dependsOnIndex != null ? createdIds[draft.dependsOnIndex] : undefined;
+        const id = await createEvento({
+          usuarioId: tenant.perfilId,
+          organizationId: tenant.organizationId,
+          propriedadeId: cultura.propriedadeId,
+          culturaId: cultura.id,
+          terrenoId: cultura.terrenoId ?? undefined,
+          safraId: cultura.safraId ?? undefined,
+          dependsOnEventoId,
+          tipoAtividade: draft.tipoAtividade,
+          titulo: draft.titulo,
+          descricao: draft.descricao,
+          dataProgramada: new Date(`${draft.dataProgramada}T08:00:00`),
+          recorrencia: draft.recorrencia,
+          prioridade: draft.prioridade,
+          status: "pendente",
+          lembreteAtivo: true,
+        } as any);
+        createdIds.push(id);
+      }
+
+      return { created: createdIds.length, ids: createdIds };
+    }),
+
+  /** Etapa 5 — sugestões IA (conflitos, atrasos, clima, otimização). */
+  sugestoesIA: organizationProcedure
+    .input(
+      z
+        .object({
+          propriedadeId: z.number().int().positive().optional(),
+          cacheScope: z.number().int().positive().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const db = await getDb();
+      if (!db) return { sugestoes: [] as const, climaUsado: false };
+
+      let eventos = await db
+        .select()
+        .from(calendarioCuidados)
+        .where(eq(calendarioCuidados.organizationId, tenant.organizationId))
+        .orderBy(calendarioCuidados.dataProgramada);
+
+      if (input?.propriedadeId) {
+        await requirePropertyInTenant(tenant, input.propriedadeId);
+        eventos = eventos.filter((e) => e.propriedadeId === input.propriedadeId);
+      }
+
+      type ClimaDia = { date: string; precipitationSumMm?: number; weatherLabel?: string };
+      let climaDias: ClimaDia[] = [];
+      let climaUsado = false;
+      const propId =
+        input?.propriedadeId ??
+        eventos.find((e) => e.propriedadeId != null)?.propriedadeId ??
+        null;
+      if (propId) {
+        try {
+          const prop = await requirePropertyInTenant(tenant, propId);
+          const lat = prop.latitude != null ? parseFloat(String(prop.latitude)) : NaN;
+          const lng = prop.longitude != null ? parseFloat(String(prop.longitude)) : NaN;
+          if (Number.isFinite(lat) && Number.isFinite(lng)) {
+            const { fetchPropertyWeather } = await import("../services/open-meteo");
+            const weather = await fetchPropertyWeather(lat, lng, prop.nome);
+            climaDias = (weather.daily ?? []).map((d) => ({
+              date: d.date,
+              precipitationSumMm: d.precipitationSum,
+              weatherLabel: d.weatherLabel,
+            }));
+            climaUsado = true;
+          }
+        } catch {
+          /* clima opcional */
+        }
+      }
+
+      const { montarSugestoesIA } = await import("../../lib/eventos/ia-sugestoes");
+      const sugestoes = montarSugestoesIA({
+        eventos: eventos.map((e) => ({
+          id: e.id,
+          titulo: e.titulo,
+          tipoAtividade: e.tipoAtividade,
+          prioridade: e.prioridade,
+          status: e.status,
+          dataProgramada: e.dataProgramada,
+          propriedadeId: e.propriedadeId,
+        })),
+        climaDias,
+      });
+
+      return { sugestoes, climaUsado };
+    }),
+
+  /** Etapa 8 — comentários */
+  listComentarios: organizationProcedure
+    .input(z.object({ eventoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(eventoComentarios)
+        .where(
+          and(
+            eq(eventoComentarios.organizationId, tenant.organizationId),
+            eq(eventoComentarios.eventoId, input.eventoId),
+          ),
+        )
+        .orderBy(desc(eventoComentarios.createdAt));
+    }),
+
+  addComentario: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        eventoId: z.number().int().positive(),
+        texto: z.string().min(1).max(2000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const result = await db.insert(eventoComentarios).values({
+        organizationId: tenant.organizationId,
+        eventoId: input.eventoId,
+        autorUserId: tenant.userId,
+        autorNome: ctx.user?.name ?? ctx.user?.email ?? null,
+        texto: input.texto.trim(),
+      });
+      return { id: result[0].insertId };
+    }),
+
+  deleteComentario: orgPermissionProcedure("operations.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [row] = await db
+        .select({
+          id: eventoComentarios.id,
+          autorUserId: eventoComentarios.autorUserId,
+          eventoUsuarioId: calendarioCuidados.usuarioId,
+        })
+        .from(eventoComentarios)
+        .innerJoin(calendarioCuidados, eq(eventoComentarios.eventoId, calendarioCuidados.id))
+        .where(
+          and(
+            eq(eventoComentarios.id, input.id),
+            eq(eventoComentarios.organizationId, tenant.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Comentário não encontrado." });
+      const isAuthor = row.autorUserId === tenant.userId;
+      const isEventOwner = row.eventoUsuarioId === tenant.perfilId;
+      if (!isAuthor && !isEventOwner) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para excluir o comentário." });
+      }
+      await db
+        .delete(eventoComentarios)
+        .where(
+          and(
+            eq(eventoComentarios.id, input.id),
+            eq(eventoComentarios.organizationId, tenant.organizationId),
+          ),
+        );
+      return { success: true };
+    }),
+
+  /** Etapa 8 — anexos (links) */
+  listAnexos: organizationProcedure
+    .input(z.object({ eventoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) return [];
+      return db
+        .select()
+        .from(eventoAnexos)
+        .where(
+          and(
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+            eq(eventoAnexos.eventoId, input.eventoId),
+          ),
+        )
+        .orderBy(desc(eventoAnexos.createdAt));
+    }),
+
+  addAnexoLink: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        eventoId: z.number().int().positive(),
+        nome: z.string().min(1).max(200),
+        url: z.string().url().max(2000),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      await requireEventoInTenant(tenant, input.eventoId);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const result = await db.insert(eventoAnexos).values({
+        organizationId: tenant.organizationId,
+        eventoId: input.eventoId,
+        nome: input.nome.trim(),
+        url: input.url.trim(),
+        contentType: "text/uri-list",
+        createdByUserId: tenant.userId,
+      });
+      return { id: result[0].insertId };
+    }),
+
+  deleteAnexo: orgPermissionProcedure("operations.write")
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [row] = await db
+        .select({
+          id: eventoAnexos.id,
+          createdByUserId: eventoAnexos.createdByUserId,
+          eventoUsuarioId: calendarioCuidados.usuarioId,
+        })
+        .from(eventoAnexos)
+        .innerJoin(calendarioCuidados, eq(eventoAnexos.eventoId, calendarioCuidados.id))
+        .where(
+          and(
+            eq(eventoAnexos.id, input.id),
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Anexo não encontrado." });
+      const isUploader = row.createdByUserId === tenant.userId;
+      const isEventOwner = row.eventoUsuarioId === tenant.perfilId;
+      if (!isUploader && !isEventOwner) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para excluir o anexo." });
+      }
+      await db
+        .delete(eventoAnexos)
+        .where(
+          and(
+            eq(eventoAnexos.id, input.id),
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+          ),
+        );
+      return { success: true };
     }),
 
   delete: orgPermissionProcedure("operations.write")
@@ -794,17 +1182,36 @@ const calendarioRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.read");
       const db = await getDb();
-      if (!db) return { total: 0, pendentes: 0, criticos: 0 };
+      if (!db) {
+        return {
+          total: 0,
+          pendentes: 0,
+          emAndamento: 0,
+          concluidos: 0,
+          criticos: 0,
+          atrasados: 0,
+          taxaConclusao: 0,
+        };
+      }
       const eventos = await db
         .select()
         .from(calendarioCuidados)
         .where(eq(calendarioCuidados.organizationId, tenant.organizationId));
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const concluidos = eventos.filter((e) => e.status === "concluido").length;
+      const atrasados = eventos.filter((e) => {
+        if (e.status === "concluido" || e.status === "cancelado") return false;
+        return e.dataProgramada && new Date(e.dataProgramada) < today;
+      }).length;
       return {
         total: eventos.length,
         pendentes: eventos.filter((e) => e.status === "pendente").length,
         emAndamento: eventos.filter((e) => e.status === "em_andamento").length,
-        concluidos: eventos.filter((e) => e.status === "concluido").length,
+        concluidos,
         criticos: eventos.filter((e) => e.prioridade === "critica" && e.status === "pendente").length,
+        atrasados,
+        taxaConclusao: eventos.length ? (concluidos / eventos.length) * 100 : 0,
       };
     }),
 });

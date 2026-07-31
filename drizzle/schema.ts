@@ -511,6 +511,13 @@ export const calendarioCuidados = mysqlTable(
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
+  /** Etapa 2 Eventos — vínculos operacionais */
+  terrenoId: int("terrenoId"), // FK → terrenos.id (talhão)
+  safraId: int("safraId"), // FK → safras.id
+  responsavelUserId: int("responsavelUserId"), // FK → users.id
+  /** Etapa 4 — dependência / série de recorrência */
+  dependsOnEventoId: int("dependsOnEventoId"),
+  recurrenceParentId: int("recurrenceParentId"),
   tipoAtividade: mysqlEnum("tipoAtividade", [
     "plantio",
     "irrigacao",
@@ -520,6 +527,8 @@ export const calendarioCuidados = mysqlTable(
     "colheita",
     "analise",
     "manutencao",
+    "inspecao",
+    "laboratorio",
     "outro",
   ]).notNull(),
   titulo: varchar("titulo", { length: 200 }).notNull(),
@@ -545,14 +554,72 @@ export const calendarioCuidados = mysqlTable(
     "cancelado",
   ]).default("pendente"),
   lembreteAtivo: boolean("lembreteAtivo").default(false),
+  /** Etapa 8 — JSON string[] de etiquetas */
+  etiquetas: text("etiquetas"),
+  /** Etapa 8 — JSON ChecklistItem[] { id, texto, feito } */
+  checklistJson: text("checklistJson"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 },
-  (t) => [index("calendario_organization_idx").on(t.organizationId)],
+  (t) => [
+    index("calendario_organization_idx").on(t.organizationId),
+    index("calendario_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("calendario_org_safra_idx").on(t.organizationId, t.safraId),
+    index("calendario_org_terreno_idx").on(t.organizationId, t.terrenoId),
+    index("calendario_org_resp_idx").on(t.organizationId, t.responsavelUserId),
+    index("calendario_depends_idx").on(t.dependsOnEventoId),
+    index("calendario_recurrence_idx").on(t.recurrenceParentId),
+  ],
 );
 
 export type CalendarioCuidado = typeof calendarioCuidados.$inferSelect;
 export type InsertCalendarioCuidado = typeof calendarioCuidados.$inferInsert;
+
+/** Etapa 8 Eventos — comentários no evento */
+export const eventoComentarios = mysqlTable(
+  "evento_comentarios",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    eventoId: int("eventoId").notNull(),
+    autorUserId: int("autorUserId").notNull(),
+    autorNome: varchar("autorNome", { length: 120 }),
+    texto: text("texto").notNull(),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("evento_comentarios_org_idx").on(t.organizationId),
+    index("evento_comentarios_evento_idx").on(t.eventoId),
+  ],
+);
+
+export type EventoComentario = typeof eventoComentarios.$inferSelect;
+export type InsertEventoComentario = typeof eventoComentarios.$inferInsert;
+
+/** Etapa 8 Eventos — anexos (link ou arquivo privado) */
+export const eventoAnexos = mysqlTable(
+  "evento_anexos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    eventoId: int("eventoId").notNull(),
+    nome: varchar("nome", { length: 200 }).notNull(),
+    contentType: varchar("contentType", { length: 120 }),
+    url: text("url"),
+    storageKey: varchar("storageKey", { length: 512 }),
+    privateFileId: int("privateFileId"),
+    sizeBytes: int("sizeBytes"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("evento_anexos_org_idx").on(t.organizationId),
+    index("evento_anexos_evento_idx").on(t.eventoId),
+  ],
+);
+
+export type EventoAnexo = typeof eventoAnexos.$inferSelect;
+export type InsertEventoAnexo = typeof eventoAnexos.$inferInsert;
 
 // ─────────────────────────────────────────────
 // TABELA: tarefas_operacionais (Etapa 3)
@@ -1646,6 +1713,7 @@ export const privateFiles = mysqlTable(
     relatorioId: int("relatorioId"),
     diagnosticoId: int("diagnosticoId"),
     propriedadeId: int("propriedadeId"),
+    calendarioCuidadoId: int("calendarioCuidadoId"),
     createdByUserId: int("createdByUserId"),
     createdAt: timestamp("createdAt").defaultNow().notNull(),
   },
@@ -1653,6 +1721,7 @@ export const privateFiles = mysqlTable(
     uniqueIndex("private_files_storage_key_uidx").on(t.storageKey),
     index("private_files_organization_idx").on(t.organizationId),
     index("private_files_relatorio_idx").on(t.relatorioId),
+    index("private_files_evento_idx").on(t.calendarioCuidadoId),
   ],
 );
 

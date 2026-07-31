@@ -1,0 +1,36 @@
+{
+  "suite": "smoke-eventos-centro",
+  "at": "2026-07-24T00:42:52.918Z",
+  "api": "http://localhost:3000",
+  "decision": "AVANCAR",
+  "checks": [
+    {
+      "name": "ciclo gera >= 6 eventos",
+      "ok": true
+    },
+    {
+      "name": "recorrencia diaria",
+      "ok": true
+    },
+    {
+      "name": "ia detecta atraso",
+      "ok": true
+    },
+    {
+      "name": "login",
+      "ok": true
+    },
+    {
+      "name": "list eventos",
+      "ok": true
+    },
+    {
+      "name": "stats",
+      "ok": true
+    },
+    {
+      "name": "sugestoesIA",
+      "ok": true
+    }
+  ]
+}
