@@ -38,6 +38,7 @@ import {
   getCtxTenant,
   requireOrgPermission,
   requirePropertyInTenant,
+  requireWritablePropertyInTenant,
   requireTerrenoInTenant,
   requireCulturaInTenant,
   requireEventoInTenant,
@@ -381,7 +382,7 @@ const terrenosRouter = router({
     .input(terrenoInput)
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requirePropertyInTenant(tenant, input.propriedadeId);
+      await requireWritablePropertyInTenant(tenant, input.propriedadeId);
       return createTerreno({
         ...input,
         organizationId: tenant.organizationId,
@@ -394,8 +395,9 @@ const terrenosRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       const terreno = await requireTerrenoInTenant(tenant, input.id);
+      await requireWritablePropertyInTenant(tenant, terreno.propriedadeId);
       if (input.data.propriedadeId != null && input.data.propriedadeId !== terreno.propriedadeId) {
-        await requirePropertyInTenant(tenant, input.data.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.data.propriedadeId);
       }
       return updateTerreno(
         input.id,
@@ -408,7 +410,8 @@ const terrenosRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requireTerrenoInTenant(tenant, input.id);
+      const terreno = await requireTerrenoInTenant(tenant, input.id);
+      await requireWritablePropertyInTenant(tenant, terreno.propriedadeId);
       await deleteTerreno(input.id, tenant.organizationId);
       return { success: true };
     }),
@@ -512,8 +515,15 @@ const cultivosRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       const atual = await requireCulturaInTenant(tenant, input.id);
+      const propriedadeId = input.data.propriedadeId ?? atual.propriedadeId;
+      await requireWritablePropertyInTenant(tenant, propriedadeId);
+      const safraId = input.data.safraId ?? (atual as { safraId?: number | null }).safraId;
+      if (safraId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(tenant.organizationId, propriedadeId, safraId);
+      }
       await assertRelatedIdsInTenant(tenant, {
-        propriedadeId: input.data.propriedadeId ?? atual.propriedadeId,
+        propriedadeId,
         terrenoId: input.data.terrenoId,
       });
       if (input.data.safraId != null) {
@@ -684,7 +694,17 @@ const cultivosRouter = router({
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requireCulturaInTenant(tenant, input.id);
+      const atual = await requireCulturaInTenant(tenant, input.id);
+      await requireWritablePropertyInTenant(tenant, atual.propriedadeId);
+      const safraId = (atual as { safraId?: number | null }).safraId;
+      if (safraId) {
+        const { requireWritableSafraInProperty } = await import("../db-safras");
+        await requireWritableSafraInProperty(
+          tenant.organizationId,
+          atual.propriedadeId,
+          safraId,
+        );
+      }
       await deleteCultura(input.id, tenant.organizationId);
       return { success: true };
     }),

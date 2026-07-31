@@ -60,6 +60,7 @@ import {
   getCtxTenant,
   requireOrgPermission,
   requirePropertyInTenant,
+  requireWritablePropertyInTenant,
   requireTerrenoInTenant,
   requireTarefaInTenant,
   requireCulturaInTenant,
@@ -196,7 +197,7 @@ export const propriedadeExpansaoRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requirePropertyInTenant(tenant, input.propriedadeId);
+      await requireWritablePropertyInTenant(tenant, input.propriedadeId);
       const { normalized, areaHa } = requireNormalizedPolygonGeoJson(input.geometriaGeoJson);
       try {
         const updated = await updateGeometriaPropriedade(
@@ -262,7 +263,7 @@ export const propriedadeExpansaoRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
-      await requirePropertyInTenant(tenant, input.propriedadeId);
+      await requireWritablePropertyInTenant(tenant, input.propriedadeId);
       await requireTerrenoInTenant(tenant, input.terrenoId, input.propriedadeId);
       const { normalized, areaHa } = requireNormalizedPolygonGeoJson(input.geometriaGeoJson);
       try {
@@ -421,7 +422,7 @@ export const propriedadeExpansaoRouter = router({
         if (!oc || oc.organizationId !== tenant.organizationId) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, oc.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, oc.propriedadeId);
         const { requireWritableSafraId } = await import("../db-safras");
         const safra = await requireWritableSafraId(
           tenant.organizationId,
@@ -472,7 +473,7 @@ export const propriedadeExpansaoRouter = router({
         if (!oc || oc.organizationId !== tenant.organizationId) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, oc.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, oc.propriedadeId);
         const { requireWritableSafraId } = await import("../db-safras");
         await requireWritableSafraId(
           tenant.organizationId,
@@ -536,7 +537,7 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         const unidadeBase = input.unidadeBase.trim();
         if (!unidadeBase) {
           throw new TRPCError({
@@ -594,7 +595,7 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         const item = await getEstoqueItem(input.itemId);
         if (
           !item ||
@@ -710,11 +711,11 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         let safraId = input.safraId;
         if (safraId) {
-          const { requireSafraInProperty } = await import("../db-safras");
-          await requireSafraInProperty(
+          const { requireWritableSafraInProperty } = await import("../db-safras");
+          await requireWritableSafraInProperty(
             tenant.organizationId,
             input.propriedadeId,
             safraId,
@@ -757,7 +758,7 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         await assertRelatedIdsInTenant(tenant, {
           propriedadeId: input.propriedadeId,
           terrenoId: input.terrenoId,
@@ -768,21 +769,25 @@ export const propriedadeExpansaoRouter = router({
         }
         let safraId = input.safraId;
         if (safraId) {
-          const { requireSafraInProperty } = await import("../db-safras");
-          await requireSafraInProperty(
+          const { requireWritableSafraInProperty } = await import("../db-safras");
+          await requireWritableSafraInProperty(
             tenant.organizationId,
             input.propriedadeId,
             safraId,
           );
         } else {
-          const { ensureDefaultSafra } = await import("../db-safras");
-          safraId = (
-            await ensureDefaultSafra({
-              organizationId: tenant.organizationId,
-              propriedadeId: input.propriedadeId,
-              createdByUserId: tenant.userId,
-            })
-          ).id;
+          const { ensureDefaultSafra, requireWritableSafraId } = await import("../db-safras");
+          const def = await ensureDefaultSafra({
+            organizationId: tenant.organizationId,
+            propriedadeId: input.propriedadeId,
+            createdByUserId: tenant.userId,
+          });
+          await requireWritableSafraId(
+            tenant.organizationId,
+            input.propriedadeId,
+            def.id,
+          );
+          safraId = def.id;
         }
         const id = await createCusto({
           propriedadeId: input.propriedadeId,
@@ -1036,7 +1041,7 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         const id = await createMaquinaOperacional({
           propriedadeId: input.propriedadeId,
           organizationId: tenant.organizationId,
@@ -1078,7 +1083,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         const patch: Record<string, unknown> = {};
         if (input.nome != null) patch.nome = input.nome.trim();
         if (input.tipo != null) patch.tipo = input.tipo;
@@ -1102,7 +1107,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         await removeMaquinaOperacional(input.id, tenant.organizationId);
         return { success: true };
       }),
@@ -1139,7 +1144,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         if (input.tarefaId) await requireTarefaInTenant(tenant, input.tarefaId);
         try {
           return await registrarHorimetroMaquina({
@@ -1170,7 +1175,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         try {
           return await registrarCombustivelMaquina({
             maquinaId: input.maquinaId,
@@ -1203,7 +1208,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         try {
           return await registrarManutencaoMaquina({
             maquinaId: input.maquinaId,
@@ -1235,7 +1240,7 @@ export const propriedadeExpansaoRouter = router({
         if (!maquina) {
           throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
         }
-        await requirePropertyInTenant(tenant, maquina.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, maquina.propriedadeId);
         return setDisponibilidadeMaquina({
           maquinaId: input.maquinaId,
           organizationId: tenant.organizationId,
@@ -1423,7 +1428,7 @@ export const propriedadeExpansaoRouter = router({
       .input(z.object({ propriedadeId: z.number().int().positive() }))
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         const { ensureDefaultSafra } = await import("../db-safras");
         return ensureDefaultSafra({
           organizationId: tenant.organizationId,
@@ -1462,7 +1467,7 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         const { closeSafra } = await import("../db-safras");
         const { writeAuditLog } = await import("../private-files");
         const { registrarAtividade } = await import("../db-propriedade-expansao");
@@ -1511,7 +1516,7 @@ export const propriedadeExpansaoRouter = router({
       )
       .mutation(async ({ ctx, input }) => {
         const tenant = getCtxTenant(ctx);
-        await requirePropertyInTenant(tenant, input.propriedadeId);
+        await requireWritablePropertyInTenant(tenant, input.propriedadeId);
         const { reopenSafra } = await import("../db-safras");
         const { writeAuditLog } = await import("../private-files");
         const { registrarAtividade } = await import("../db-propriedade-expansao");

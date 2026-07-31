@@ -20,6 +20,9 @@ import { createTenantDb, TENANT_DB_NOT_FOUND } from "./tenant-db";
 
 export const TENANT_NOT_FOUND = TENANT_DB_NOT_FOUND;
 
+/** Código estável — propriedade soft-archived (Etapa 7). */
+export const PROPERTY_ARCHIVED = "PROPERTY_ARCHIVED";
+
 export type TenantContext = {
   userId: number;
   perfilId: number;
@@ -103,6 +106,25 @@ export async function requirePropertyInTenant(
     }
     throw e;
   }
+}
+
+/**
+ * Escrita operacional: propriedade no tenant e não arquivada.
+ * Archive/restore/delete permanente continuam usando `requirePropertyInTenant`.
+ */
+export async function requireWritablePropertyInTenant(
+  tenant: TenantContext,
+  propriedadeId: number,
+) {
+  const prop = await requirePropertyInTenant(tenant, propriedadeId);
+  if ((prop as { archivedAt?: Date | null }).archivedAt != null) {
+    await auditTenantDenied(tenant, "propriedade", propriedadeId, "property_archived");
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: `${PROPERTY_ARCHIVED}: Propriedade arquivada — somente leitura/administração.`,
+    });
+  }
+  return prop;
 }
 
 /** Talhão pertence à propriedade e à mesma org */
@@ -250,7 +272,7 @@ export async function assertRelatedIdsInTenant(
   },
 ) {
   if (refs.propriedadeId != null) {
-    await requirePropertyInTenant(tenant, refs.propriedadeId);
+    await requireWritablePropertyInTenant(tenant, refs.propriedadeId);
   }
   if (refs.terrenoId != null) {
     await requireTerrenoInTenant(tenant, refs.terrenoId, refs.propriedadeId);
