@@ -1043,6 +1043,27 @@ const calendarioRouter = router({
       const tenant = getCtxTenant(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [row] = await db
+        .select({
+          id: eventoComentarios.id,
+          autorUserId: eventoComentarios.autorUserId,
+          eventoUsuarioId: calendarioCuidados.usuarioId,
+        })
+        .from(eventoComentarios)
+        .innerJoin(calendarioCuidados, eq(eventoComentarios.eventoId, calendarioCuidados.id))
+        .where(
+          and(
+            eq(eventoComentarios.id, input.id),
+            eq(eventoComentarios.organizationId, tenant.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Comentário não encontrado." });
+      const isAuthor = row.autorUserId === tenant.userId;
+      const isEventOwner = row.eventoUsuarioId === tenant.perfilId;
+      if (!isAuthor && !isEventOwner) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para excluir o comentário." });
+      }
       await db
         .delete(eventoComentarios)
         .where(
@@ -1105,6 +1126,27 @@ const calendarioRouter = router({
       const tenant = getCtxTenant(ctx);
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const [row] = await db
+        .select({
+          id: eventoAnexos.id,
+          createdByUserId: eventoAnexos.createdByUserId,
+          eventoUsuarioId: calendarioCuidados.usuarioId,
+        })
+        .from(eventoAnexos)
+        .innerJoin(calendarioCuidados, eq(eventoAnexos.eventoId, calendarioCuidados.id))
+        .where(
+          and(
+            eq(eventoAnexos.id, input.id),
+            eq(eventoAnexos.organizationId, tenant.organizationId),
+          ),
+        )
+        .limit(1);
+      if (!row) throw new TRPCError({ code: "NOT_FOUND", message: "Anexo não encontrado." });
+      const isUploader = row.createdByUserId === tenant.userId;
+      const isEventOwner = row.eventoUsuarioId === tenant.perfilId;
+      if (!isUploader && !isEventOwner) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Sem permissão para excluir o anexo." });
+      }
       await db
         .delete(eventoAnexos)
         .where(

@@ -12,6 +12,10 @@ describe("eventos date-utils", () => {
     expect(toDateKey(new Date(2026, 6, 14))).toBe("2026-07-14");
   });
 
+  it("toDateKey preserva string date-only sem shift UTC", () => {
+    expect(toDateKey("2026-07-25")).toBe("2026-07-25");
+  });
+
   it("buildMonthGrid gera 42 células e inclui o mês", () => {
     const month = startOfMonth(new Date(2026, 6, 1));
     const grid = buildMonthGrid(month, new Date(2026, 6, 14));
