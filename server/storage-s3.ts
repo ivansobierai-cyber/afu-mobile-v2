@@ -32,7 +32,14 @@ export function getS3EnvPresence(): {
 } {
   return {
     bucket: Boolean(
-      firstEnv("STORAGE_S3_BUCKET", "S3_BUCKET", "AWS_S3_BUCKET", "R2_BUCKET"),
+      firstEnv(
+        "STORAGE_S3_BUCKET",
+        "S3_BUCKET",
+        "AWS_S3_BUCKET",
+        "R2_BUCKET",
+        "BUCKET_NAME",
+        "CLOUDFLARE_R2_BUCKET",
+      ),
     ),
     accessKey: Boolean(
       firstEnv("STORAGE_S3_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"),
@@ -51,7 +58,14 @@ export function getS3EnvPresence(): {
 }
 
 export function getS3StorageConfig(): S3StorageConfig | null {
-  const bucket = firstEnv("STORAGE_S3_BUCKET", "S3_BUCKET", "AWS_S3_BUCKET", "R2_BUCKET");
+  const bucket = firstEnv(
+    "STORAGE_S3_BUCKET",
+    "S3_BUCKET",
+    "AWS_S3_BUCKET",
+    "R2_BUCKET",
+    "BUCKET_NAME",
+    "CLOUDFLARE_R2_BUCKET",
+  );
   const accessKeyId = firstEnv(
     "STORAGE_S3_ACCESS_KEY_ID",
     "AWS_ACCESS_KEY_ID",

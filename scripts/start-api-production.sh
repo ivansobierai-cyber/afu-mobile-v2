@@ -109,4 +109,12 @@ if [ "$SEED_ON_START" = "1" ]; then
 fi
 
 echo "[api] Starting server on port ${BOOT_PORT}..."
+_st_bucket="${STORAGE_S3_BUCKET:-${S3_BUCKET:-${AWS_S3_BUCKET:-${R2_BUCKET:-}}}}"
+_st_key="${STORAGE_S3_ACCESS_KEY_ID:-${AWS_ACCESS_KEY_ID:-${R2_ACCESS_KEY_ID:-}}}"
+_st_endpoint="${STORAGE_S3_ENDPOINT:-${AWS_ENDPOINT_URL:-${S3_ENDPOINT:-${R2_ENDPOINT:-}}}}"
+if [ -n "${STORAGE_S3_SECRET_ACCESS_KEY:-${AWS_SECRET_ACCESS_KEY:-${R2_SECRET_ACCESS_KEY:-}}}" ]; then _st_secret=yes; else _st_secret=no; fi
+[ -n "$_st_bucket" ] && _st_b=yes || _st_b=no
+[ -n "$_st_key" ] && _st_k=yes || _st_k=no
+[ -n "$_st_endpoint" ] && _st_e=yes || _st_e=no
+echo "[api] storage env: bucket=${_st_b} accessKey=${_st_k} secret=${_st_secret} endpoint=${_st_e}"
 exec node dist/index.js

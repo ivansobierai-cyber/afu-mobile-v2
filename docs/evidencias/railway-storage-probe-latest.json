@@ -1,20 +1,17 @@
 {
   "suite": "railway-storage-probe",
-  "at": "2026-08-01T10:25:09.000Z",
+  "at": "2026-08-01T13:02:09.000Z",
   "api": "https://afu-mobile-v2-production.up.railway.app",
   "decision": "CONFIGURAR_R2",
   "storage": {
     "backend": "none",
-    "s3Configured": false,
-    "forgeConfigured": false,
-    "storageReady": false,
-    "storageHint": "configure STORAGE_S3_* no Railway — docs/RAILWAY_STORAGE_EVENTOS.md"
+    "s3EnvPresent": {
+      "bucket": false,
+      "accessKey": false,
+      "secret": false,
+      "endpoint": false
+    },
+    "storageReady": false
   },
-  "next": [
-    "Criar bucket Cloudflare R2",
-    "Definir STORAGE_S3_BUCKET, STORAGE_S3_ACCESS_KEY_ID, STORAGE_S3_SECRET_ACCESS_KEY, STORAGE_S3_ENDPOINT no Railway",
-    "Redeploy API",
-    "npm run probe:storage",
-    "npm run smoke:eventos-anexos"
-  ]
+  "note": "API responde mas nenhuma env de storage visível no processo — conferir serviço API (não Vercel) e nomes exatos em docs/RAILWAY_STORAGE_EVENTOS.md"
 }

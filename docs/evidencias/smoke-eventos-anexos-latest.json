@@ -1,6 +1,6 @@
 {
   "suite": "smoke-eventos-anexos",
-  "at": "2026-08-01T10:25:09.563Z",
+  "at": "2026-08-01T13:02:09.424Z",
   "api": "https://afu-mobile-v2-production.up.railway.app",
   "storage": {
     "backend": "none",
@@ -8,7 +8,13 @@
     "forgeConfigured": false,
     "storageReady": false,
     "forgePresignOk": false,
-    "storageHint": "configure STORAGE_S3_* (R2/S3) ou BUILT_IN_FORGE_* no Railway — ver docs/RAILWAY_STORAGE_EVENTOS.md"
+    "s3EnvPresent": {
+      "bucket": false,
+      "accessKey": false,
+      "secret": false,
+      "endpoint": false
+    },
+    "storageHint": "configure STORAGE_S3_* (R2/S3) no serviço **API** Railway e redeploy — ver docs/RAILWAY_STORAGE_EVENTOS.md"
   },
   "eventoId": 8,
   "decision": "AVANCAR",
@@ -16,7 +22,7 @@
     {
       "name": "health storage backend",
       "ok": true,
-      "detail": "{\"backend\":\"none\",\"s3Configured\":false,\"forgeConfigured\":false,\"storageReady\":false,\"forgePresignOk\":false,\"storageHint\":\"configure STORAGE_S3_* (R2/S3) ou BUILT_IN_FORGE_* no Railway — ver docs/RAILWAY_STORAGE_EVENTOS.md\"}"
+      "detail": "{\"backend\":\"none\",\"s3Configured\":false,\"forgeConfigured\":false,\"storageReady\":false,\"forgePresignOk\":false,\"s3EnvPresent\":{\"bucket\":false,\"accessKey\":false,\"secret\":false,\"endpoint\":false},\"storageHint\":\"configure STORAGE_S3_* (R2/S3) no serviço **API** Railway e redeploy — ver docs/RAILWAY_STORAGE_EVENTOS.md\"}"
     },
     {
       "name": "login",
