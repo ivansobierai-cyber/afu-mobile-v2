@@ -1,8 +1,12 @@
-// Preconfigured storage helpers for Manus WebDev templates
-// Uploads via Forge Server presigned URL to S3 (PUT direct).
-// Downloads return /manus-storage/{key} paths served via 307 redirect.
+// Uploads: S3/R2 (preferência) ou Forge presign legado.
+// Downloads: /manus-storage/{key} (proxy autenticado ou URL assinada).
 
 import { ENV } from "./_core/env";
+import {
+  isS3StorageConfigured,
+  s3GetSignedDownloadUrl,
+  s3PutObject,
+} from "./storage-s3";
 
 function getForgeConfig() {
   const forgeUrl = ENV.forgeApiUrl;
@@ -10,11 +14,19 @@ function getForgeConfig() {
 
   if (!forgeUrl || !forgeKey) {
     throw new Error(
-      "Storage config missing: set BUILT_IN_FORGE_API_URL and BUILT_IN_FORGE_API_KEY",
+      "Storage config missing: configure STORAGE_S3_* ou BUILT_IN_FORGE_API_URL/KEY",
     );
   }
 
   return { forgeUrl: forgeUrl.replace(/\/+$/, ""), forgeKey };
+}
+
+export function isForgeStorageConfigured(): boolean {
+  return Boolean(ENV.forgeApiUrl?.trim() && ENV.forgeApiKey?.trim());
+}
+
+export function isStorageBackendConfigured(): boolean {
+  return isS3StorageConfigured() || isForgeStorageConfigured();
 }
 
 function normalizeKey(relKey: string): string {
@@ -28,16 +40,13 @@ function appendHashSuffix(relKey: string): string {
   return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
 }
 
-export async function storagePut(
-  relKey: string,
+async function forgeStoragePut(
+  key: string,
   data: Buffer | Uint8Array | string,
-  contentType = "application/octet-stream",
-): Promise<{ key: string; url: string }> {
+  contentType: string,
+): Promise<void> {
   const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = appendHashSuffix(normalizeKey(relKey));
-
-  // 1. Get presigned PUT URL from Forge
-  const presignUrl = new URL("v1/storage/presign/put", forgeUrl + "/");
+  const presignUrl = new URL("v1/storage/presign/put", `${forgeUrl}/`);
   presignUrl.searchParams.set("path", key);
 
   const presignResp = await fetch(presignUrl, {
@@ -52,11 +61,10 @@ export async function storagePut(
   const { url: s3Url } = (await presignResp.json()) as { url: string };
   if (!s3Url) throw new Error("Forge returned empty presign URL");
 
-  // 2. PUT file directly to S3
   const blob =
     typeof data === "string"
       ? new Blob([data], { type: contentType })
-      : new Blob([data as any], { type: contentType });
+      : new Blob([data as BlobPart], { type: contentType });
 
   const uploadResp = await fetch(s3Url, {
     method: "PUT",
@@ -67,20 +75,11 @@ export async function storagePut(
   if (!uploadResp.ok) {
     throw new Error(`Storage upload to S3 failed (${uploadResp.status})`);
   }
-
-  return { key, url: `/manus-storage/${key}` };
 }
 
-export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
-  const key = normalizeKey(relKey);
-  return { key, url: `/manus-storage/${key}` };
-}
-
-export async function storageGetSignedUrl(relKey: string): Promise<string> {
+async function forgeStorageGetSignedUrl(key: string): Promise<string> {
   const { forgeUrl, forgeKey } = getForgeConfig();
-  const key = normalizeKey(relKey);
-
-  const getUrl = new URL("v1/storage/presign/get", forgeUrl + "/");
+  const getUrl = new URL("v1/storage/presign/get", `${forgeUrl}/`);
   getUrl.searchParams.set("path", key);
 
   const resp = await fetch(getUrl, {
@@ -93,5 +92,41 @@ export async function storageGetSignedUrl(relKey: string): Promise<string> {
   }
 
   const { url } = (await resp.json()) as { url: string };
+  if (!url) throw new Error("Empty signed URL from Forge");
   return url;
+}
+
+export async function storagePut(
+  relKey: string,
+  data: Buffer | Uint8Array | string,
+  contentType = "application/octet-stream",
+): Promise<{ key: string; url: string }> {
+  if (!isStorageBackendConfigured()) {
+    throw new Error(
+      "Storage config missing: configure STORAGE_S3_* ou BUILT_IN_FORGE_API_URL/KEY",
+    );
+  }
+
+  const key = appendHashSuffix(normalizeKey(relKey));
+
+  if (isS3StorageConfigured()) {
+    await s3PutObject(key, data, contentType);
+  } else {
+    await forgeStoragePut(key, data, contentType);
+  }
+
+  return { key, url: `/manus-storage/${key}` };
+}
+
+export async function storageGet(relKey: string): Promise<{ key: string; url: string }> {
+  const key = normalizeKey(relKey);
+  return { key, url: `/manus-storage/${key}` };
+}
+
+export async function storageGetSignedUrl(relKey: string): Promise<string> {
+  const key = normalizeKey(relKey);
+  if (isS3StorageConfigured()) {
+    return s3GetSignedDownloadUrl(key);
+  }
+  return forgeStorageGetSignedUrl(key);
 }

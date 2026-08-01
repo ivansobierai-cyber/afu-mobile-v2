@@ -8,6 +8,7 @@ import { registerStorageProxy } from "./storageProxy";
 import { registerScheduledRoutes, startWeatherAlertsScheduler } from "./scheduled-routes";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
+import { getPublicStorageHealth } from "../storage-status";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -69,8 +70,20 @@ async function startServer() {
     });
   });
 
-  app.get("/api/health", (_req, res) => {
-    res.json({ ok: true, timestamp: Date.now() });
+  app.get("/api/health", async (_req, res) => {
+    const storage = await getPublicStorageHealth();
+    res.json({
+      ok: true,
+      timestamp: Date.now(),
+      storage: {
+        backend: storage.backend,
+        s3Configured: storage.s3Configured,
+        forgeConfigured: storage.forgeConfigured,
+        storageReady: storage.storageReady,
+        forgePresignOk: storage.forgePresignOk,
+        ...(storage.detail ? { storageHint: storage.detail } : {}),
+      },
+    });
   });
 
   app.use(

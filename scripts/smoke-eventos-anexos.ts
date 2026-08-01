@@ -38,6 +38,47 @@ function makeClient(token?: string) {
 async function main() {
   const checks: { name: string; ok: boolean; detail?: string; optional?: boolean }[] = [];
 
+  let storageHealth: {
+    backend?: string;
+    storageReady?: boolean;
+    forgeConfigured?: boolean;
+    forgePresignOk?: boolean;
+    s3Configured?: boolean;
+    storageHint?: string;
+  } = {};
+  try {
+    const healthResp = await fetch(`${API}/api/health`);
+    const health = (await healthResp.json()) as {
+      storage?: typeof storageHealth;
+    };
+    storageHealth = health.storage ?? {};
+    checks.push({
+      name: "health storage backend",
+      ok: typeof storageHealth.backend === "string",
+      detail: JSON.stringify(storageHealth),
+    });
+    if (storageHealth.storageReady) {
+      checks.push({
+        name: "health storageReady",
+        ok: true,
+      });
+    } else if (storageHealth.s3Configured || storageHealth.forgeConfigured) {
+      checks.push({
+        name: "health storageReady",
+        ok: false,
+        detail: storageHealth.storageHint,
+      });
+    }
+  } catch (e) {
+    checks.push({
+      name: "health storage",
+      ok: false,
+      detail: e instanceof Error ? e.message : String(e),
+    });
+  }
+
+  const fileUploadOptional = storageHealth.storageReady !== true;
+
   const login = await makeClient().auth.login.mutate({
     email: DEMO_EMAIL,
     password: DEMO_PASSWORD,
@@ -101,13 +142,15 @@ async function main() {
     checks.push({
       name: "addAnexoArquivo",
       ok: false,
-      optional: true,
-      detail: `storage indisponível: ${msg.slice(0, 120)}`,
+      optional: fileUploadOptional,
+      detail: fileUploadOptional
+        ? `storage não pronto: ${msg.slice(0, 120)}`
+        : msg.slice(0, 200),
     });
     checks.push({
       name: "getAnexoDownloadUrl",
       ok: false,
-      optional: true,
+      optional: fileUploadOptional,
       detail: "pulado — sem arquivo",
     });
   }
@@ -141,6 +184,7 @@ async function main() {
     suite: "smoke-eventos-anexos",
     at: new Date().toISOString(),
     api: API,
+    storage: storageHealth,
     eventoId,
     decision: requiredFailed.length ? "BLOQUEADO" : "AVANCAR",
     checks,

@@ -29,6 +29,7 @@
     "smoke:plano-auxiliar": "tsx scripts/smoke-plano-auxiliar-local.ts",
     "smoke:eventos": "tsx scripts/smoke-eventos-centro.ts",
     "smoke:eventos-anexos": "tsx scripts/smoke-eventos-anexos.ts",
+    "probe:storage": "tsx scripts/probe-storage-health.ts",
     "smoke:resultado-cultivo": "tsx scripts/smoke-resultado-cultivo.ts",
     "check:tenant-queries": "node scripts/check-tenant-queries.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
@@ -83,6 +84,8 @@
     "qr": "node scripts/generate_qr.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1101.0",
+    "@aws-sdk/s3-request-presigner": "^3.1101.0",
     "@expo/vector-icons": "^15.0.3",
     "@radix-ui/react-slot": "^1.2.3",
     "@react-native-async-storage/async-storage": "^2.2.0",

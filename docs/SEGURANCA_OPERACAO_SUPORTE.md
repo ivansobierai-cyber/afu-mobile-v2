@@ -25,7 +25,7 @@
 |-----|-----|
 | `JWT_SECRET` | Sessão + tokens de download |
 | `DATABASE_URL` | MySQL |
-| `BUILT_IN_FORGE_API_URL` / `KEY` | Storage (sem isso, proxy retorna 503 após ACL) |
+| `BUILT_IN_FORGE_API_URL` / `KEY` | Storage (sem isso, proxy retorna 503 após ACL). Guia Railway: `docs/RAILWAY_STORAGE_EVENTOS.md` |
 
 ---
 

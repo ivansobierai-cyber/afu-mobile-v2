@@ -4,8 +4,8 @@
  */
 import type { Express, Request, Response } from "express";
 import { TRPCError } from "@trpc/server";
-import { ENV } from "./env";
 import { sdk } from "./sdk";
+import { storageGetSignedUrl, isStorageBackendConfigured } from "../storage";
 import {
   assertCanAccessStorageKey,
   verifyDownloadToken,
@@ -94,31 +94,14 @@ export function registerStorageProxy(app: Express) {
       return;
     }
 
-    if (!ENV.forgeApiUrl || !ENV.forgeApiKey) {
+    if (!isStorageBackendConfigured()) {
       res.set("Cache-Control", "no-store");
       res.status(503).send("Storage backend not configured");
       return;
     }
 
     try {
-      const forgeUrl = new URL(
-        "v1/storage/presign/get",
-        ENV.forgeApiUrl.replace(/\/+$/, "") + "/",
-      );
-      forgeUrl.searchParams.set("path", key);
-
-      const forgeResp = await fetch(forgeUrl, {
-        headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
-      });
-
-      if (!forgeResp.ok) {
-        const body = await forgeResp.text().catch(() => "");
-        console.error(`[StorageProxy] forge error: ${forgeResp.status} ${body}`);
-        res.status(502).send("Storage backend error");
-        return;
-      }
-
-      const { url } = (await forgeResp.json()) as { url: string };
+      const url = await storageGetSignedUrl(key);
       if (!url) {
         res.status(502).send("Empty signed URL from backend");
         return;

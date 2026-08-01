@@ -14,7 +14,7 @@ import {
 } from "../drizzle/schema";
 import { getActiveMembership, resolveSessionOrganization } from "./db-organizations";
 import { roleHasPermission, type OrgPermission } from "../lib/security/org-roles";
-import { storageGetSignedUrl, storagePut } from "./storage";
+import { storageGetSignedUrl, storagePut, isStorageBackendConfigured } from "./storage";
 
 export const DOWNLOAD_TOKEN_TTL_SEC = 5 * 60; // 5 minutos
 const ORG_KEY_RE = /^org\/(\d+)\//;
@@ -297,8 +297,7 @@ export async function createTemporaryDownloadUrl(opts: {
 
   let url: string;
   try {
-    if (ENV.forgeApiUrl && ENV.forgeApiKey) {
-      // Signed S3 — curto; ainda exigimos token de app no proxy se o cliente usar proxy
+    if (isStorageBackendConfigured()) {
       const signed = await storageGetSignedUrl(key);
       url = signed;
     } else {
@@ -308,11 +307,6 @@ export async function createTemporaryDownloadUrl(opts: {
   } catch {
     const base = (opts.baseUrl || "").replace(/\/+$/, "");
     url = `${base}${proxyPathForKey(key)}?token=${encodeURIComponent(token)}`;
-  }
-
-  // Sempre oferecer também proxy tokenizado como alternativa estável
-  if (ENV.forgeApiUrl && ENV.forgeApiKey && opts.baseUrl) {
-    // Prefer signed URL when available; audit still records download intent
   }
 
   await writeAuditLog({
