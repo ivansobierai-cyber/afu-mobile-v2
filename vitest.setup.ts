@@ -28,10 +28,15 @@ Object.defineProperty(globalThis, "localStorage", {
 });
 
 if (typeof globalThis.window === "undefined") {
-  (globalThis as typeof globalThis & { window: Window }).window = {
+  const browserShim = {
     localStorage: localStorageMock,
     sessionStorage: localStorageMock,
-  } as unknown as Window;
+  };
+  Object.defineProperty(globalThis, "window", {
+    value: browserShim,
+    writable: true,
+    configurable: true,
+  });
 }
 
 vi.mock("react-native", () => ({
