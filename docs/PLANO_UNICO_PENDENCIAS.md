@@ -34,8 +34,8 @@
 
 ### P4 — Produto (backlog consciente)
 
-1. Cultivos offline/a11y — aprofundar telas de detalhe (`/cultivos/[id]`).
-2. Assistente Eventos com LLM opcional (hoje: regras + clima).
+1. Cultivos offline/a11y — lista + detalhe (`/cultivos/[id]`) com banner de sync.
+2. ~~Assistente Eventos com LLM opcional~~ — merge regras + clima + Forge (`sugestoesIA.llmUsado`); sem Forge = só regras.
 
 ---
 
@@ -47,4 +47,4 @@ Nenhum PR aberto. #18 fechado; #19/#24/#25/#26/#27/#28 mergeados.
 
 ## Próximo passo sugerido
 
-Assistente Eventos (LLM opcional) **ou** lint por módulo ao editar arquivos.
+Lint por módulo ao editar arquivos; smoke manual anexos Eventos no web pós-deploy.

@@ -7,6 +7,7 @@ import type { SugestaoIA } from "@/lib/eventos/ia-sugestoes";
 type Props = {
   sugestoes: SugestaoIA[];
   climaUsado?: boolean;
+  llmUsado?: boolean;
   loading?: boolean;
   onRefresh?: () => void;
 };
@@ -18,7 +19,7 @@ const SEV_COLOR = {
 } as const;
 
 /** Painel de sugestões IA do Centro de Eventos (Etapa 5). */
-export function EventoIaPanel({ sugestoes, climaUsado, loading, onRefresh }: Props) {
+export function EventoIaPanel({ sugestoes, climaUsado, llmUsado, loading, onRefresh }: Props) {
   const colors = useColors();
 
   if (loading) {
@@ -43,7 +44,8 @@ export function EventoIaPanel({ sugestoes, climaUsado, loading, onRefresh }: Pro
         </View>
         <Text style={{ fontSize: 12, color: colors.muted }}>
           Nenhuma sugestão no momento
-          {climaUsado ? " (clima considerado)." : "."}
+          {climaUsado ? " (clima considerado)" : ""}
+          {llmUsado ? " · IA generativa" : " (regras + clima)"}.
         </Text>
       </View>
     );
@@ -55,6 +57,7 @@ export function EventoIaPanel({ sugestoes, climaUsado, loading, onRefresh }: Pro
         <IconSymbol name="sparkles" size={14} color={MODULE_COLORS.eventos} />
         <Text style={[styles.title, { color: colors.foreground }]}>
           Assistente · {sugestoes.length}
+          {llmUsado ? " · IA" : ""}
         </Text>
         {onRefresh ? (
           <TouchableOpacity onPress={onRefresh} accessibilityLabel="Atualizar sugestões">

@@ -18,7 +18,10 @@ import { safeLogger } from "./_core/safe-logger";
 
 export const DEFAULT_AI_MODEL = "builtin-default";
 
-export type AiPurpose = "diagnostico_fitossanitario" | "interpretacao_laboratorio";
+export type AiPurpose =
+  | "diagnostico_fitossanitario"
+  | "interpretacao_laboratorio"
+  | "eventos_agenda_assistente";
 
 export async function getOrgAiPolicy(organizationId: number): Promise<OrgAiPolicy> {
   const db = await getDb();

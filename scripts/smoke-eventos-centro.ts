@@ -75,7 +75,13 @@ async function main() {
   });
 
   const ia = await c.coreData.calendario.sugestoesIA.query({});
-  checks.push({ name: "sugestoesIA", ok: Array.isArray(ia.sugestoes) });
+  checks.push({
+    name: "sugestoesIA",
+    ok:
+      Array.isArray(ia.sugestoes) &&
+      typeof ia.climaUsado === "boolean" &&
+      typeof ia.llmUsado === "boolean",
+  });
 
   const failed = checks.filter((x) => !x.ok);
   const report = {
