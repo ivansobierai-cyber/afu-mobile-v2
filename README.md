@@ -6,7 +6,7 @@ Stack: **Expo SDK 54**, **Expo Router**, **tRPC**, **Drizzle ORM**, **MySQL/Mari
 
 ## Requisitos
 
-- Node.js 20+
+- Node.js 24+ (LTS; ver `.nvmrc`)
 - npm
 - **Docker Desktop** (recomendado) ou MySQL/MariaDB instalado localmente
 - Conta Expo (opcional, para builds EAS Android/iOS)
