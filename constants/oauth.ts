@@ -62,11 +62,9 @@ export function getApiBaseUrl(): string {
     return "http://10.0.2.2:3000";
   }
 
-  // Em dispositivos nativos (iOS/Android), usar domínio de produção
-  // O domínio é configurado automaticamente no deploy
+  // Nativo sem EXPO_PUBLIC_API_BASE_URL: API Railway (EAS preview/prod deve definir a env)
   if (ReactNative.Platform.OS === "ios" || ReactNative.Platform.OS === "android") {
-    // Em produção, usar domínio deployado
-    return "https://afumobile-risprfgp.manus.space";
+    return "https://afu-mobile-v2-production.up.railway.app";
   }
 
   // Fallback dev: API local

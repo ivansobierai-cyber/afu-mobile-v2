@@ -1,6 +1,8 @@
 # Storage privado no Railway (anexos Eventos, relatórios, etc.)
 
-Uploads (`addAnexoArquivo`, diagnósticos, PDFs) usam **Forge/Manus Storage** (presign S3). Sem as variáveis abaixo, links de anexo continuam funcionando; **arquivos** falham.
+**Credenciais não ficam no GitHub** — só em variáveis do serviço API no Railway (e no seu `.env` local). O código usa nomes legados `BUILT_IN_FORGE_*` do template; não é obrigatório ser Manus.
+
+Uploads (`addAnexoArquivo`, diagnósticos, PDFs) usam API **OpenAI-compatível + presign S3** via `server/storage.ts`. Sem as variáveis abaixo, links de anexo continuam funcionando; **arquivos** falham.
 
 ---
 
@@ -10,8 +12,8 @@ No [Railway](https://railway.app) → projeto → serviço da API → **Variable
 
 | Variável | Valor |
 |----------|--------|
-| `BUILT_IN_FORGE_API_URL` | URL base da API Forge/Manus (ex.: `https://…/`, sem path extra) |
-| `BUILT_IN_FORGE_API_KEY` | Chave Bearer do mesmo projeto Manus/Forge |
+| `BUILT_IN_FORGE_API_URL` | URL base de API com rotas `v1/storage/presign/*` e (opcional) `v1/chat/completions` |
+| `BUILT_IN_FORGE_API_KEY` | Bearer token dessa API |
 
 Já obrigatórias no mesmo serviço: `DATABASE_URL`, `JWT_SECRET`.
 
@@ -21,8 +23,8 @@ Referência geral: `docs/SEGURANCA_OPERACAO_SUPORTE.md` (§ variáveis críticas
 
 ## 2. Onde obter URL e chave
 
-- Projeto criado no **Manus** / template WebDev: variáveis costumam existir no painel do projeto ou no ambiente de build original.
-- Se não tiver mais acesso: criar novo app Manus com storage habilitado **ou** planejar adapter S3/R2 (não implementado neste repo — hoje só Forge presign).
+- Qualquer provedor que exponha o mesmo contrato de presign do template (histórico Manus Forge), **ou** variáveis que você já tinha no Railway antes de remover Manus.
+- Se não usar storage na nuvem: deixe sem configurar — login, calendário e anexos **por URL** seguem normais; só upload de arquivo fica desligado até existir S3/R2 nativo no repo (backlog).
 
 ---
 
