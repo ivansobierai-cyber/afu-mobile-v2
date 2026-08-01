@@ -1,5 +1,5 @@
 import { isForgeStorageConfigured, isStorageBackendConfigured } from "./storage";
-import { isS3StorageConfigured, probeS3StorageBucket } from "./storage-s3";
+import { isS3StorageConfigured, probeS3StorageBucket, getS3EnvPresence } from "./storage-s3";
 
 /** Presign PUT sem upload — valida URL/chave Forge no deploy. */
 export async function probeForgeStoragePresign(): Promise<{
@@ -40,6 +40,7 @@ export type PublicStorageHealth = {
   storageReady: boolean;
   /** Alias legado (smoke) */
   forgePresignOk: boolean;
+  s3EnvPresent?: ReturnType<typeof getS3EnvPresence>;
   detail?: string;
 };
 
@@ -77,8 +78,9 @@ export async function getPublicStorageHealth(): Promise<PublicStorageHealth> {
     forgeConfigured: false,
     storageReady: false,
     forgePresignOk: false,
+    s3EnvPresent: getS3EnvPresence(),
     detail:
-      "configure STORAGE_S3_* (R2/S3) ou BUILT_IN_FORGE_* no Railway — ver docs/RAILWAY_STORAGE_EVENTOS.md",
+      "configure STORAGE_S3_* (R2/S3) no serviço **API** Railway e redeploy — ver docs/RAILWAY_STORAGE_EVENTOS.md",
   };
 }
 

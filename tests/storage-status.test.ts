@@ -34,6 +34,17 @@ describe("storage backends", () => {
     expect(mod2.isS3StorageConfigured()).toBe(true);
   });
 
+  it("getS3EnvPresence detecta aliases AWS", async () => {
+    vi.stubEnv("STORAGE_S3_BUCKET", "");
+    vi.stubEnv("AWS_S3_BUCKET", "b");
+    vi.stubEnv("AWS_ACCESS_KEY_ID", "k");
+    vi.stubEnv("AWS_SECRET_ACCESS_KEY", "s");
+    vi.resetModules();
+    const { getS3EnvPresence, isS3StorageConfigured } = await import("../server/storage-s3");
+    expect(getS3EnvPresence().bucket).toBe(true);
+    expect(isS3StorageConfigured()).toBe(true);
+  });
+
   it("S3 tem prioridade em isStorageBackendConfigured", async () => {
     vi.stubEnv("STORAGE_S3_BUCKET", "afu");
     vi.stubEnv("STORAGE_S3_ACCESS_KEY_ID", "id");

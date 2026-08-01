@@ -15,12 +15,60 @@ export type S3StorageConfig = {
   forcePathStyle: boolean;
 };
 
+function firstEnv(...keys: string[]): string | undefined {
+  for (const key of keys) {
+    const v = process.env[key]?.trim();
+    if (v) return v;
+  }
+  return undefined;
+}
+
+/** Presença de envs (sem valores) — debug deploy Railway. */
+export function getS3EnvPresence(): {
+  bucket: boolean;
+  accessKey: boolean;
+  secret: boolean;
+  endpoint: boolean;
+} {
+  return {
+    bucket: Boolean(
+      firstEnv("STORAGE_S3_BUCKET", "S3_BUCKET", "AWS_S3_BUCKET", "R2_BUCKET"),
+    ),
+    accessKey: Boolean(
+      firstEnv("STORAGE_S3_ACCESS_KEY_ID", "AWS_ACCESS_KEY_ID", "R2_ACCESS_KEY_ID"),
+    ),
+    secret: Boolean(
+      firstEnv(
+        "STORAGE_S3_SECRET_ACCESS_KEY",
+        "AWS_SECRET_ACCESS_KEY",
+        "R2_SECRET_ACCESS_KEY",
+      ),
+    ),
+    endpoint: Boolean(
+      firstEnv("STORAGE_S3_ENDPOINT", "AWS_ENDPOINT_URL", "S3_ENDPOINT", "R2_ENDPOINT"),
+    ),
+  };
+}
+
 export function getS3StorageConfig(): S3StorageConfig | null {
-  const bucket = process.env.STORAGE_S3_BUCKET?.trim();
-  const accessKeyId = process.env.STORAGE_S3_ACCESS_KEY_ID?.trim();
-  const secretAccessKey = process.env.STORAGE_S3_SECRET_ACCESS_KEY?.trim();
+  const bucket = firstEnv("STORAGE_S3_BUCKET", "S3_BUCKET", "AWS_S3_BUCKET", "R2_BUCKET");
+  const accessKeyId = firstEnv(
+    "STORAGE_S3_ACCESS_KEY_ID",
+    "AWS_ACCESS_KEY_ID",
+    "R2_ACCESS_KEY_ID",
+  );
+  const secretAccessKey = firstEnv(
+    "STORAGE_S3_SECRET_ACCESS_KEY",
+    "AWS_SECRET_ACCESS_KEY",
+    "R2_SECRET_ACCESS_KEY",
+  );
   if (!bucket || !accessKeyId || !secretAccessKey) return null;
-  const endpoint = process.env.STORAGE_S3_ENDPOINT?.trim();
+  const endpoint = firstEnv(
+    "STORAGE_S3_ENDPOINT",
+    "AWS_ENDPOINT_URL",
+    "S3_ENDPOINT",
+    "R2_ENDPOINT",
+  );
   return {
     bucket,
     region: process.env.STORAGE_S3_REGION?.trim() || "auto",

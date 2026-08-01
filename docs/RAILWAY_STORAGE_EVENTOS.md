@@ -14,7 +14,9 @@ No Railway → serviço API → **Variables**:
 | `STORAGE_S3_ENDPOINT` | `https://<account_id>.r2.cloudflarestorage.com` |
 | `STORAGE_S3_REGION` | `auto` (opcional) |
 
-Crie o bucket no Cloudflare R2, gere API token com leitura/escrita no bucket. Redeploy da API.
+Aliases aceitos: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL`, `S3_BUCKET`, `R2_*` equivalentes.
+
+**Importante:** variáveis no serviço da **API** (`afu-mobile-v2`), não no Vercel. Após salvar, force **Redeploy**.
 
 Se **S3** estiver configurado, ele tem **prioridade** sobre Forge legado.
 

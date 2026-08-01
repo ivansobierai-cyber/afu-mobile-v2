@@ -81,6 +81,7 @@ async function startServer() {
         forgeConfigured: storage.forgeConfigured,
         storageReady: storage.storageReady,
         forgePresignOk: storage.forgePresignOk,
+        ...(storage.s3EnvPresent ? { s3EnvPresent: storage.s3EnvPresent } : {}),
         ...(storage.detail ? { storageHint: storage.detail } : {}),
       },
     });
