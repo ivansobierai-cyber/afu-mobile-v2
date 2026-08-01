@@ -24,6 +24,7 @@
 | Node 24 (CI, Docker, `.nvmrc`) | PR [#28](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/28) |
 | Assistente Eventos LLM + banner cultivos detalhe | PR [#29](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/29) |
 | Smoke API anexos Eventos | `npm run smoke:eventos-anexos`, `docs/evidencias/smoke-eventos-anexos-latest.json` |
+| Storage R2/S3 + health/probe (sem Manus) | PR [#31](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/31), `docs/RAILWAY_STORAGE_EVENTOS.md`, `npm run probe:storage` |
 
 ---
 
@@ -43,10 +44,12 @@
 
 ## PRs
 
-Nenhum PR aberto. #29 mergeado; histórico #18–#28.
+Nenhum PR aberto. #31 mergeado; histórico #18–#30.
 
 ---
 
 ## Próximo passo sugerido
 
-Lint por módulo ao editar; checklist manual de anexos no web quando houver release visível.
+1. **Railway:** variáveis `STORAGE_S3_*` (R2) → redeploy → `npm run probe:storage` e `npm run smoke:eventos-anexos`.
+2. **Web:** checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após storage OK.
+3. Lint por módulo ao editar arquivos.
