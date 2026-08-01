@@ -1,7 +1,7 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-07-31  
-**Base:** `main` @ pós-P2 (Eventos homologado em prod)  
+**Atualizado:** 2026-07-31 (noite)  
+**Base:** `main` @ `f2970e0` (pós-PR #27 — anexos privados Eventos)  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
 ---
@@ -17,7 +17,7 @@
 | Guards prop arquivada / safra histórica | PR [#19](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/19) |
 | Inventário VPS Oracle + smoke PDF cultivo | PR [#24](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/24) |
 | Homologação Eventos em produção (API) | `docs/evidencias/smoke-eventos-centro-latest.json` (**AVANÇAR**, Railway) |
-| Anexos Eventos — upload arquivo privado | `addAnexoArquivo` + `getAnexoDownloadUrl` + UI modal (web + foto nativo) |
+| Anexos Eventos — upload arquivo privado | PR [#27](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/27), `lib/eventos/anexo-upload.ts` |
 
 Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/n8n) — Railway/Vercel.
 
@@ -30,7 +30,7 @@ Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
 - Suites Vitest com mock frágil de `expo-modules-core` (`auth-flow`, `resend-email`).
 - Deduplicar evidências antigas em `docs/evidencias/` (manter `*-latest.json` + pastas atuais).
-- Smoke UI Eventos no web (tags/checklist/comentário/anexo) — API já AVANÇAR; UI manual opcional.
+- Smoke UI Eventos no web (tags/checklist/comentário/anexo arquivo) — API em prod; validar upload/download manual após deploy Railway/Vercel.
 
 ### P4 — Produto (backlog consciente)
 
@@ -43,7 +43,9 @@ Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/
 
 ## PRs
 
-Nenhum PR aberto. #18 fechado; #19/#24/#25/#26 mergeados.
+Nenhum PR aberto. #18 fechado; #19/#24/#25/#26/#27 mergeados.
+
+**CI:** GitHub `validate` verde no merge #27. Previews Vercel na branch podem falhar por colaboração/conta (não bloqueia `main`).
 
 ---
 
