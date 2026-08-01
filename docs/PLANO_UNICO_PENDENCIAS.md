@@ -1,6 +1,6 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-07-31  
+**Atualizado:** 2026-08-01  
 **Base:** `main` — Railway/Vercel  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
@@ -22,6 +22,8 @@
 | P3 parcial — Vitest auth/resend + dedupe evidências | `vitest.setup.ts`, `lib/_core/auth.ts`, só `*-latest.json` em `docs/evidencias/` |
 | Cultivos — banner offline/sync + a11y lista | `app/(tabs)/cultivos.tsx` |
 | Node 24 (CI, Docker, `.nvmrc`) | PR [#28](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/28) |
+| Assistente Eventos LLM + banner cultivos detalhe | PR [#29](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/29) |
+| Smoke API anexos Eventos | `npm run smoke:eventos-anexos`, `docs/evidencias/smoke-eventos-anexos-latest.json` |
 
 ---
 
@@ -30,21 +32,21 @@
 ### P3 — Qualidade / higiene (não bloqueante)
 
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
-- Smoke UI Eventos no web (upload/download anexo) — validação manual pós-deploy.
+- Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após deploy.
 
 ### P4 — Produto (backlog consciente)
 
-1. Cultivos offline/a11y — lista + detalhe (`/cultivos/[id]`) com banner de sync.
-2. ~~Assistente Eventos com LLM opcional~~ — merge regras + clima + Forge (`sugestoesIA.llmUsado`); sem Forge = só regras.
+- ~~Cultivos offline/a11y lista + detalhe~~ — `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx`.
+- ~~Assistente Eventos LLM opcional~~ — `sugestoesIA` + Forge.
 
 ---
 
 ## PRs
 
-Nenhum PR aberto. #18 fechado; #19/#24/#25/#26/#27/#28 mergeados.
+Nenhum PR aberto. #29 mergeado; histórico #18–#28.
 
 ---
 
 ## Próximo passo sugerido
 
-Lint por módulo ao editar arquivos; smoke manual anexos Eventos no web pós-deploy.
+Lint por módulo ao editar; checklist manual de anexos no web quando houver release visível.
