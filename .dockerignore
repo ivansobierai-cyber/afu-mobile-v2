@@ -10,6 +10,5 @@ tests
 .env
 .env.*
 !.env.example
-!.env.oci.example
 terminals
 .cursor

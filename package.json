@@ -13,7 +13,6 @@
     "build:web:preview": "node scripts/ensure-nativewind-cache.mjs && cross-env EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app EXPO_PUBLIC_SHOW_DEMO_LOGIN=1 expo export --platform web",
     "prepare:web-dist": "node scripts/prepare-web-dist.mjs",
     "deploy:web": "npm run build:web:preview && npm run prepare:web-dist && npx vercel deploy dist --prod --yes --project afu-mobile-web",
-    "deploy:oci": "bash scripts/oci-deploy.sh",
     "agents:archive-stale": "node scripts/archive-stale-agents.mjs",
     "build": "esbuild server/_core/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist",
     "start": "NODE_ENV=production node dist/index.js",

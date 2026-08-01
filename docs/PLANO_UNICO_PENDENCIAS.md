@@ -1,7 +1,7 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-07-31 (noite)  
-**Base:** `main` @ `f2970e0` (pós-PR #27 — anexos privados Eventos)  
+**Atualizado:** 2026-07-31  
+**Base:** `main` @ pós-#27 — hospedagem **Railway/Vercel** apenas (sem Oracle/OCI no repo)  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
 ---
@@ -15,11 +15,9 @@
 | Segurança multitenant base | `docs/SEGURANCA_CONCLUSAO_GLOBAL.md` |
 | Centro de Eventos Etapas 1–10 | PR [#25](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/25) |
 | Guards prop arquivada / safra histórica | PR [#19](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/19) |
-| Inventário VPS Oracle + smoke PDF cultivo | PR [#24](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/24) |
+| Smoke PDF resultado cultivo (Railway) | PR [#24](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/24), `npm run smoke:resultado-cultivo` |
 | Homologação Eventos em produção (API) | `docs/evidencias/smoke-eventos-centro-latest.json` (**AVANÇAR**, Railway) |
 | Anexos Eventos — upload arquivo privado | PR [#27](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/27), `lib/eventos/anexo-upload.ts` |
-
-Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/n8n) — Railway/Vercel.
 
 ---
 
@@ -37,7 +35,6 @@ Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/
 1. Offline fino / a11y premium residual em Cultivos.
 2. Produtividade amarrada a eventos de colheita/tarefa (além de `producaoReal`).
 3. Assistente Eventos com LLM opcional (hoje: regras + clima).
-4. Deploy AFU na VPS só após expandir disco OCI (ver `docs/VPS_ORACLE.md`).
 
 ---
 
