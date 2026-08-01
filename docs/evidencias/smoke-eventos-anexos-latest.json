@@ -1,0 +1,41 @@
+{
+  "suite": "smoke-eventos-anexos",
+  "at": "2026-08-01T05:24:37.304Z",
+  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "eventoId": 8,
+  "decision": "AVANCAR",
+  "checks": [
+    {
+      "name": "login",
+      "ok": true
+    },
+    {
+      "name": "evento alvo",
+      "ok": true
+    },
+    {
+      "name": "addAnexoLink",
+      "ok": true
+    },
+    {
+      "name": "listAnexos contém link",
+      "ok": true
+    },
+    {
+      "name": "addAnexoArquivo",
+      "ok": false,
+      "optional": true,
+      "detail": "storage indisponível: Falha ao armazenar o arquivo."
+    },
+    {
+      "name": "getAnexoDownloadUrl",
+      "ok": false,
+      "optional": true,
+      "detail": "pulado — sem arquivo"
+    },
+    {
+      "name": "deleteAnexo link",
+      "ok": true
+    }
+  ]
+}

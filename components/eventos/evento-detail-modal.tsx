@@ -460,9 +460,8 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
           {/* Anexos */}
           <Text style={[styles.section, { color: colors.foreground }]}>Anexos</Text>
           {Platform.OS === "web" ? (
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
             <input
-              ref={fileInputRef as any}
+              ref={fileInputRef}
               type="file"
               accept="image/*,.pdf,.txt,.doc,.docx"
               style={{ display: "none" }}
