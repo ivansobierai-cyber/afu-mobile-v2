@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -10,11 +10,19 @@ import {
   ActivityIndicator,
   Linking,
   Alert,
+  Platform,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system/legacy";
 import { useColors } from "@/hooks/use-colors";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { trpc } from "@/lib/trpc";
+import { getApiBaseUrl } from "@/constants/oauth";
+import {
+  MAX_EVENTO_ANEXO_BYTES,
+  assertAnexoUploadSize,
+} from "@/lib/eventos/anexo-upload";
 import {
   ETIQUETAS_SUGERIDAS,
   checklistProgress,
@@ -45,6 +53,8 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const [anexoNome, setAnexoNome] = useState("");
   const [anexoUrl, setAnexoUrl] = useState("");
   const [savingMeta, setSavingMeta] = useState(false);
+  const [uploadingAnexo, setUploadingAnexo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const eventoId = item?.id;
 
@@ -72,6 +82,8 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const addComentarioMut = trpc.coreData.calendario.addComentario.useMutation();
   const deleteComentarioMut = trpc.coreData.calendario.deleteComentario.useMutation();
   const addAnexoMut = trpc.coreData.calendario.addAnexoLink.useMutation();
+  const addAnexoArquivoMut = trpc.coreData.calendario.addAnexoArquivo.useMutation();
+  const getAnexoDownloadMut = trpc.coreData.calendario.getAnexoDownloadUrl.useMutation();
   const deleteAnexoMut = trpc.coreData.calendario.deleteAnexo.useMutation();
 
   const progress = useMemo(() => checklistProgress(checklist), [checklist]);
@@ -79,6 +91,109 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const prioridade = getPrioridadeInfo(item?.prioridade);
 
   if (!item) return null;
+
+  const resolveDownloadUrl = (url: string) => {
+    if (/^https?:\/\//i.test(url)) return url;
+    const base = getApiBaseUrl();
+    return `${base}${url.startsWith("/") ? url : `/${url}`}`;
+  };
+
+  const uploadAnexoBase64 = async (opts: {
+    filename: string;
+    contentType: string;
+    dataBase64: string;
+    nome?: string;
+  }) => {
+    if (!eventoId) return;
+    setUploadingAnexo(true);
+    try {
+      await addAnexoArquivoMut.mutateAsync({
+        eventoId,
+        filename: opts.filename,
+        contentType: opts.contentType,
+        dataBase64: opts.dataBase64,
+        nome: opts.nome,
+      });
+      await refetchAnexos();
+    } catch (e: unknown) {
+      Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao enviar arquivo.");
+    } finally {
+      setUploadingAnexo(false);
+    }
+  };
+
+  const openAnexo = async (a: (typeof anexos)[number]) => {
+    if (a.url) {
+      void Linking.openURL(a.url);
+      return;
+    }
+    if (!a.storageKey && !a.privateFileId) return;
+    try {
+      const { url } = await getAnexoDownloadMut.mutateAsync({ anexoId: a.id });
+      const full = resolveDownloadUrl(url);
+      if (Platform.OS === "web" && typeof window !== "undefined") {
+        window.open(full, "_blank", "noopener,noreferrer");
+      } else {
+        void Linking.openURL(full);
+      }
+    } catch (e: unknown) {
+      Alert.alert("Erro", e instanceof Error ? e.message : "Não foi possível abrir o arquivo.");
+    }
+  };
+
+  const pickNativePhoto = async () => {
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert("Permissão negada", "Precisamos de acesso à galeria.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.85,
+      base64: true,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    let dataBase64 = asset.base64;
+    if (!dataBase64) {
+      dataBase64 = await FileSystem.readAsStringAsync(asset.uri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    }
+    const mimeType = asset.mimeType ?? "image/jpeg";
+    const approxBytes = Math.floor((dataBase64.length * 3) / 4);
+    try {
+      assertAnexoUploadSize(approxBytes);
+    } catch (err) {
+      Alert.alert("Erro", err instanceof Error ? err.message : "Arquivo inválido.");
+      return;
+    }
+    const filename = asset.fileName ?? `foto-${Date.now()}.jpg`;
+    await uploadAnexoBase64({
+      filename,
+      contentType: mimeType,
+      dataBase64,
+    });
+  };
+
+  const handleWebFile = async (file: File) => {
+    if (file.size > MAX_EVENTO_ANEXO_BYTES) {
+      Alert.alert("Erro", `Arquivo muito grande. Máximo: ${MAX_EVENTO_ANEXO_BYTES / (1024 * 1024)}MB.`);
+      return;
+    }
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let binary = "";
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]!);
+    }
+    const dataBase64 = btoa(binary);
+    await uploadAnexoBase64({
+      filename: file.name,
+      contentType: file.type || "application/octet-stream",
+      dataBase64,
+    });
+  };
 
   const persistMeta = async (nextTags = tags, nextChecklist = checklist) => {
     setSavingMeta(true);
@@ -291,6 +406,20 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
 
           {/* Anexos */}
           <Text style={[styles.section, { color: colors.foreground }]}>Anexos</Text>
+          {Platform.OS === "web" ? (
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            <input
+              ref={fileInputRef as any}
+              type="file"
+              accept="image/*,.pdf,.txt,.doc,.docx"
+              style={{ display: "none" }}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleWebFile(f);
+                e.target.value = "";
+              }}
+            />
+          ) : null}
           {anexos.map((a) => (
             <View
               key={a.id}
@@ -300,15 +429,16 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
                 <IconSymbol name="doc.fill" size={14} color={MODULE_COLORS.eventos} />
                 <TouchableOpacity
                   style={{ flex: 1 }}
-                  onPress={() => {
-                    if (a.url) void Linking.openURL(a.url);
-                  }}
+                  onPress={() => void openAnexo(a)}
+                  disabled={getAnexoDownloadMut.isPending}
                 >
                   <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>{a.nome}</Text>
                   {a.url ? (
                     <Text style={{ fontSize: 11, color: colors.muted }} numberOfLines={1}>
                       {a.url}
                     </Text>
+                  ) : a.storageKey || a.privateFileId ? (
+                    <Text style={{ fontSize: 11, color: colors.muted }}>Arquivo privado — toque para abrir</Text>
                   ) : null}
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -322,6 +452,33 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
               </View>
             </View>
           ))}
+          <View style={styles.addRow}>
+            {Platform.OS === "web" ? (
+              <TouchableOpacity
+                onPress={() => fileInputRef.current?.click()}
+                disabled={uploadingAnexo}
+                style={[styles.addBtn, { flex: 1, backgroundColor: MODULE_COLORS.eventos }]}
+              >
+                {uploadingAnexo ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center" }}>Enviar arquivo</Text>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => void pickNativePhoto()}
+                disabled={uploadingAnexo}
+                style={[styles.addBtn, { flex: 1, backgroundColor: MODULE_COLORS.eventos }]}
+              >
+                {uploadingAnexo ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center" }}>Enviar foto</Text>
+                )}
+              </TouchableOpacity>
+            )}
+          </View>
           <TextInput
             style={[
               styles.input,

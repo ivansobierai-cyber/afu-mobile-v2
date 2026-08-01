@@ -17,6 +17,7 @@
 | Guards prop arquivada / safra histórica | PR [#19](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/19) |
 | Inventário VPS Oracle + smoke PDF cultivo | PR [#24](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/24) |
 | Homologação Eventos em produção (API) | `docs/evidencias/smoke-eventos-centro-latest.json` (**AVANÇAR**, Railway) |
+| Anexos Eventos — upload arquivo privado | `addAnexoArquivo` + `getAnexoDownloadUrl` + UI modal (web + foto nativo) |
 
 Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/n8n) — Railway/Vercel.
 
@@ -35,9 +36,8 @@ Decisão VPS: **não** hospedar AFU na Oracle por agora (disco apertado; Ollama/
 
 1. Offline fino / a11y premium residual em Cultivos.
 2. Produtividade amarrada a eventos de colheita/tarefa (além de `producaoReal`).
-3. Upload de arquivo privado em anexos de Eventos (hoje: link URL).
-4. Assistente Eventos com LLM opcional (hoje: regras + clima).
-5. Deploy AFU na VPS só após expandir disco OCI (ver `docs/VPS_ORACLE.md`).
+3. Assistente Eventos com LLM opcional (hoje: regras + clima).
+4. Deploy AFU na VPS só após expandir disco OCI (ver `docs/VPS_ORACLE.md`).
 
 ---
 
@@ -49,4 +49,4 @@ Nenhum PR aberto. #18 fechado; #19/#24/#25/#26 mergeados.
 
 ## Próximo passo sugerido
 
-Escolher uma linha de **P4** (produto) ou higiene **P3**. Preferência sugerida: anexos arquivo em Eventos **ou** mocks Vitest frágeis, conforme prioridade de produto vs qualidade.
+Escolher uma linha de **P4** (produto) ou higiene **P3**. Preferência sugerida: produtividade ↔ colheita/tarefa **ou** mocks Vitest frágeis.
