@@ -50,6 +50,6 @@ Nenhum PR aberto. #31 mergeado; histórico #18–#30.
 
 ## Próximo passo sugerido
 
-1. **Railway:** variáveis `STORAGE_S3_*` (R2) → redeploy → `npm run probe:storage` e `npm run smoke:eventos-anexos`.
+1. **Railway:** variáveis `STORAGE_S3_*` (R2) → redeploy → `npm run probe:storage` e `npm run smoke:eventos-anexos`. Evidência atual: `docs/evidencias/railway-storage-probe-latest.json` (**CONFIGURAR_R2**).
 2. **Web:** checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após storage OK.
 3. Lint por módulo ao editar arquivos.

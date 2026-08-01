@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useOfflineTenantScope } from '@/hooks/use-offline-tenant-scope';
 import { localDbGet, localDbSet } from '@/lib/offline/tenant-local-db';
@@ -30,7 +30,6 @@ export function MediaUpload({
 }: MediaUploadProps) {
   const { scope } = useOfflineTenantScope();
   const [medias, setMedias] = useState<MediaFile[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
   const legacyKey = useMemo(
     () => (scope ? null : LEGACY_STORAGE_KEY),
     [scope],

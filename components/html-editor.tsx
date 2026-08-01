@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, FlatList, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useImageUpload } from '@/hooks/use-image-upload';
 
@@ -12,7 +12,7 @@ interface HtmlEditorProps {
 
 type FormatAction = 'bold' | 'italic' | 'underline' | 'h1' | 'h2' | 'h3' | 'ul' | 'ol' | 'link' | 'quote' | 'code' | 'hr';
 
-const TOOLBAR_ACTIONS: Array<{ id: FormatAction; label: string; icon: string; description: string }> = [
+const TOOLBAR_ACTIONS: { id: FormatAction; label: string; icon: string; description: string }[] = [
   { id: 'bold', label: 'Negrito', icon: '𝐁', description: 'Ctrl+B' },
   { id: 'italic', label: 'Itálico', icon: '𝐈', description: 'Ctrl+I' },
   { id: 'underline', label: 'Sublinhado', icon: 'U̲', description: 'Ctrl+U' },
@@ -46,7 +46,6 @@ export function HtmlEditor({
 }: HtmlEditorProps) {
   const [showPreview, setShowPreview] = useState(false);
   const [selectedText, setSelectedText] = useState('');
-  const [cursorPosition, setCursorPosition] = useState(0);
   const [showImageOptions, setShowImageOptions] = useState(false);
   const { uploading, pickFromGallery, takePhoto, generateImgTag } = useImageUpload();
 
@@ -263,7 +262,6 @@ export function HtmlEditor({
               const start = e.nativeEvent.selection.start;
               const end = e.nativeEvent.selection.end;
               setSelectedText(value.substring(start, end));
-              setCursorPosition(start);
             }}
             placeholder={placeholder}
             placeholderTextColor="#999"
