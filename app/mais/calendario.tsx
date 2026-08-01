@@ -339,6 +339,7 @@ export default function CalendarioScreen() {
       <EventoIaPanel
         sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
         climaUsado={iaData?.climaUsado}
+        llmUsado={iaData?.llmUsado}
         loading={iaLoading}
         onRefresh={() => refetchIa()}
       />

@@ -995,7 +995,7 @@ const calendarioRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.read");
       const db = await getDb();
-      if (!db) return { sugestoes: [] as const, climaUsado: false };
+      if (!db) return { sugestoes: [] as const, climaUsado: false, llmUsado: false };
 
       let eventos = await db
         .select()
@@ -1036,7 +1036,8 @@ const calendarioRouter = router({
       }
 
       const { montarSugestoesIA } = await import("../../lib/eventos/ia-sugestoes");
-      const sugestoes = montarSugestoesIA({
+      const { mergeSugestoesRegrasELlm } = await import("../../lib/eventos/ia-sugestoes-llm");
+      const regras = montarSugestoesIA({
         eventos: eventos.map((e) => ({
           id: e.id,
           titulo: e.titulo,
@@ -1049,7 +1050,27 @@ const calendarioRouter = router({
         climaDias,
       });
 
-      return { sugestoes, climaUsado };
+      const eventosParaLlm = eventos.map((e) => ({
+        id: e.id,
+        titulo: e.titulo,
+        tipoAtividade: e.tipoAtividade,
+        prioridade: e.prioridade,
+        status: e.status,
+        dataProgramada: e.dataProgramada,
+        propriedadeId: e.propriedadeId,
+      }));
+
+      const { fetchLlmSugestoesEventos } = await import("../eventos/eventos-ia-llm");
+      const llmSugestoes = await fetchLlmSugestoesEventos({
+        tenant,
+        eventos: eventosParaLlm,
+        climaDias,
+        regrasCount: regras.length,
+        propriedadeId: propId,
+      });
+      const sugestoes = mergeSugestoesRegrasELlm(regras, llmSugestoes);
+
+      return { sugestoes, climaUsado, llmUsado: llmSugestoes.length > 0 };
     }),
 
   /** Etapa 8 — comentários */
