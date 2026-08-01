@@ -29,6 +29,7 @@
     "smoke:plano-auxiliar": "tsx scripts/smoke-plano-auxiliar-local.ts",
     "smoke:eventos": "tsx scripts/smoke-eventos-centro.ts",
     "smoke:eventos-anexos": "tsx scripts/smoke-eventos-anexos.ts",
+    "probe:storage": "tsx scripts/probe-storage-health.ts",
     "smoke:resultado-cultivo": "tsx scripts/smoke-resultado-cultivo.ts",
     "check:tenant-queries": "node scripts/check-tenant-queries.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",

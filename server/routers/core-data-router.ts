@@ -1240,6 +1240,14 @@ const calendarioRouter = router({
         });
       } catch (err) {
         console.error("[calendario.addAnexoArquivo]", err);
+        const msg = err instanceof Error ? err.message : String(err);
+        if (msg.includes("Storage config missing")) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Upload de arquivo indisponível: configure BUILT_IN_FORGE_API_URL e BUILT_IN_FORGE_API_KEY no servidor.",
+          });
+        }
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
           message: "Falha ao armazenar o arquivo.",

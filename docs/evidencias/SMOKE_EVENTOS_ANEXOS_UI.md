@@ -26,4 +26,4 @@
 npm run smoke:eventos-anexos
 ```
 
-Grava `docs/evidencias/smoke-eventos-anexos-latest.json`. Upload de arquivo é **opcional** no relatório se o storage Forge/S3 não estiver configurado no ambiente.
+Grava `docs/evidencias/smoke-eventos-anexos-latest.json`. Upload de arquivo é **opcional** no relatório quando `/api/health` indica `forgePresignOk: false` — ver `docs/RAILWAY_STORAGE_EVENTOS.md`.
