@@ -21,6 +21,7 @@
 | Produtividade ↔ colheita (evento + tarefa) | `lib/eventos/produtividade-colheita.ts`, sync em `calendario.update` / `tarefas.transition` |
 | P3 parcial — Vitest auth/resend + dedupe evidências | `vitest.setup.ts`, `lib/_core/auth.ts`, só `*-latest.json` em `docs/evidencias/` |
 | Cultivos — banner offline/sync + a11y lista | `app/(tabs)/cultivos.tsx` |
+| Node 24 (CI, Docker, `.nvmrc`) | PR [#28](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/28) |
 
 ---
 
@@ -40,7 +41,7 @@
 
 ## PRs
 
-Nenhum PR aberto. #18 fechado; #19/#24/#25/#26/#27 mergeados.
+Nenhum PR aberto. #18 fechado; #19/#24/#25/#26/#27/#28 mergeados.
 
 ---
 
