@@ -49,3 +49,24 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
   (`auth-flow.test.ts`, `resend-email.test.ts`). These are not environment issues.
 - Native builds (`eas:*`, `expo run:android/ios`) require EAS/device and are out of scope in
   the cloud VM; use the web target for verification.
+
+### Git commits (Vercel / GitHub)
+
+Remote canônico: `https://github.com/ivansobierai-cyber/afu-mobile-v2.git`
+
+Commits pushed para `main` ou PRs devem usar o **autor GitHub verificado** do dono do repo, não o
+perfil do agente/Cursor:
+
+- **Nome:** `ivansobierai-cyber`
+- **E-mail:** `283309456+ivansobierai-cyber@users.noreply.github.com`
+- **Não** adicionar `Co-authored-by: Cursor <cursoragent@cursor.com>` (bloqueia deploy Vercel).
+
+Exemplo (sem alterar `git config` global):
+
+```bash
+git -c user.name=ivansobierai-cyber \
+  -c user.email=283309456+ivansobierai-cyber@users.noreply.github.com \
+  commit -m "mensagem"
+```
+
+Local: `nvm use` (`.nvmrc` = Node 24).
