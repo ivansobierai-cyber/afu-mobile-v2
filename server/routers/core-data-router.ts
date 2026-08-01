@@ -1245,7 +1245,7 @@ const calendarioRouter = router({
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message:
-              "Upload de arquivo indisponível: configure BUILT_IN_FORGE_API_URL e BUILT_IN_FORGE_API_KEY no servidor.",
+              "Upload de arquivo indisponível: configure STORAGE_S3_* (R2/S3) ou BUILT_IN_FORGE_API_* no servidor.",
           });
         }
         throw new TRPCError({

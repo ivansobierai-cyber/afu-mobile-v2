@@ -11,8 +11,8 @@ async function main() {
   const resp = await fetch(`${API}/api/health`);
   const body = await resp.json();
   console.log(JSON.stringify({ api: API, status: resp.status, ...body }, null, 2));
-  const storage = body.storage as { forgePresignOk?: boolean } | undefined;
-  if (!storage?.forgePresignOk) process.exit(1);
+  const storage = body.storage as { storageReady?: boolean; forgePresignOk?: boolean } | undefined;
+  if (!storage?.storageReady && !storage?.forgePresignOk) process.exit(1);
 }
 
 main().catch((e) => {

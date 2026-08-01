@@ -1,8 +1,5 @@
-import { ENV } from "./_core/env";
-
-export function isForgeStorageConfigured(): boolean {
-  return Boolean(ENV.forgeApiUrl?.trim() && ENV.forgeApiKey?.trim());
-}
+import { isForgeStorageConfigured, isStorageBackendConfigured } from "./storage";
+import { isS3StorageConfigured, probeS3StorageBucket } from "./storage-s3";
 
 /** Presign PUT sem upload — valida URL/chave Forge no deploy. */
 export async function probeForgeStoragePresign(): Promise<{
@@ -12,12 +9,13 @@ export async function probeForgeStoragePresign(): Promise<{
   if (!isForgeStorageConfigured()) {
     return { ok: false, detail: "BUILT_IN_FORGE_API_URL/KEY ausentes" };
   }
-  const forgeUrl = ENV.forgeApiUrl.replace(/\/+$/, "");
+  const forgeUrl = process.env.BUILT_IN_FORGE_API_URL!.replace(/\/+$/, "");
+  const forgeKey = process.env.BUILT_IN_FORGE_API_KEY!;
   try {
     const presignUrl = new URL("v1/storage/presign/put", `${forgeUrl}/`);
     presignUrl.searchParams.set("path", "org/0/_probe/healthcheck.txt");
     const resp = await fetch(presignUrl, {
-      headers: { Authorization: `Bearer ${ENV.forgeApiKey}` },
+      headers: { Authorization: `Bearer ${forgeKey}` },
     });
     if (!resp.ok) {
       const msg = await resp.text().catch(() => resp.statusText);
@@ -34,23 +32,54 @@ export async function probeForgeStoragePresign(): Promise<{
   }
 }
 
-export async function getPublicStorageHealth(): Promise<{
+export type PublicStorageHealth = {
+  backend: "s3" | "forge" | "none";
+  s3Configured: boolean;
   forgeConfigured: boolean;
+  /** Pronto para upload/download de arquivo */
+  storageReady: boolean;
+  /** Alias legado (smoke) */
   forgePresignOk: boolean;
   detail?: string;
-}> {
+};
+
+export async function getPublicStorageHealth(): Promise<PublicStorageHealth> {
+  const s3Configured = isS3StorageConfigured();
   const forgeConfigured = isForgeStorageConfigured();
-  if (!forgeConfigured) {
+
+  if (s3Configured) {
+    const probe = await probeS3StorageBucket();
     return {
-      forgeConfigured: false,
-      forgePresignOk: false,
-      detail: "configure BUILT_IN_FORGE_API_URL e BUILT_IN_FORGE_API_KEY no Railway",
+      backend: "s3",
+      s3Configured: true,
+      forgeConfigured,
+      storageReady: probe.ok,
+      forgePresignOk: probe.ok,
+      detail: probe.ok ? undefined : probe.detail,
     };
   }
-  const probe = await probeForgeStoragePresign();
+
+  if (forgeConfigured) {
+    const probe = await probeForgeStoragePresign();
+    return {
+      backend: "forge",
+      s3Configured: false,
+      forgeConfigured: true,
+      storageReady: probe.ok,
+      forgePresignOk: probe.ok,
+      detail: probe.ok ? undefined : probe.detail,
+    };
+  }
+
   return {
-    forgeConfigured: true,
-    forgePresignOk: probe.ok,
-    detail: probe.ok ? undefined : probe.detail,
+    backend: "none",
+    s3Configured: false,
+    forgeConfigured: false,
+    storageReady: false,
+    forgePresignOk: false,
+    detail:
+      "configure STORAGE_S3_* (R2/S3) ou BUILT_IN_FORGE_* no Railway — ver docs/RAILWAY_STORAGE_EVENTOS.md",
   };
 }
+
+export { isStorageBackendConfigured };

@@ -1,34 +1,29 @@
-# Storage privado no Railway (anexos Eventos, relatórios, etc.)
+# Storage privado (R2/S3 recomendado) — anexos Eventos, relatórios
 
-**Credenciais não ficam no GitHub** — só em variáveis do serviço API no Railway (e no seu `.env` local). O código usa nomes legados `BUILT_IN_FORGE_*` do template; não é obrigatório ser Manus.
+**Credenciais não ficam no GitHub** — só no Railway (serviço API) e no `.env` local.
 
-Uploads (`addAnexoArquivo`, diagnósticos, PDFs) usam API **OpenAI-compatível + presign S3** via `server/storage.ts`. Sem as variáveis abaixo, links de anexo continuam funcionando; **arquivos** falham.
+## Opção A — Cloudflare R2 ou S3 (recomendado, sem Manus)
 
----
+No Railway → serviço API → **Variables**:
 
-## 1. Variáveis no serviço API (`afu-mobile-v2`)
+| Variável | Exemplo R2 |
+|----------|----------------|
+| `STORAGE_S3_BUCKET` | `afu-private` |
+| `STORAGE_S3_ACCESS_KEY_ID` | token R2 |
+| `STORAGE_S3_SECRET_ACCESS_KEY` | secret R2 |
+| `STORAGE_S3_ENDPOINT` | `https://<account_id>.r2.cloudflarestorage.com` |
+| `STORAGE_S3_REGION` | `auto` (opcional) |
 
-No [Railway](https://railway.app) → projeto → serviço da API → **Variables**:
+Crie o bucket no Cloudflare R2, gere API token com leitura/escrita no bucket. Redeploy da API.
 
-| Variável | Valor |
-|----------|--------|
-| `BUILT_IN_FORGE_API_URL` | URL base de API com rotas `v1/storage/presign/*` e (opcional) `v1/chat/completions` |
-| `BUILT_IN_FORGE_API_KEY` | Bearer token dessa API |
+Se **S3** estiver configurado, ele tem **prioridade** sobre Forge legado.
 
-Já obrigatórias no mesmo serviço: `DATABASE_URL`, `JWT_SECRET`.
+## Opção B — Forge legado (`BUILT_IN_FORGE_*`)
 
-Referência geral: `docs/SEGURANCA_OPERACAO_SUPORTE.md` (§ variáveis críticas).
-
----
-
-## 2. Onde obter URL e chave
-
-- Qualquer provedor que exponha o mesmo contrato de presign do template (histórico Manus Forge), **ou** variáveis que você já tinha no Railway antes de remover Manus.
-- Se não usar storage na nuvem: deixe sem configurar — login, calendário e anexos **por URL** seguem normais; só upload de arquivo fica desligado até existir S3/R2 nativo no repo (backlog).
+Variáveis do template Manus (presign via API). Use só se já tiver endpoint compatível.
 
 ---
 
-## 3. Validar após redeploy
 
 ```bash
 curl -s https://afu-mobile-v2-production.up.railway.app/api/health | jq .
@@ -40,17 +35,19 @@ Esperado quando OK:
 {
   "ok": true,
   "storage": {
-    "forgeConfigured": true,
-    "forgePresignOk": true
+    "backend": "s3",
+    "s3Configured": true,
+    "storageReady": true
   }
 }
 ```
 
-| `forgeConfigured` | `forgePresignOk` | Significado |
-|-------------------|------------------|-------------|
-| `false` | `false` | Faltam `BUILT_IN_FORGE_*` no Railway |
-| `true` | `false` | Vars setadas, mas URL/chave inválida ou Forge indisponível (`storageHint` traz detalhe) |
-| `true` | `true` | Upload de arquivo deve funcionar |
+| `backend` | `storageReady` | Significado |
+|-----------|----------------|-------------|
+| `none` | `false` | Sem R2/S3 nem Forge |
+| `s3` | `true` | Upload/download de arquivo OK |
+| `s3` | `false` | Credencial/bucket inválidos — ver `storageHint` |
+| `forge` | `true`/`false` | Modo legado presign |
 
 Smoke completo:
 
@@ -71,5 +68,5 @@ Checklist manual: `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (Mais → Calend�
 ## 5. Troubleshooting
 
 - **502/503 no download** (`/manus-storage/…`): JWT/proxy — conferir `JWT_SECRET` e login; com Forge OK, download usa URL assinada S3.
-- **PRECONDITION_FAILED** no upload: mensagem explícita de Forge ausente (após deploy deste diagnóstico).
-- **500 “Falha ao armazenar”** com `forgePresignOk: true`: ver logs Railway `[calendario.addAnexoArquivo]` (PUT S3, DB `private_files`, etc.).
+- **PRECONDITION_FAILED** no upload: storage não configurado (`STORAGE_S3_*` ou Forge).
+- **500 “Falha ao armazenar”** com `storageReady: true`: logs `[calendario.addAnexoArquivo]`.

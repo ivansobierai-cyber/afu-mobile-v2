@@ -39,29 +39,33 @@ async function main() {
   const checks: { name: string; ok: boolean; detail?: string; optional?: boolean }[] = [];
 
   let storageHealth: {
+    backend?: string;
+    storageReady?: boolean;
     forgeConfigured?: boolean;
     forgePresignOk?: boolean;
+    s3Configured?: boolean;
     storageHint?: string;
   } = {};
   try {
     const healthResp = await fetch(`${API}/api/health`);
     const health = (await healthResp.json()) as {
-      storage?: {
-        forgeConfigured?: boolean;
-        forgePresignOk?: boolean;
-        storageHint?: string;
-      };
+      storage?: typeof storageHealth;
     };
     storageHealth = health.storage ?? {};
     checks.push({
-      name: "health storage forgeConfigured",
-      ok: typeof storageHealth.forgeConfigured === "boolean",
+      name: "health storage backend",
+      ok: typeof storageHealth.backend === "string",
       detail: JSON.stringify(storageHealth),
     });
-    if (storageHealth.forgeConfigured) {
+    if (storageHealth.storageReady) {
       checks.push({
-        name: "health storage forgePresignOk",
-        ok: storageHealth.forgePresignOk === true,
+        name: "health storageReady",
+        ok: true,
+      });
+    } else if (storageHealth.s3Configured || storageHealth.forgeConfigured) {
+      checks.push({
+        name: "health storageReady",
+        ok: false,
         detail: storageHealth.storageHint,
       });
     }
@@ -73,7 +77,7 @@ async function main() {
     });
   }
 
-  const fileUploadOptional = !storageHealth.forgePresignOk;
+  const fileUploadOptional = storageHealth.storageReady !== true;
 
   const login = await makeClient().auth.login.mutate({
     email: DEMO_EMAIL,

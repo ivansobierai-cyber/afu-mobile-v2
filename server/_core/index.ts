@@ -76,7 +76,10 @@ async function startServer() {
       ok: true,
       timestamp: Date.now(),
       storage: {
+        backend: storage.backend,
+        s3Configured: storage.s3Configured,
         forgeConfigured: storage.forgeConfigured,
+        storageReady: storage.storageReady,
         forgePresignOk: storage.forgePresignOk,
         ...(storage.detail ? { storageHint: storage.detail } : {}),
       },
