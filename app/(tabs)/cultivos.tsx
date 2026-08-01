@@ -11,6 +11,7 @@ import { trpc } from "@/lib/trpc";
 import { AreaValidationAlert } from "@/components/area-validation-alert";
 import { useAreaValidation } from "@/hooks/use-area-validation";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import { buildPropertyReturnHref } from "@/lib/propriedades/registrar-flow";
 
@@ -51,6 +52,7 @@ export default function CultivosScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
+  const { isOnline, pending: offlinePending } = useCoreOfflineSync();
   const {
     propriedadeId: propParam,
     safraId: safraParam,
@@ -246,7 +248,12 @@ export default function CultivosScreen() {
     const statusLabel = STATUS_LABELS[item.status ?? "em_andamento"] ?? "Em andamento";
     const propNome = propriedades.find((p) => p.id === item.propriedadeId)?.nome;
     return (
-      <TouchableOpacity style={styles.card} onPress={() => router.push(`/cultivos/${item.id}` as any)}>
+      <TouchableOpacity
+        style={styles.card}
+        onPress={() => router.push(`/cultivos/${item.id}` as any)}
+        accessibilityRole="button"
+        accessibilityLabel={`Cultivo ${item.nomeCultura}, ${statusLabel}`}
+      >
         <View style={styles.cardHeader}>
           <Text style={styles.cardTitle}>{item.nomeCultura}{item.variedade ? ` — ${item.variedade}` : ""}</Text>
           <View style={[styles.statusBadge, { backgroundColor: statusColor + "22" }]}>
@@ -272,10 +279,39 @@ export default function CultivosScreen() {
     <ScreenContainer>
       <View style={styles.header}>
         <Text style={styles.title}>Cultivos</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openNew}>
+        <TouchableOpacity
+          style={styles.addBtn}
+          onPress={openNew}
+          accessibilityRole="button"
+          accessibilityLabel="Adicionar cultivo"
+        >
           <IconSymbol name="plus" size={22} color="#fff" />
         </TouchableOpacity>
       </View>
+
+      {!isOnline || offlinePending > 0 ? (
+        <View
+          style={{
+            backgroundColor: "#D9770622",
+            paddingHorizontal: 16,
+            paddingVertical: 8,
+            borderBottomWidth: 1,
+            borderBottomColor: colors.border,
+          }}
+          accessibilityRole="summary"
+          accessibilityLabel={
+            !isOnline
+              ? "Modo offline. Alterações serão sincronizadas ao reconectar."
+              : `${offlinePending} alterações pendentes de sincronização`
+          }
+        >
+          <Text style={{ fontSize: 12, color: colors.foreground }}>
+            {!isOnline
+              ? "Offline — edições em cultivos entram na fila de sync."
+              : `Sync pendente: ${offlinePending} alteração(ões) na fila.`}
+          </Text>
+        </View>
+      ) : null}
 
       {isLoading ? (
         <View style={styles.emptyBox}>

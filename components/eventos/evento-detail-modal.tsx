@@ -54,6 +54,7 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const [anexoUrl, setAnexoUrl] = useState("");
   const [savingMeta, setSavingMeta] = useState(false);
   const [uploadingAnexo, setUploadingAnexo] = useState(false);
+  const [producaoColheita, setProducaoColheita] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const eventoId = item?.id;
@@ -65,6 +66,7 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
     setComentario("");
     setAnexoNome("");
     setAnexoUrl("");
+    setProducaoColheita("");
   }, [item, visible]);
 
   const { data: comentarios = [], refetch: refetchComentarios } =
@@ -272,6 +274,57 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
             ) : null}
             {savingMeta ? <ActivityIndicator size="small" color={MODULE_COLORS.eventos} /> : null}
           </View>
+
+          {item.tipoAtividade === "colheita" && item.culturaId ? (
+            <View style={{ marginBottom: 8 }}>
+              <Text style={[styles.section, { color: colors.foreground, marginTop: 0 }]}>
+                Produção colhida
+              </Text>
+              <TextInput
+                style={[
+                  styles.input,
+                  { color: colors.foreground, borderColor: colors.border, backgroundColor: colors.surface },
+                ]}
+                value={producaoColheita}
+                onChangeText={setProducaoColheita}
+                placeholder="Ex.: 4500 (kg total)"
+                placeholderTextColor={colors.muted}
+                keyboardType="decimal-pad"
+                accessibilityLabel="Produção colhida em quilogramas"
+              />
+              {item.status !== "concluido" ? (
+                <TouchableOpacity
+                  onPress={async () => {
+                    const n = Number(String(producaoColheita).replace(",", "."));
+                    if (!Number.isFinite(n) || n <= 0) {
+                      Alert.alert("Atenção", "Informe a produção colhida (número maior que zero).");
+                      return;
+                    }
+                    try {
+                      await updateMut.mutateAsync({
+                        id: item.id,
+                        data: {
+                          status: "concluido",
+                          producaoColheitaKg: n,
+                        },
+                      });
+                      await utils.coreData.calendario.list.invalidate();
+                      await utils.coreData.cultivos.list.invalidate();
+                      onSaved?.();
+                      Alert.alert("Colheita registrada", "Produção sincronizada com o cultivo.");
+                    } catch (e: unknown) {
+                      Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao concluir colheita.");
+                    }
+                  }}
+                  style={[styles.addBtn, { backgroundColor: MODULE_COLORS.eventos, alignSelf: "flex-start" }]}
+                >
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>Concluir colheita</Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={{ fontSize: 12, color: colors.muted }}>Evento concluído — produção já registrada no cultivo.</Text>
+              )}
+            </View>
+          ) : null}
 
           {/* Etiquetas */}
           <Text style={[styles.section, { color: colors.foreground }]}>Etiquetas</Text>

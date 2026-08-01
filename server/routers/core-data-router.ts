@@ -54,6 +54,8 @@ import {
   listPropriedadesInTenant,
   getProdutorIdForTenant,
 } from "../tenant-access";
+import { shouldSyncProducaoColheita } from "../../lib/eventos/produtividade-colheita";
+import { syncCultivoProducaoFromColheita } from "../eventos/sync-producao-colheita";
 
 // ─── Schemas de input ─────────────────────────────────────────────────────────
 const propriedadeInput = z.object({
@@ -837,7 +839,17 @@ const calendarioRouter = router({
     }),
 
   update: orgPermissionProcedure("operations.write")
-    .input(z.object({ id: z.number().int().positive(), data: eventoInput.partial() }))
+    .input(
+      z.object({
+        id: z.number().int().positive(),
+        data: eventoInput
+          .partial()
+          .extend({
+            /** Ao concluir evento de colheita, grava produção no cultivo vinculado. */
+            producaoColheitaKg: z.number().min(0).optional(),
+          }),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       const atual = await requireEventoInTenant(tenant, input.id);
@@ -855,22 +867,40 @@ const calendarioRouter = router({
           input.data.safraId,
         );
       }
-      const { etiquetas, checklist, ...restData } = input.data;
+      const { etiquetas, checklist, producaoColheitaKg, ...restData } = input.data;
+      const checklistSerialized =
+        checklist !== undefined ? serializeChecklist(checklist) : undefined;
       await updateEvento(
         input.id,
         {
           ...restData,
           etiquetas: etiquetas !== undefined ? serializeEtiquetas(etiquetas) : undefined,
-          checklistJson: checklist !== undefined ? serializeChecklist(checklist) : undefined,
+          checklistJson: checklistSerialized,
           dataProgramada: input.data.dataProgramada ? new Date(input.data.dataProgramada) : undefined,
         } as any,
         tenant.organizationId,
       );
 
-      /** Etapa 4 — ao concluir evento recorrente, materializa a próxima ocorrência. */
-      let nextEventId: number | null = null;
       const becomingDone =
         input.data.status === "concluido" && atual.status !== "concluido";
+      const tipoAtividade = input.data.tipoAtividade ?? atual.tipoAtividade;
+      if (
+        shouldSyncProducaoColheita(tipoAtividade, becomingDone) &&
+        atual.culturaId
+      ) {
+        await syncCultivoProducaoFromColheita({
+          organizationId: tenant.organizationId,
+          culturaId: atual.culturaId,
+          explicitKg: producaoColheitaKg,
+          titulo: input.data.titulo ?? atual.titulo,
+          descricao: input.data.descricao ?? atual.descricao ?? null,
+          checklistJson:
+            checklistSerialized ?? (atual as { checklistJson?: string | null }).checklistJson ?? null,
+        });
+      }
+
+      /** Etapa 4 — ao concluir evento recorrente, materializa a próxima ocorrência. */
+      let nextEventId: number | null = null;
       if (becomingDone && atual.recorrencia && atual.recorrencia !== "nenhuma") {
         const { nextOccurrenceDate } = await import("../../lib/eventos/recurrence");
         const nextDate = nextOccurrenceDate(atual.dataProgramada, atual.recorrencia);

@@ -389,6 +389,8 @@ export const tarefasRouter = router({
         clientMutationId: z.string().min(8).max(64).optional(),
         deviceId: z.string().max(80).optional(),
         consumos: consumosInput,
+        /** Colheita — produção real no cultivo vinculado ao concluir. */
+        producaoColheitaKg: z.number().min(0).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -519,6 +521,17 @@ export const tarefasRouter = router({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: e?.message ?? "Falha ao consumir estoque da operação",
+          });
+        }
+
+        if (tarefa.tipoOperacao === "colheita" && tarefa.culturaId) {
+          const { syncCultivoProducaoFromColheita } = await import("../eventos/sync-producao-colheita");
+          const notas = [input.notasApontamento, tarefa.instrucoes].filter(Boolean).join(" — ");
+          await syncCultivoProducaoFromColheita({
+            organizationId: tenant.organizationId,
+            culturaId: tarefa.culturaId,
+            explicitKg: input.producaoColheitaKg,
+            descricao: notas || null,
           });
         }
       }
