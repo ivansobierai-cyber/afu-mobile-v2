@@ -1,8 +1,9 @@
 import {
   GetObjectCommand,
-  HeadBucketCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
+  S3ServiceException,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -77,11 +78,13 @@ export function getS3StorageConfig(): S3StorageConfig | null {
     "R2_SECRET_ACCESS_KEY",
   );
   if (!bucket || !accessKeyId || !secretAccessKey) return null;
-  const endpoint = firstEnv(
-    "STORAGE_S3_ENDPOINT",
-    "AWS_ENDPOINT_URL",
-    "S3_ENDPOINT",
-    "R2_ENDPOINT",
+  const endpoint = normalizeEndpoint(
+    firstEnv(
+      "STORAGE_S3_ENDPOINT",
+      "AWS_ENDPOINT_URL",
+      "S3_ENDPOINT",
+      "R2_ENDPOINT",
+    ),
   );
   return {
     bucket,
@@ -89,15 +92,35 @@ export function getS3StorageConfig(): S3StorageConfig | null {
     endpoint: endpoint || undefined,
     accessKeyId,
     secretAccessKey,
-    forcePathStyle:
-      process.env.STORAGE_S3_FORCE_PATH_STYLE === "1" ||
-      process.env.STORAGE_S3_FORCE_PATH_STYLE === "true" ||
-      Boolean(endpoint),
+    forcePathStyle: resolveForcePathStyle(endpoint),
   };
 }
 
 export function isS3StorageConfigured(): boolean {
   return getS3StorageConfig() !== null;
+}
+
+function normalizeEndpoint(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  return url.trim().replace(/\/+$/, "");
+}
+
+function resolveForcePathStyle(endpoint?: string): boolean {
+  const raw = process.env.STORAGE_S3_FORCE_PATH_STYLE?.trim().toLowerCase();
+  if (raw === "1" || raw === "true") return true;
+  if (raw === "0" || raw === "false") return false;
+  // R2 S3 API: virtual-hosted style (padrão Cloudflare)
+  if (endpoint?.includes("r2.cloudflarestorage.com")) return false;
+  return Boolean(endpoint);
+}
+
+function formatS3Error(err: unknown): string {
+  if (err instanceof S3ServiceException) {
+    const http = err.$metadata.httpStatusCode;
+    return `${err.name}: ${err.message}${http ? ` (HTTP ${http})` : ""}`;
+  }
+  if (err instanceof Error) return err.message;
+  return String(err);
 }
 
 function createS3Client(cfg: S3StorageConfig): S3Client {
@@ -146,14 +169,20 @@ export async function s3GetSignedDownloadUrl(key: string, expiresInSec = 300): P
 export async function probeS3StorageBucket(): Promise<{ ok: boolean; detail?: string }> {
   const cfg = getS3StorageConfig();
   if (!cfg) return { ok: false, detail: "STORAGE_S3_* ausentes" };
-  try {
-    const client = createS3Client(cfg);
-    await client.send(new HeadBucketCommand({ Bucket: cfg.bucket }));
-    return { ok: true };
-  } catch (err) {
+  if (!cfg.endpoint) {
     return {
       ok: false,
-      detail: err instanceof Error ? err.message : String(err),
+      detail:
+        "STORAGE_S3_ENDPOINT ausente — use https://<ACCOUNT_ID>.r2.cloudflarestorage.com (não pub.dev/r2.dev)",
     };
+  }
+  try {
+    const client = createS3Client(cfg);
+    await client.send(
+      new ListObjectsV2Command({ Bucket: cfg.bucket, MaxKeys: 1 }),
+    );
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, detail: formatS3Error(err) };
   }
 }
