@@ -1,17 +1,12 @@
 {
   "suite": "railway-storage-probe",
-  "at": "2026-08-01T13:02:09.000Z",
+  "at": "2026-08-02T22:09:50.000Z",
   "api": "https://afu-mobile-v2-production.up.railway.app",
-  "decision": "CONFIGURAR_R2",
+  "decision": "AVANCAR",
   "storage": {
-    "backend": "none",
-    "s3EnvPresent": {
-      "bucket": false,
-      "accessKey": false,
-      "secret": false,
-      "endpoint": false
-    },
-    "storageReady": false
-  },
-  "note": "API responde mas nenhuma env de storage visível no processo — conferir serviço API (não Vercel) e nomes exatos em docs/RAILWAY_STORAGE_EVENTOS.md"
+    "backend": "s3",
+    "s3Configured": true,
+    "storageReady": true,
+    "forgePresignOk": true
+  }
 }

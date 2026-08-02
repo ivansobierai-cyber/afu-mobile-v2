@@ -1,6 +1,6 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-08-01  
+**Atualizado:** 2026-08-02  
 **Base:** `main` — Railway/Vercel  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
@@ -25,6 +25,7 @@
 | Assistente Eventos LLM + banner cultivos detalhe | PR [#29](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/29) |
 | Smoke API anexos Eventos | `npm run smoke:eventos-anexos`, `docs/evidencias/smoke-eventos-anexos-latest.json` |
 | Storage R2/S3 + health/probe (sem Manus) | PR [#31](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/31), `docs/RAILWAY_STORAGE_EVENTOS.md`, `npm run probe:storage` |
+| R2 produção + smoke anexos (upload/download) | `railway-storage-probe-latest.json`, `smoke-eventos-anexos-latest.json` (**AVANCAR**, 2026-08-02) |
 
 ---
 
@@ -50,6 +51,5 @@ Nenhum PR aberto. #31 mergeado; histórico #18–#30.
 
 ## Próximo passo sugerido
 
-1. **Railway:** variáveis `STORAGE_S3_*` (R2) → redeploy → `npm run probe:storage` e `npm run smoke:eventos-anexos`. Evidência atual: `docs/evidencias/railway-storage-probe-latest.json` (**CONFIGURAR_R2**).
-2. **Web:** checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após storage OK.
-3. Lint por módulo ao editar arquivos.
+1. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
+2. Lint por módulo ao editar arquivos.

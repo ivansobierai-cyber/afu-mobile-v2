@@ -1,20 +1,13 @@
 {
   "suite": "smoke-eventos-anexos",
-  "at": "2026-08-01T13:02:09.424Z",
+  "at": "2026-08-02T22:09:54.468Z",
   "api": "https://afu-mobile-v2-production.up.railway.app",
   "storage": {
-    "backend": "none",
-    "s3Configured": false,
+    "backend": "s3",
+    "s3Configured": true,
     "forgeConfigured": false,
-    "storageReady": false,
-    "forgePresignOk": false,
-    "s3EnvPresent": {
-      "bucket": false,
-      "accessKey": false,
-      "secret": false,
-      "endpoint": false
-    },
-    "storageHint": "configure STORAGE_S3_* (R2/S3) no serviço **API** Railway e redeploy — ver docs/RAILWAY_STORAGE_EVENTOS.md"
+    "storageReady": true,
+    "forgePresignOk": true
   },
   "eventoId": 8,
   "decision": "AVANCAR",
@@ -22,7 +15,11 @@
     {
       "name": "health storage backend",
       "ok": true,
-      "detail": "{\"backend\":\"none\",\"s3Configured\":false,\"forgeConfigured\":false,\"storageReady\":false,\"forgePresignOk\":false,\"s3EnvPresent\":{\"bucket\":false,\"accessKey\":false,\"secret\":false,\"endpoint\":false},\"storageHint\":\"configure STORAGE_S3_* (R2/S3) no serviço **API** Railway e redeploy — ver docs/RAILWAY_STORAGE_EVENTOS.md\"}"
+      "detail": "{\"backend\":\"s3\",\"s3Configured\":true,\"forgeConfigured\":false,\"storageReady\":true,\"forgePresignOk\":true}"
+    },
+    {
+      "name": "health storageReady",
+      "ok": true
     },
     {
       "name": "login",
@@ -42,18 +39,22 @@
     },
     {
       "name": "addAnexoArquivo",
-      "ok": false,
-      "optional": true,
-      "detail": "storage não pronto: Upload de arquivo indisponível: configure STORAGE_S3_* (R2/S3) ou BUILT_IN_FORGE_API_* no servidor."
+      "ok": true
     },
     {
       "name": "getAnexoDownloadUrl",
-      "ok": false,
-      "optional": true,
-      "detail": "pulado — sem arquivo"
+      "ok": true
+    },
+    {
+      "name": "download arquivo (GET)",
+      "ok": true
     },
     {
       "name": "deleteAnexo link",
+      "ok": true
+    },
+    {
+      "name": "deleteAnexo arquivo",
       "ok": true
     }
   ]
