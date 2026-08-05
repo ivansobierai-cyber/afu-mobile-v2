@@ -26,7 +26,7 @@ npm run db:up
 # Aguarde ~20s até o healthcheck ficar healthy (docker compose ps)
 
 # 4. Schema do banco
-npm run db:push
+npm run db:schema:prepare
 
 # 5. Dados demo (opcional)
 npm run seed

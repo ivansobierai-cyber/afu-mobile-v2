@@ -54,31 +54,12 @@ BOOT_PID=$!
 # garante que o listen subiu
 sleep 1
 
-echo "[api] Running database migrations..."
+echo "[api] Preparing database schema (migrate + supplemental, idempotent)..."
 if command -v timeout >/dev/null 2>&1; then
-  timeout 90 npx drizzle-kit migrate || echo "[api] WARN: drizzle-kit migrate failed or timed out"
+  timeout 300 npm run db:schema:prepare
 else
-  npx drizzle-kit migrate || echo "[api] WARN: drizzle-kit migrate failed"
+  npm run db:schema:prepare
 fi
-
-echo "[api] Applying sync/ai + safras + archive schema (idempotent)..."
-npm run db:sync-ai:apply || echo "[api] WARN: db:sync-ai:apply failed (non-fatal)"
-npm run db:safras:apply || echo "[api] WARN: db:safras:apply failed (non-fatal)"
-npm run db:archive:apply || echo "[api] WARN: db:archive:apply failed (non-fatal)"
-npm run db:tarefas-responsavel:apply || echo "[api] WARN: db:tarefas-responsavel:apply failed (non-fatal)"
-npm run db:maquinas:apply || echo "[api] WARN: db:maquinas:apply failed (non-fatal)"
-npm run db:estoque:apply || echo "[api] WARN: db:estoque:apply failed (non-fatal)"
-npm run db:centros-custo:apply || echo "[api] WARN: db:centros-custo:apply failed (non-fatal)"
-npm run db:financeiro:apply || echo "[api] WARN: db:financeiro:apply failed (non-fatal)"
-npm run db:maquinas-controle:apply || echo "[api] WARN: db:maquinas-controle:apply failed (non-fatal)"
-npm run db:equipe:apply || echo "[api] WARN: db:equipe:apply failed (non-fatal)"
-npm run db:cultivo-fase:apply || echo "[api] WARN: db:cultivo-fase:apply failed (non-fatal)"
-npm run db:estoque-custo:apply || echo "[api] WARN: db:estoque-custo:apply failed (non-fatal)"
-npm run db:producao-real:apply || echo "[api] WARN: db:producao-real:apply failed (non-fatal)"
-npm run db:eventos-filtros:apply || echo "[api] WARN: db:eventos-filtros:apply failed (non-fatal)"
-npm run db:eventos-tipos:apply || echo "[api] WARN: db:eventos-tipos:apply failed (non-fatal)"
-npm run db:eventos-automacoes:apply || echo "[api] WARN: db:eventos-automacoes:apply failed (non-fatal)"
-npm run db:eventos-produtividade:apply || echo "[api] WARN: db:eventos-produtividade:apply failed (non-fatal)"
 
 run_seeds() {
   echo "[api] Running demo seeds (background)..."
