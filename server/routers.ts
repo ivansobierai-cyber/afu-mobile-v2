@@ -57,6 +57,7 @@ const diagnosticoRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "diagnostics.write");
       if (input.propriedadeId || input.culturaId) {
         await assertRelatedIdsInTenant(tenant, {
           propriedadeId: input.propriedadeId,
@@ -117,6 +118,7 @@ const diagnosticoRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "property.read");
+      requireOrgPermission(tenant, "diagnostics.write");
       const {
         buildDiagnosticoPrompt,
         assertAiPropertyScope,
