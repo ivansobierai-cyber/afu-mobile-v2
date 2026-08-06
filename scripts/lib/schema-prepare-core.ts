@@ -100,6 +100,15 @@ async function verify0036Produtividade(conn: mysql.Connection): Promise<void> {
   }
 }
 
+async function verify0038OperacoesStatus(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "operacoes_agricolas_status_historico"))) {
+    throw new Error("0038_operacoes_status_ciclo: tabela operacoes_agricolas_status_historico ausente");
+  }
+  if (!(await columnExists(conn, "operacoes_agricolas", "statusRevision"))) {
+    throw new Error("0038_operacoes_status_ciclo: operacoes_agricolas.statusRevision ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -280,6 +289,12 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:operacoes:apply",
     required: true,
     verify: verify0037Operacoes,
+  },
+  {
+    tag: "0038_operacoes_status_ciclo",
+    npmScript: "db:operacoes-status:apply",
+    required: true,
+    verify: verify0038OperacoesStatus,
   },
 ];
 

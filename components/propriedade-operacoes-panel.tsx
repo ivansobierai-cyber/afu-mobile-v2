@@ -15,6 +15,7 @@ type Props = {
   culturaId?: number;
   readOnly?: boolean;
   canWriteOperations?: boolean;
+  canApproveOperations?: boolean;
   /** Abre modal de nova tarefa (+ Registrar) */
   openCreateTarefaNonce?: number;
   /** Abre modal de nova operação agrícola (+ Registrar) */
@@ -34,6 +35,7 @@ export function PropriedadeOperacoesPanel({
   culturaId,
   readOnly = false,
   canWriteOperations = false,
+  canApproveOperations = false,
   openCreateTarefaNonce = 0,
   openCreateOperacaoNonce = 0,
   onCreateTarefaOpened,
@@ -128,6 +130,7 @@ export function PropriedadeOperacoesPanel({
           safraId={safraId}
           readOnly={readOnly}
           canWriteOperations={canWriteOperations}
+          canApproveOperations={canApproveOperations}
           prefillCulturaId={culturaId}
           prefillTerrenoId={contextTerrenoId ?? undefined}
           openCreateNonce={openCreateOperacaoNonce}

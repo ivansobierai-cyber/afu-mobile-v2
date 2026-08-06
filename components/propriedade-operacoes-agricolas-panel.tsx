@@ -35,6 +35,7 @@ import {
   resolveContextualOperacaoCulturaId,
   shouldShowOperacoesEmptyState,
 } from "@/lib/operacoes";
+import { OperacaoAgricolaDetailModal } from "@/components/operacao-agricola-detail-modal";
 
 type Props = {
   propriedadeId: number;
@@ -43,16 +44,22 @@ type Props = {
   safraId?: number;
   readOnly?: boolean;
   canWriteOperations?: boolean;
+  canApproveOperations?: boolean;
   prefillCulturaId?: number;
   prefillTerrenoId?: number;
   openCreateNonce?: number;
   onCreateOpened?: () => void;
 };
 
-const STATUS_COLORS: Record<OperacaoStatusUi, string> = {
+const STATUS_COLORS: Record<string, string> = {
   planejada: "#6B7C6E",
+  liberada: "#5D4037",
+  reaberta: "#EF6C00",
   em_execucao: "#1565C0",
+  pausada: "#F9A825",
   concluida: "#2E7D32",
+  aprovada: "#1B5E20",
+  bloqueada: "#6A1B9A",
   cancelada: "#C62828",
 };
 
@@ -63,6 +70,7 @@ export function PropriedadeOperacoesAgricolasPanel({
   safraId,
   readOnly = false,
   canWriteOperations = false,
+  canApproveOperations = false,
   prefillCulturaId,
   prefillTerrenoId,
   openCreateNonce = 0,
@@ -84,6 +92,7 @@ export function PropriedadeOperacoesAgricolasPanel({
   const [modalOpen, setModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [highlightId, setHighlightId] = useState<number | null>(null);
+  const [detailOperacao, setDetailOperacao] = useState<OperacaoListItem | null>(null);
 
   const [titulo, setTitulo] = useState("");
   const [descricao, setDescricao] = useState("");
@@ -242,13 +251,18 @@ export function PropriedadeOperacoesAgricolasPanel({
     const statusColor = STATUS_COLORS[op.status] ?? colors.muted;
     const highlighted = highlightId === op.id;
     return (
-      <View
+      <TouchableOpacity
         key={op.id}
+        activeOpacity={0.85}
+        onPress={() => setDetailOperacao(op)}
+        accessibilityRole="button"
+        accessibilityLabel={`Abrir operação ${op.titulo}`}
+      >
+      <View
         style={[
           styles.card,
           highlighted ? { borderColor: colors.primary, borderWidth: 2 } : null,
         ]}
-        accessibilityLabel={`Operação ${op.titulo}`}
       >
         <View style={{ flexDirection: "row", justifyContent: "space-between", gap: 8 }}>
           <View style={{ flex: 1 }}>
@@ -285,6 +299,7 @@ export function PropriedadeOperacoesAgricolasPanel({
           </Text>
         ) : null}
       </View>
+      </TouchableOpacity>
     );
   };
 
@@ -644,6 +659,18 @@ export function PropriedadeOperacoesAgricolasPanel({
           </View>
         </View>
       </Modal>
+
+      {detailOperacao ? (
+        <OperacaoAgricolaDetailModal
+          operacao={detailOperacao}
+          visible
+          onClose={() => setDetailOperacao(null)}
+          propriedadeId={propriedadeId}
+          readOnly={readOnly}
+          canWriteOperations={canWriteOperations}
+          canApproveOperations={canApproveOperations}
+        />
+      ) : null}
     </View>
   );
 }

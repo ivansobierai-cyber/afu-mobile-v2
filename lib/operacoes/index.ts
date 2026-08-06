@@ -29,6 +29,20 @@ export {
 } from "./tipo-operacao-agricola";
 
 export {
+  OPERACAO_AGRICOLA_STATUS,
+  OPERACAO_AGRICOLA_STATUS_LABELS,
+  OPERACAO_AGRICOLA_STATUS_ORDER,
+  assertOperacaoAgricolaTransition,
+  canTransitionOperacaoAgricola,
+  filterOperacaoTransitionActionsByPermission,
+  listOperacaoTransitionActions,
+  operacaoTransitionRequiredPermission,
+  operacaoTransitionRequiresMotivo,
+  type OperacaoAgricolaStatus,
+  type OperacaoTransitionAction,
+} from "./operacao-agricola-status";
+
+export {
   OPERACAO_ORIGEM_LABELS,
   OPERACAO_STATUS_LABELS,
   OPERACAO_STATUS_VALUES,

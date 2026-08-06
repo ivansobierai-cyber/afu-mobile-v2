@@ -1,24 +1,22 @@
 /**
- * FASE 2F — regras puras de listagem/filtro/RBAC da UX de operações agrícolas.
+ * FASE 2F/2G — regras puras de listagem/filtro/RBAC da UX de operações agrícolas.
  */
 import type { TipoOperacaoAgricola } from "./tipo-operacao-agricola";
 import { OPERACAO_AGRICOLA_LABELS } from "./tipo-operacao-agricola";
+import {
+  OPERACAO_AGRICOLA_STATUS,
+  OPERACAO_AGRICOLA_STATUS_LABELS,
+  OPERACAO_AGRICOLA_STATUS_ORDER,
+  type OperacaoAgricolaStatus,
+} from "./operacao-agricola-status";
 
-export const OPERACAO_STATUS_VALUES = [
-  "planejada",
-  "em_execucao",
-  "concluida",
-  "cancelada",
-] as const;
+export const OPERACAO_STATUS_VALUES = OPERACAO_AGRICOLA_STATUS_ORDER;
 
-export type OperacaoStatusUi = (typeof OPERACAO_STATUS_VALUES)[number];
+export type OperacaoStatusUi = OperacaoAgricolaStatus;
 
-export const OPERACAO_STATUS_LABELS: Record<OperacaoStatusUi, string> = {
-  planejada: "Planejada",
-  em_execucao: "Em execução",
-  concluida: "Concluída",
-  cancelada: "Cancelada",
-};
+export const OPERACAO_STATUS_LABELS = OPERACAO_AGRICOLA_STATUS_LABELS;
+
+export { OPERACAO_AGRICOLA_STATUS };
 
 export const OPERACAO_ORIGEM_LABELS: Record<
   "manual" | "evento_calendario" | "tarefa",
@@ -43,6 +41,8 @@ export type OperacaoListItem = {
   titulo: string;
   descricao: string | null;
   status: OperacaoStatusUi;
+  statusRevision?: number;
+  statusBeforeBlocked?: OperacaoStatusUi | null;
   dataPrevista: Date | string;
   origem: "manual" | "evento_calendario" | "tarefa";
   eventoOrigemId?: number | null;
@@ -103,14 +103,12 @@ export function filterOperacoesAgricolas(
 export function groupOperacoesByStatus(
   items: OperacaoListItem[],
 ): Record<OperacaoStatusUi, OperacaoListItem[]> {
-  const base: Record<OperacaoStatusUi, OperacaoListItem[]> = {
-    planejada: [],
-    em_execucao: [],
-    concluida: [],
-    cancelada: [],
-  };
+  const base = {} as Record<OperacaoStatusUi, OperacaoListItem[]>;
+  for (const s of OPERACAO_AGRICOLA_STATUS) {
+    base[s] = [];
+  }
   for (const op of items) {
-    if (OPERACAO_STATUS_VALUES.includes(op.status)) {
+    if (OPERACAO_AGRICOLA_STATUS.includes(op.status)) {
       base[op.status].push(op);
     }
   }
