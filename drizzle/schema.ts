@@ -748,6 +748,64 @@ export type ApontamentoOperacao = typeof apontamentosOperacao.$inferSelect;
 export type InsertApontamentoOperacao = typeof apontamentosOperacao.$inferInsert;
 
 // ─────────────────────────────────────────────
+// TABELA: operacoes_agricolas (FASE 2E — atividade agrícola persistente)
+// Distinta de tarefa (trabalho atribuído) e apontamento (execução real).
+// ─────────────────────────────────────────────
+export const operacoesAgricolas = mysqlTable(
+  "operacoes_agricolas",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    safraId: int("safraId"),
+    terrenoId: int("terrenoId"),
+    culturaId: int("culturaId"),
+    tarefaId: int("tarefaId"),
+    eventoOrigemId: int("eventoOrigemId"),
+    tipoOperacao: mysqlEnum("tipoOperacao", [
+      "plantio",
+      "adubacao",
+      "irrigacao",
+      "pulverizacao",
+      "vistoria",
+      "analise",
+      "laboratorio",
+      "amostragem",
+      "monitoramento",
+      "colheita",
+      "manutencao",
+      "outro",
+    ]).notNull(),
+    titulo: varchar("titulo", { length: 200 }).notNull(),
+    descricao: text("descricao"),
+    status: mysqlEnum("status", [
+      "planejada",
+      "em_execucao",
+      "concluida",
+      "cancelada",
+    ])
+      .default("planejada")
+      .notNull(),
+    dataPrevista: timestamp("dataPrevista").notNull(),
+    createdByUserId: int("createdByUserId"),
+    origem: mysqlEnum("origem", ["manual", "evento_calendario", "tarefa"]).default("manual").notNull(),
+    tipoAtividadeLegado: varchar("tipoAtividadeLegado", { length: 40 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("operacoes_org_idx").on(t.organizationId),
+    index("operacoes_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    index("operacoes_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("operacoes_tarefa_idx").on(t.tarefaId),
+    uniqueIndex("operacoes_evento_origem_unique").on(t.eventoOrigemId),
+  ],
+);
+
+export type OperacaoAgricolaRow = typeof operacoesAgricolas.$inferSelect;
+export type InsertOperacaoAgricola = typeof operacoesAgricolas.$inferInsert;
+
+// ─────────────────────────────────────────────
 // TABELA: sensores (IoT)
 // ─────────────────────────────────────────────
 export const sensores = mysqlTable(

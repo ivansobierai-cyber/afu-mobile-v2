@@ -192,6 +192,16 @@ export async function requireEventoInTenant(tenant: TenantContext, id: number) {
   return createTenantDb(tenant.organizationId).requireEvento(id);
 }
 
+export async function requireOperacaoInTenant(tenant: TenantContext, id: number) {
+  const { getOperacaoById } = await import("./db-operacoes");
+  const row = await getOperacaoById(id, tenant.organizationId);
+  if (!row) {
+    await auditTenantDenied(tenant, "operacao_agricola", id, "cross_tenant_or_missing");
+    throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+  }
+  return row;
+}
+
 export async function requireDiagnosticoInTenant(tenant: TenantContext, id: number) {
   return createTenantDb(tenant.organizationId).requireDiagnostico(id);
 }

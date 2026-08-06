@@ -27,6 +27,7 @@ import {
   getDb,
 } from "../db";
 import { tarefasRouter } from "./tarefas-router";
+import { operacoesRouter } from "./operacoes-router";
 import { propriedadeExpansaoRouter } from "./propriedade-expansao-router";
 import { sendPushToUsuario } from "../services/push-delivery";
 import { culturas, calendarioCuidados, eventoComentarios, eventoAnexos } from "../../drizzle/schema";
@@ -1429,6 +1430,7 @@ export const coreDataRouter = router({
   cultivos: cultivosRouter,
   calendario: calendarioRouter,
   tarefas: tarefasRouter,
+  operacoes: operacoesRouter,
   dashboard: dashboardRouter,
   /** Etapas 4–10: alertas, geometria, ocorrências, estoque, custos, métricas */
   expansao: propriedadeExpansaoRouter,
