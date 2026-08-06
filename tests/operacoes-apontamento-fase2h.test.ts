@@ -64,8 +64,9 @@ async function toEmExecucao(fixture: TenantFixture, operacaoId: number) {
 }
 
 function minimalPayload(operacaoId: number, suffix = "") {
-  const inicio = new Date();
-  const fim = new Date(inicio.getTime() + 3_600_000);
+  // Segundos inteiros (UTC) evitam flutuação de ms / TZ no replay idempotente.
+  const inicio = new Date("2026-06-15T12:00:00.000Z");
+  const fim = new Date("2026-06-15T13:00:00.000Z");
   return {
     operacaoId,
     inicioReal: inicio.toISOString(),

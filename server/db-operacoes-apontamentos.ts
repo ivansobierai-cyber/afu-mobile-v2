@@ -308,9 +308,19 @@ export async function getApontamentoById(
   return detailed!;
 }
 
+function parseTimestamp(value: Date | string): Date {
+  if (value instanceof Date) return value;
+  // mysql2/drizzle às vezes devolve "YYYY-MM-DD HH:mm:ss" sem TZ — tratar como UTC.
+  const raw = value.trim();
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}/.test(raw)) {
+    return new Date(raw.replace(" ", "T") + "Z");
+  }
+  return new Date(raw);
+}
+
 function tsKey(value: Date | string | null | undefined): number | null {
   if (value == null) return null;
-  const d = typeof value === "string" ? new Date(value) : value;
+  const d = parseTimestamp(value);
   if (Number.isNaN(d.getTime())) return null;
   // MySQL TIMESTAMP costuma truncar ms — comparar em segundos.
   return Math.floor(d.getTime() / 1000);
@@ -319,12 +329,25 @@ function tsKey(value: Date | string | null | undefined): number | null {
 function numKey(value: number | string | null | undefined): string {
   if (value == null || value === "") return "";
   const n = typeof value === "number" ? value : Number(value);
-  if (Number.isNaN(n)) return String(value);
-  return String(n);
+  if (!Number.isFinite(n)) return "";
+  // DECIMAL(12,2) / leitura MySQL pode voltar "2.50" vs 2.5
+  return n.toFixed(3);
 }
 
 function strKey(value: string | null | undefined): string {
   return (value ?? "").trim();
+}
+
+function areaUnitKey(value: string | null | undefined): string {
+  return strKey(value) || "ha";
+}
+
+function sameTs(a: Date | string | null | undefined, b: Date | string | null | undefined): boolean {
+  const ka = tsKey(a);
+  const kb = tsKey(b);
+  if (ka == null && kb == null) return true;
+  if (ka == null || kb == null) return false;
+  return Math.abs(ka - kb) <= 1;
 }
 
 function insumosFingerprint(insumos: ApontamentoInsumoInput[] | undefined): string {
@@ -402,10 +425,10 @@ async function assertIdempotentCreateReplay(
   input: CreateApontamentoInput,
 ): Promise<void> {
   const sameCore =
-    tsKey(existing.inicioReal) === tsKey(input.inicioReal) &&
-    tsKey(existing.fimReal) === tsKey(input.fimReal ?? null) &&
+    sameTs(existing.inicioReal, input.inicioReal) &&
+    sameTs(existing.fimReal, input.fimReal ?? null) &&
     numKey(existing.areaExecutada) === numKey(input.areaExecutada ?? null) &&
-    strKey(existing.areaUnidade) === strKey(input.areaUnidade ?? "ha") &&
+    areaUnitKey(existing.areaUnidade) === areaUnitKey(input.areaUnidade) &&
     strKey(existing.equipeTexto) === strKey(input.equipeTexto) &&
     strKey(existing.implementoTexto) === strKey(input.implementoTexto) &&
     strKey(existing.observacoes) === strKey(input.observacoes) &&
