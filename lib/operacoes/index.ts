@@ -27,3 +27,21 @@ export {
   type OperacaoAgricola,
   type TipoOperacaoAgricola,
 } from "./tipo-operacao-agricola";
+
+export {
+  OPERACAO_ORIGEM_LABELS,
+  OPERACAO_STATUS_LABELS,
+  OPERACAO_STATUS_VALUES,
+  assertOperacoesPropriedadeScope,
+  canShowCreateOperacaoButton,
+  filterOperacoesAgricolas,
+  groupOperacoesByStatus,
+  historicalSafraMessage,
+  labelTipoOperacao,
+  resolveDefaultOperacoesViewMode,
+  toggleOperacoesViewMode,
+  type OperacaoListItem,
+  type OperacaoStatusUi,
+  type OperacoesClientFilters,
+  type OperacoesViewMode,
+} from "./operacoes-workspace-ui";

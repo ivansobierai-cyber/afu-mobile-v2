@@ -116,6 +116,7 @@ export function CultivoOperacoesTab({
       <PropriedadeOperacoesPanel
         propriedadeId={propriedadeId}
         terrenos={filtered.length ? filtered : terrenos}
+        cultivos={[{ id: culturaId, nomeCultura: "Cultivo atual", terrenoId: terrenoId ?? null }]}
         safraId={safraId ?? undefined}
         culturaId={culturaId}
         readOnly={!canWrite}

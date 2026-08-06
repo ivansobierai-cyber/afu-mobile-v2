@@ -30,7 +30,7 @@ type Props = {
   safraLabel?: string;
   safraOptions?: string[];
   onSelectSafra?: (label: string) => void;
-  onRegistrar: (action: "tarefa" | "ocorrencia" | "cultivo" | "talhao") => void;
+  onRegistrar: (action: "tarefa" | "operacao" | "ocorrencia" | "cultivo" | "talhao") => void;
   onAdmin: (action: "editar" | "exportar" | "arquivar" | "excluir") => void;
   onSafraAction?: (action: "reopen" | "close" | "goCurrent") => void;
   propriedadeNome: string;
@@ -277,9 +277,14 @@ export function PropriedadePanelMenus({
                 (
                   [
                     {
+                      id: "operacao" as const,
+                      label: "Nova operação agrícola",
+                      hint: "Atividade registrada na safra atual",
+                    },
+                    {
                       id: "tarefa" as const,
-                      label: "Nova tarefa / operação",
-                      hint: "Com propriedade e safra atuais",
+                      label: "Nova tarefa",
+                      hint: "Trabalho planejado e atribuído",
                     },
                     {
                       id: "ocorrencia" as const,

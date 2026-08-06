@@ -5,7 +5,7 @@
  */
 import type { PanelTab } from "@/lib/propriedades/property-workspace";
 
-export type RegistrarAction = "tarefa" | "ocorrencia" | "cultivo" | "talhao";
+export type RegistrarAction = "tarefa" | "operacao" | "ocorrencia" | "cultivo" | "talhao";
 
 export type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores";
 
@@ -28,6 +28,8 @@ export type PropertyReturnContext = {
 export function resolveRegistrarTarget(action: RegistrarAction): RegistrarTarget {
   switch (action) {
     case "tarefa":
+      return { tab: "operacoes", openCreate: true };
+    case "operacao":
       return { tab: "operacoes", openCreate: true };
     case "ocorrencia":
       return { tab: "mais", maisSection: "monitoramento", openCreate: true };
