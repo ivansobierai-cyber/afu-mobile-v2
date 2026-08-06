@@ -33,6 +33,28 @@ async function countApontamentos(): Promise<number> {
   return rows.length;
 }
 
+async function setTarefaDimensions(
+  tarefaId: number,
+  patch: { safraId?: number | null; terrenoId?: number | null; culturaId?: number | null },
+) {
+  const { getDb } = await import("../server/db");
+  const { tarefasOperacionais } = await import("../drizzle/schema");
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  await db.update(tarefasOperacionais).set(patch).where(eq(tarefasOperacionais.id, tarefaId));
+}
+
+async function createWritableSafra(fixture: TenantFixture, nome: string) {
+  const { createSafra } = await import("../server/db-safras");
+  return createSafra({
+    organizationId: fixture.organizationId,
+    propriedadeId: fixture.propriedadeId,
+    nome,
+    status: "ativa",
+    isDefault: false,
+  });
+}
+
 async function createEvento(fixture: TenantFixture, overrides?: { status?: string; tipo?: string }) {
   return fixture.caller.coreData.calendario.create({
     propriedadeId: fixture.propriedadeId,
@@ -146,12 +168,134 @@ describe.skipIf(!hasDb)("FASE 2E — operações persistência", () => {
     const opId = await a.caller.coreData.operacoes.create({
       propriedadeId: a.propriedadeId,
       tarefaId: a.tarefaId,
+      terrenoId: a.terrenoId,
+      culturaId: a.cultivoId,
       tipoOperacao: "manutencao",
       titulo: "Op com tarefa",
       dataPrevista: new Date().toISOString(),
     });
     const op = await a.caller.coreData.operacoes.get({ id: opId });
     expect(op.tarefaId).toBe(a.tarefaId);
+  });
+
+  it("6A — safra encerrada na tarefa bloqueia create sem safraId no payload", async () => {
+    const { createSafra } = await import("../server/db-safras");
+    const histId = await createSafra({
+      organizationId: a.organizationId,
+      propriedadeId: a.propriedadeId,
+      nome: "Safra 2E encerrada tarefa",
+      status: "encerrada",
+      isDefault: false,
+    });
+    const tarefaId = await a.caller.coreData.tarefas.create({
+      propriedadeId: a.propriedadeId,
+      terrenoId: a.terrenoId,
+      culturaId: a.cultivoId,
+      tipoOperacao: "monitoramento",
+      titulo: "Tarefa para lock safra",
+      dataPrevista: new Date().toISOString(),
+    });
+    await setTarefaDimensions(tarefaId, { safraId: histId });
+    await expect(
+      a.caller.coreData.operacoes.create({
+        propriedadeId: a.propriedadeId,
+        tarefaId,
+        tipoOperacao: "monitoramento",
+        titulo: "Bypass safra via tarefa",
+        dataPrevista: new Date().toISOString(),
+      }),
+    ).rejects.toBeInstanceOf(TRPCError);
+  });
+
+  it("6B — safra da tarefa incompatível com payload.safraId", async () => {
+    const safraTarefa = await createWritableSafra(a, `Safra tarefa ${Date.now()}`);
+    const safraPayload = await createWritableSafra(a, `Safra payload ${Date.now()}`);
+    const tarefaId = await a.caller.coreData.tarefas.create({
+      propriedadeId: a.propriedadeId,
+      safraId: safraTarefa,
+      terrenoId: a.terrenoId,
+      culturaId: a.cultivoId,
+      tipoOperacao: "adubacao",
+      titulo: "Tarefa safra A",
+      dataPrevista: new Date().toISOString(),
+    });
+    await expectTenantDenied(
+      a.caller.coreData.operacoes.create({
+        propriedadeId: a.propriedadeId,
+        tarefaId,
+        safraId: safraPayload,
+        tipoOperacao: "adubacao",
+        titulo: "Safra conflito",
+        dataPrevista: new Date().toISOString(),
+      }),
+    );
+  });
+
+  it("6C — terreno da tarefa incompatível com payload.terrenoId", async () => {
+    const outroTalhao = await a.caller.coreData.terrenos.create({
+      propriedadeId: a.propriedadeId,
+      nome: "Talhão op conflito",
+      area: 1,
+    });
+    await expectTenantDenied(
+      a.caller.coreData.operacoes.create({
+        propriedadeId: a.propriedadeId,
+        tarefaId: a.tarefaId,
+        terrenoId: outroTalhao,
+        tipoOperacao: "vistoria",
+        titulo: "Terreno conflito",
+        dataPrevista: new Date().toISOString(),
+      }),
+    );
+  });
+
+  it("6D — cultura da tarefa incompatível com payload.culturaId", async () => {
+    const outroTalhao = await a.caller.coreData.terrenos.create({
+      propriedadeId: a.propriedadeId,
+      nome: "Talhão cultivo isolado",
+      area: 1,
+    });
+    const outroCultivo = await a.caller.coreData.cultivos.create({
+      propriedadeId: a.propriedadeId,
+      terrenoId: outroTalhao,
+      nomeCultura: "Cultivo outro talhão",
+      status: "em_andamento",
+      areaPlantada: 1,
+    });
+    await expectTenantDenied(
+      a.caller.coreData.operacoes.create({
+        propriedadeId: a.propriedadeId,
+        tarefaId: a.tarefaId,
+        culturaId: outroCultivo,
+        tipoOperacao: "monitoramento",
+        titulo: "Cultura conflito",
+        dataPrevista: new Date().toISOString(),
+      }),
+    );
+  });
+
+  it("6F — herda dimensões da tarefa quando omitidas no payload", async () => {
+    const safraId = await createWritableSafra(a, `Safra herança ${Date.now()}`);
+    const tarefaId = await a.caller.coreData.tarefas.create({
+      propriedadeId: a.propriedadeId,
+      safraId,
+      terrenoId: a.terrenoId,
+      culturaId: a.cultivoId,
+      tipoOperacao: "irrigacao",
+      titulo: "Tarefa herança dims",
+      dataPrevista: new Date().toISOString(),
+    });
+    const opId = await a.caller.coreData.operacoes.create({
+      propriedadeId: a.propriedadeId,
+      tarefaId,
+      tipoOperacao: "irrigacao",
+      titulo: "Op herda contexto",
+      dataPrevista: new Date().toISOString(),
+    });
+    const op = await a.caller.coreData.operacoes.get({ id: opId });
+    expect(op.safraId).toBe(safraId);
+    expect(op.terrenoId).toBe(a.terrenoId);
+    expect(op.culturaId).toBe(a.cultivoId);
   });
 
   it("7–12 — promoteFromEvento", async () => {
@@ -231,6 +375,15 @@ describe.skipIf(!hasDb)("FASE 2E — operações persistência", () => {
         titulo: "Sem permissão",
         dataPrevista: new Date().toISOString(),
       }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await setOrgRole(a, "proprietario");
+  });
+
+  it("13 — auditor sem operations.write não promove evento", async () => {
+    const eventoId = await createEvento(a);
+    await setOrgRole(a, "auditor");
+    await expect(
+      a.caller.coreData.operacoes.promoteFromEvento({ eventoId }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
     await setOrgRole(a, "proprietario");
   });

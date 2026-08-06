@@ -16,6 +16,7 @@ import {
   requireTarefaInTenant,
   type TenantContext,
 } from "./tenant-access";
+import type { TarefaOperacional } from "../drizzle/schema";
 import { mapTipoAtividadeToOperacao } from "../lib/operacoes";
 
 export type CreateOperacaoInput = {
@@ -42,16 +43,54 @@ async function resolveSafraForWrite(
   return safraId;
 }
 
-async function validateTarefaLink(
+type EffectiveCreateDimensions = {
+  propriedadeId: number;
+  safraId?: number;
+  terrenoId?: number;
+  culturaId?: number;
+};
+
+function denyTarefaDimensionMismatch(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+}
+
+function mergeDimensionFromTarefa(
+  fromTarefa: number | null | undefined,
+  fromPayload: number | undefined,
+): number | undefined {
+  if (fromTarefa == null) return fromPayload;
+  if (fromPayload != null && fromPayload !== fromTarefa) denyTarefaDimensionMismatch();
+  return fromTarefa;
+}
+
+/**
+ * Carrega tarefa no tenant, valida propriedade e alinha/herda safra, terreno e cultura.
+ * Dimensões da tarefa prevalecem quando omitidas no payload; conflito explícito → negação.
+ */
+async function resolveEffectiveCreateDimensions(
   tenant: TenantContext,
-  tarefaId: number,
-  propriedadeId: number,
-) {
-  const tarefa = await requireTarefaInTenant(tenant, tarefaId);
-  if (tarefa.propriedadeId !== propriedadeId) {
-    throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+  input: CreateOperacaoInput,
+): Promise<EffectiveCreateDimensions> {
+  if (!input.tarefaId) {
+    return {
+      propriedadeId: input.propriedadeId,
+      safraId: input.safraId,
+      terrenoId: input.terrenoId,
+      culturaId: input.culturaId,
+    };
   }
-  return tarefa;
+
+  const tarefa: TarefaOperacional = await requireTarefaInTenant(tenant, input.tarefaId);
+  if (tarefa.propriedadeId !== input.propriedadeId) {
+    denyTarefaDimensionMismatch();
+  }
+
+  return {
+    propriedadeId: input.propriedadeId,
+    safraId: mergeDimensionFromTarefa(tarefa.safraId, input.safraId),
+    terrenoId: mergeDimensionFromTarefa(tarefa.terrenoId, input.terrenoId),
+    culturaId: mergeDimensionFromTarefa(tarefa.culturaId, input.culturaId),
+  };
 }
 
 export async function getOperacaoById(id: number, organizationId: number) {
@@ -106,26 +145,28 @@ export async function createOperacaoAgricola(
   tenant: TenantContext,
   input: CreateOperacaoInput,
 ): Promise<number> {
+  const effective = await resolveEffectiveCreateDimensions(tenant, input);
   await assertRelatedIdsInTenant(tenant, {
-    propriedadeId: input.propriedadeId,
-    terrenoId: input.terrenoId,
-    culturaId: input.culturaId,
-    safraId: input.safraId,
+    propriedadeId: effective.propriedadeId,
+    terrenoId: effective.terrenoId,
+    culturaId: effective.culturaId,
+    safraId: effective.safraId,
   });
-  const safraId = await resolveSafraForWrite(tenant, input.propriedadeId, input.safraId);
-  if (input.tarefaId) {
-    await validateTarefaLink(tenant, input.tarefaId, input.propriedadeId);
-  }
+  const safraId = await resolveSafraForWrite(
+    tenant,
+    effective.propriedadeId,
+    effective.safraId,
+  );
 
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 
   const result = await db.insert(operacoesAgricolas).values({
     organizationId: tenant.organizationId,
-    propriedadeId: input.propriedadeId,
+    propriedadeId: effective.propriedadeId,
     safraId: safraId ?? null,
-    terrenoId: input.terrenoId ?? null,
-    culturaId: input.culturaId ?? null,
+    terrenoId: effective.terrenoId ?? null,
+    culturaId: effective.culturaId ?? null,
     tarefaId: input.tarefaId ?? null,
     tipoOperacao: input.tipoOperacao,
     titulo: input.titulo,
