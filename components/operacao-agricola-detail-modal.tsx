@@ -76,6 +76,8 @@ export function OperacaoAgricolaDetailModal({
     return operacao;
   }, [operacao, operacaoQ.data]);
 
+  const operacaoServerReady = operacaoQ.isSuccess && operacaoQ.data != null;
+
   const historicoQ = trpc.coreData.operacoes.listStatusHistorico.useQuery(
     { operacaoId: operacao.id },
     { enabled: visible },
@@ -105,7 +107,7 @@ export function OperacaoAgricolaDetailModal({
       currentOperacao.status as OperacaoAgricolaStatus,
       ctx,
     );
-    if (readOnly) return [];
+    if (readOnly || !operacaoServerReady) return [];
     return filterOperacaoTransitionActionsByPermission(all, {
       canWrite: canWriteOperations,
       canApprove: canApproveOperations,
@@ -114,11 +116,16 @@ export function OperacaoAgricolaDetailModal({
     currentOperacao.status,
     currentOperacao.statusBeforeBlocked,
     readOnly,
+    operacaoServerReady,
     canWriteOperations,
     canApproveOperations,
   ]);
 
   const runTransition = async (to: OperacaoAgricolaStatus, motivoText?: string) => {
+    if (!operacaoServerReady) {
+      Alert.alert("Aguarde", "Carregando dados atualizados da operação…");
+      return;
+    }
     if (!pendingMutationId.current) {
       pendingMutationId.current = `ui-${operacao.id}-${to}-${crypto.randomUUID?.() ?? Date.now()}`;
     }
@@ -202,8 +209,8 @@ export function OperacaoAgricolaDetailModal({
               </Text>
             ) : null}
 
-            {operacaoQ.isFetching && saving ? (
-              <ActivityIndicator style={{ marginBottom: 8 }} />
+            {operacaoQ.isLoading && !operacaoServerReady ? (
+              <ActivityIndicator style={{ marginBottom: 12 }} />
             ) : null}
 
             {actions.length > 0 ? (
@@ -214,7 +221,7 @@ export function OperacaoAgricolaDetailModal({
                 {actions.map((a) => (
                   <TouchableOpacity
                     key={a.toStatus}
-                    disabled={saving}
+                    disabled={saving || !operacaoServerReady}
                     onPress={() => onActionPress(a.toStatus, a.destructive)}
                     style={[
                       styles.actionBtn,
