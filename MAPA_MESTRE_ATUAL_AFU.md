@@ -1,7 +1,7 @@
 # MAPA MESTRE ATUAL DO AFU
 
 **Status:** documento oficial de evolução (**aprovado** 2026-08-05)  
-**Regularização documental:** 2026-08-05 (autoridade FASE 0); **encerramento formal FASE 0:** 2026-08-06 (somente docs)
+**Regularização documental:** 2026-08-05 (autoridade FASE 0); **encerramento formal FASE 0:** 2026-08-06 (somente docs); **encerramento formal FASE 1:** 2026-08-06 (somente docs)
 **Fonte da verdade:** código + auditoria de rumo 2026-08-05 + homologação SUBFASE 0A + evidência SUBFASE 0B
 **Substitui, como ordem de execução:** planos auxiliares “Etapa N”, correções numeradas avulsas e checklists paralelos.  
 **Planos antigos** (`docs/PLANO_UNICO_PENDENCIAS.md`, `docs/PROPRIEDADES_*`, `docs/ETAPA_*`, `SUPERVISOR.md` Etapas 1–10, etc.) permanecem como **histórico / evidência**, não como sequência a seguir.
@@ -25,7 +25,7 @@ Cada capacidade transversal serve a espinha dorsal abaixo, com multi-tenant por 
 
 | Item | Valor |
 |------|--------|
-| `origin/main` (remoto) | `37a74ff6d59fb4dc64b08caffbda9878d040886c` (merge PR #34) |
+| `origin/main` (remoto) | `e63614eff509024874098ea121193f25e3151b0d` (encerramento formal FASE 0 / PR #35) |
 | Commit canônico Correção 1 / homologação 0A | `3aac437c03bf3eaf0636d8b415018fff074d9cee` (integrado via PR #32) |
 | Equivalência histórica `8d4ff2c` ↔ `3aac437` | Mesmo conteúdo (`git diff` sem diferenças); **não** são duas correções distintas |
 | PR #32 (Correção 1 / schema prepare) | **MERGED** — merge `67f93084bca30d687e91dd46a8e8065efa2c1fae` |
@@ -34,8 +34,11 @@ Cada capacidade transversal serve a espinha dorsal abaixo, com multi-tenant por 
 | SUBFASE 0A | **Concluída / homologada** — [`docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`](docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md) |
 | SUBFASE 0B | **Concluída / verificada** — [`docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md`](docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md) |
 | **FASE 0** | **CONCLUÍDA** (critérios §5 satisfeitos; zero P0 aberto em §7) |
+| **FASE 1** | **CONCLUÍDA** (critérios §5 satisfeitos; homologação UI 1A + gate 1B) — [`docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md`](docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md) |
+| CI encerramento FASE 1 | GitHub Actions run [31067233542](https://github.com/ivansobierai-cyber/afu-mobile-v2/actions/runs/31067233542) — job `validate`, `headSha` `e63614e`, **SUCCESS** |
+| Deploy homologado FASE 1A | GitHub Deployment **Production – afu-mobile-web** @ `e63614e` (`2026-08-06T03:07:59Z`) |
 | CI pós-merge #34 | GitHub Actions run [31065903370](https://github.com/ivansobierai-cyber/afu-mobile-v2/actions/runs/31065903370) — job `validate`, `headSha` `37a74ff`, **SUCCESS** |
-| Veredito consolidado | **ALINHADO COM CORREÇÕES — FASE 0 encerrada; próximo gate canônico: FASE 1** |
+| Veredito consolidado | **ALINHADO COM CORREÇÕES — FASE 1 encerrada; próximo gate canônico: FASE 2** |
 
 **Regra de leitura:** existência de arquivo/tabela/endpoint ≠ funcionalidade concluída.
 
@@ -108,11 +111,15 @@ A ordem **FASE 0→8** foi validada contra dependências reais do código audita
 
 ### FASE 1 — Núcleo cadastral
 
+**Status:** **CONCLUÍDA** (encerramento formal documental 2026-08-06).
+
 **Objetivo:** Organização → Propriedade → Talhão → Safra → Cultivo com IDs, escopo tenant e sem órfãos relevantes.
 
 **Dependência:** FASE 0 concluída.
 
-**Critério de conclusão:** fluxo API+UI de cadastro completo no aceite; isolamento cross-tenant; cultivos com safra/talhão no ambiente de teste.
+**Critério de conclusão:** fluxo API+UI de cadastro completo no aceite; isolamento cross-tenant; cultivos com safra/talhão no ambiente de teste — **atingido** (CI 31067233542; homologação UI FASE 1A).
+
+**Evidência:** [`docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md`](docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md). **Ressalva:** inventário operacional de órfãos — PASS PARCIAL / P1 (não reabre a fase).
 
 ---
 
@@ -241,14 +248,16 @@ FASE 8  Expansões
 2. ~~SUBFASE 0A homologação MySQL~~ — **feita** (aceite formal).
 3. ~~SUBFASE 0B — RBAC `diagnostics.write`~~ — **feita** (PR #34).
 4. ~~Merge PR #32 (Correção 1) em `main`~~ — **feito** (`67f9308`).
-5. **Próximo gate canônico (quando autorizado):** **FASE 1** — núcleo cadastral (Organização→…→Cultivo; ver §5 FASE 1). **Não** abrir FASE 4 antes.
+5. ~~FASE 1 — núcleo cadastral~~ — **concluída** (encerramento formal 2026-08-06; evidência `docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md`).
+
+**Próximo gate canônico (quando autorizado):** **FASE 2** — modelo operacional (ver §5 FASE 2). **Não** abrir FASE 4 antes.
 
 ---
 
 ## 12. Próxima ação quando autorizada
 
-**FASE 1 — Núcleo cadastral** conforme critérios em §5.
-**Não** repetir homologação MySQL da 0A sem nova ordem. FASE 0 está **concluída**; P0 da FASE 0 em §7 está **fechado**.
+**FASE 2 — Modelo operacional** conforme critérios em §5.
+**Não** repetir homologação MySQL da 0A sem nova ordem. FASE 0 e FASE 1 estão **concluídas**; P0 da FASE 0 em §7 está **fechado**.
 
 ---
 
