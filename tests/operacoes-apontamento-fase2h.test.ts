@@ -329,6 +329,29 @@ describe.skipIf(!hasDb)("FASE 2H — apontamentos server-side", () => {
     ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 
+  it("14b — replay com área divergente gera CONFLICT", async () => {
+    const id = await createOp(a, "IdemArea");
+    await toEmExecucao(a, id);
+    const mid = `area-${id}-${Date.now()}`;
+    const inicio = new Date();
+    await a.caller.coreData.operacoes.createApontamento({
+      operacaoId: id,
+      inicioReal: inicio.toISOString(),
+      areaExecutada: 1,
+      areaUnidade: "ha",
+      clientMutationId: mid,
+    });
+    await expect(
+      a.caller.coreData.operacoes.createApontamento({
+        operacaoId: id,
+        inicioReal: inicio.toISOString(),
+        areaExecutada: 9,
+        areaUnidade: "ha",
+        clientMutationId: mid,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  });
+
   it("15 — transição concluida sem apontamento mínimo é negada", async () => {
     const id = await createOp(a, "NoApt");
     await toEmExecucao(a, id);

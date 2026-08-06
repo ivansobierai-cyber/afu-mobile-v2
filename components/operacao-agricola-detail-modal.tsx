@@ -94,6 +94,15 @@ export function OperacaoAgricolaDetailModal({
   const [insumoDesc, setInsumoDesc] = useState("");
   const [insumoQtd, setInsumoQtd] = useState("");
   const [insumoUnidade, setInsumoUnidade] = useState("kg");
+  /** Insumos além do primeiro (preservados na edição para não apagar a coleção). */
+  const [insumosExtras, setInsumosExtras] = useState<
+    Array<{
+      estoqueItemId?: number | null;
+      descricao?: string | null;
+      quantidade: number;
+      unidade: string;
+    }>
+  >([]);
   const [evidenciaNome, setEvidenciaNome] = useState("");
   const [evidenciaUrl, setEvidenciaUrl] = useState("");
   const [savingApont, setSavingApont] = useState(false);
@@ -147,7 +156,6 @@ export function OperacaoAgricolaDetailModal({
 
   const createApontMut = trpc.coreData.operacoes.createApontamento.useMutation();
   const updateApontMut = trpc.coreData.operacoes.updateApontamento.useMutation();
-  const addEvidMut = trpc.coreData.operacoes.addApontamentoEvidencia.useMutation();
 
   const actions = useMemo(() => {
     const ctx = {
@@ -202,6 +210,7 @@ export function OperacaoAgricolaDetailModal({
     setInsumoDesc("");
     setInsumoQtd("");
     setInsumoUnidade("kg");
+    setInsumosExtras([]);
     setEvidenciaNome("");
     setEvidenciaUrl("");
     apontMutationId.current = null;
@@ -228,6 +237,14 @@ export function OperacaoAgricolaDetailModal({
     setInsumoDesc(firstInsumo?.descricao ?? "");
     setInsumoQtd(firstInsumo?.quantidade != null ? String(firstInsumo.quantidade) : "");
     setInsumoUnidade(firstInsumo?.unidade ?? "kg");
+    setInsumosExtras(
+      (a.insumos ?? []).slice(1).map((i) => ({
+        estoqueItemId: i.estoqueItemId,
+        descricao: i.descricao,
+        quantidade: Number(i.quantidade),
+        unidade: i.unidade,
+      })),
+    );
     setShowApontForm(true);
     apontMutationId.current = null;
   };
@@ -263,20 +280,29 @@ export function OperacaoAgricolaDetailModal({
       return;
     }
 
-    const insumos =
-      insumoDesc.trim() && insumoQtd.trim()
-        ? [
-            {
-              descricao: insumoDesc.trim(),
-              quantidade: Number(insumoQtd.replace(",", ".")),
-              unidade: insumoUnidade.trim() || "kg",
-            },
-          ]
-        : undefined;
-    if (insumos && (!(insumos[0].quantidade > 0) || Number.isNaN(insumos[0].quantidade))) {
+    const firstFilled = Boolean(insumoDesc.trim() && insumoQtd.trim());
+    const firstInsumo = firstFilled
+      ? {
+          descricao: insumoDesc.trim(),
+          quantidade: Number(insumoQtd.replace(",", ".")),
+          unidade: insumoUnidade.trim() || "kg",
+        }
+      : null;
+    if (firstInsumo && (!(firstInsumo.quantidade > 0) || Number.isNaN(firstInsumo.quantidade))) {
       Alert.alert("Atenção", "Quantidade de insumo deve ser maior que zero.");
       return;
     }
+
+    // Edição: sempre envia coleção completa (vazio = limpar; extras preservados).
+    // Criação: só envia se houver insumos.
+    const insumosForEdit = firstInsumo
+      ? [firstInsumo, ...insumosExtras]
+      : [...insumosExtras];
+    const insumosForCreate = firstInsumo ? [firstInsumo] : undefined;
+    const evidencias =
+      evidenciaNome.trim() && evidenciaUrl.trim()
+        ? [{ nome: evidenciaNome.trim(), url: evidenciaUrl.trim() }]
+        : undefined;
 
     setSavingApont(true);
     try {
@@ -293,13 +319,13 @@ export function OperacaoAgricolaDetailModal({
           condicoesObservadas: condicoes.trim() || null,
           problemasPausas: problemas.trim() || null,
           observacoes: observacoes.trim() || null,
-          insumos,
+          insumos: insumosForEdit,
         });
       } else {
         if (!apontMutationId.current) {
           apontMutationId.current = `apt-${operacao.id}-${crypto.randomUUID?.() ?? Date.now()}`;
         }
-        const created = await createApontMut.mutateAsync({
+        await createApontMut.mutateAsync({
           operacaoId: operacao.id,
           inicioReal: inicio.toISOString(),
           fimReal: fim ? fim.toISOString() : null,
@@ -310,21 +336,15 @@ export function OperacaoAgricolaDetailModal({
           condicoesObservadas: condicoes.trim() || null,
           problemasPausas: problemas.trim() || null,
           observacoes: observacoes.trim() || null,
-          insumos,
+          insumos: insumosForCreate,
+          evidencias,
           clientMutationId: apontMutationId.current,
         });
-        if (evidenciaNome.trim() && evidenciaUrl.trim()) {
-          await addEvidMut.mutateAsync({
-            apontamentoId: created.apontamentoId,
-            nome: evidenciaNome.trim(),
-            url: evidenciaUrl.trim(),
-          });
-        }
       }
       await refreshApontamentos();
       resetApontForm();
     } catch (e: unknown) {
-      apontMutationId.current = null;
+      // Mantém clientMutationId para retry idempotente (não gerar duplicata).
       const msg = e instanceof Error ? e.message : "Não foi possível salvar o apontamento.";
       Alert.alert("Erro", msg);
     } finally {

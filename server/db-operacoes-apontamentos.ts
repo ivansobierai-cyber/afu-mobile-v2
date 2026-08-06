@@ -316,17 +316,135 @@ function tsKey(value: Date | string | null | undefined): number | null {
   return Math.floor(d.getTime() / 1000);
 }
 
-function replayCreateResult(
+function numKey(value: number | string | null | undefined): string {
+  if (value == null || value === "") return "";
+  const n = typeof value === "number" ? value : Number(value);
+  if (Number.isNaN(n)) return String(value);
+  return String(n);
+}
+
+function strKey(value: string | null | undefined): string {
+  return (value ?? "").trim();
+}
+
+function insumosFingerprint(insumos: ApontamentoInsumoInput[] | undefined): string {
+  const list = (insumos ?? [])
+    .map((i) =>
+      [
+        i.estoqueItemId ?? "",
+        strKey(i.descricao),
+        numKey(i.quantidade),
+        strKey(i.unidade),
+      ].join("|"),
+    )
+    .sort();
+  return list.join(";");
+}
+
+function evidenciasFingerprint(evidencias: ApontamentoEvidenciaInput[] | undefined): string {
+  const list = (evidencias ?? [])
+    .map((e) => [strKey(e.nome), strKey(e.url), e.privateFileId ?? ""].join("|"))
+    .sort();
+  return list.join(";");
+}
+
+async function loadInsumosFingerprintForApontamento(
+  organizationId: number,
+  apontamentoId: number,
+): Promise<string> {
+  const db = await getDb();
+  if (!db) return "";
+  const rows = await db
+    .select()
+    .from(operacoesAgricolasApontamentoInsumos)
+    .where(
+      and(
+        eq(operacoesAgricolasApontamentoInsumos.organizationId, organizationId),
+        eq(operacoesAgricolasApontamentoInsumos.apontamentoId, apontamentoId),
+      ),
+    );
+  return insumosFingerprint(
+    rows.map((r) => ({
+      estoqueItemId: r.estoqueItemId,
+      descricao: r.descricao,
+      quantidade: Number(r.quantidade),
+      unidade: r.unidade,
+    })),
+  );
+}
+
+async function loadEvidenciasFingerprintForApontamento(
+  organizationId: number,
+  apontamentoId: number,
+): Promise<string> {
+  const db = await getDb();
+  if (!db) return "";
+  const rows = await db
+    .select()
+    .from(operacoesAgricolasApontamentoEvidencias)
+    .where(
+      and(
+        eq(operacoesAgricolasApontamentoEvidencias.organizationId, organizationId),
+        eq(operacoesAgricolasApontamentoEvidencias.apontamentoId, apontamentoId),
+      ),
+    );
+  return evidenciasFingerprint(
+    rows.map((r) => ({
+      nome: r.nome,
+      url: r.url,
+      privateFileId: r.privateFileId,
+    })),
+  );
+}
+
+async function assertIdempotentCreateReplay(
   existing: OperacaoApontamentoRow,
   input: CreateApontamentoInput,
-): void {
-  const sameInicio = tsKey(existing.inicioReal) === tsKey(input.inicioReal);
-  const sameFim = tsKey(existing.fimReal) === tsKey(input.fimReal ?? null);
-  if (!sameInicio || !sameFim) {
+): Promise<void> {
+  const sameCore =
+    tsKey(existing.inicioReal) === tsKey(input.inicioReal) &&
+    tsKey(existing.fimReal) === tsKey(input.fimReal ?? null) &&
+    numKey(existing.areaExecutada) === numKey(input.areaExecutada ?? null) &&
+    strKey(existing.areaUnidade) === strKey(input.areaUnidade ?? "ha") &&
+    strKey(existing.equipeTexto) === strKey(input.equipeTexto) &&
+    strKey(existing.implementoTexto) === strKey(input.implementoTexto) &&
+    strKey(existing.observacoes) === strKey(input.observacoes) &&
+    strKey(existing.condicoesObservadas) === strKey(input.condicoesObservadas) &&
+    strKey(existing.problemasPausas) === strKey(input.problemasPausas) &&
+    (existing.maquinaOperacionalId ?? null) === (input.maquinaOperacionalId ?? null) &&
+    (existing.resultadoImediato ?? "ok") === (input.resultadoImediato ?? "ok");
+
+  if (!sameCore) {
     throw new TRPCError({
       code: "CONFLICT",
       message: "clientMutationId já registrado com payload incompatível",
     });
+  }
+
+  if (input.insumos) {
+    const stored = await loadInsumosFingerprintForApontamento(
+      existing.organizationId,
+      existing.id,
+    );
+    if (stored !== insumosFingerprint(input.insumos)) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "clientMutationId já registrado com payload incompatível",
+      });
+    }
+  }
+
+  if (input.evidencias) {
+    const stored = await loadEvidenciasFingerprintForApontamento(
+      existing.organizationId,
+      existing.id,
+    );
+    if (stored !== evidenciasFingerprint(input.evidencias)) {
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "clientMutationId já registrado com payload incompatível",
+      });
+    }
   }
 }
 
@@ -370,7 +488,7 @@ export async function createApontamento(
       )
       .limit(1);
     if (existing[0]) {
-      replayCreateResult(existing[0], input);
+      await assertIdempotentCreateReplay(existing[0], input);
       return {
         apontamentoId: existing[0].id,
         revision: existing[0].revision ?? 0,
@@ -451,7 +569,7 @@ export async function createApontamento(
         )
         .limit(1);
       if (replay[0]) {
-        replayCreateResult(replay[0], input);
+        await assertIdempotentCreateReplay(replay[0], input);
         return {
           apontamentoId: replay[0].id,
           revision: replay[0].revision ?? 0,
