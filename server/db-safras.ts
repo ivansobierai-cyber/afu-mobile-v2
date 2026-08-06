@@ -180,6 +180,26 @@ export async function requireWritableSafraId(
 }
 
 /**
+ * Safra gravável para uma operação já persistida.
+ * Se `safraId` estiver ausente ou órfão (não pertence à propriedade no tenant),
+ * usa a safra padrão gravável — mesma política de `safraId` null no create.
+ */
+export async function resolveWritableSafraForOperacaoRow(
+  organizationId: number,
+  propriedadeId: number,
+  safraId: number | null | undefined,
+): Promise<Safra> {
+  if (safraId != null && safraId > 0) {
+    const row = await getSafraInProperty(organizationId, propriedadeId, safraId);
+    if (row) {
+      return requireWritableSafraInProperty(organizationId, propriedadeId, safraId);
+    }
+  }
+  const def = await ensureDefaultSafra({ organizationId, propriedadeId });
+  return requireWritableSafraInProperty(organizationId, propriedadeId, def.id);
+}
+
+/**
  * Encerra safra em transação.
  * Se era padrão, exige `nextDefaultSafraId` (outra safra da propriedade) ou
  * `allowNoDefault` explícito — nunca cria safra silenciosamente.

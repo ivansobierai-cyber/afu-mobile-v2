@@ -60,9 +60,13 @@ async function resolveWritableSafraForOperacao(
   tenant: TenantContext,
   op: OperacaoAgricolaRow,
 ): Promise<void> {
-  const { requireWritableSafraId, SAFRA_READ_ONLY } = await import("./db-safras");
+  const { resolveWritableSafraForOperacaoRow, SAFRA_READ_ONLY } = await import("./db-safras");
   try {
-    await requireWritableSafraId(tenant.organizationId, op.propriedadeId, op.safraId);
+    await resolveWritableSafraForOperacaoRow(
+      tenant.organizationId,
+      op.propriedadeId,
+      op.safraId,
+    );
   } catch (e) {
     if (e instanceof TRPCError && e.message.includes(SAFRA_READ_ONLY)) {
       throw new TRPCError({
@@ -161,6 +165,19 @@ export async function transitionOperacaoAgricolaStatus(
       code: "BAD_REQUEST",
       message: "Informe o motivo desta transição",
     });
+  }
+
+  // FASE 2H — nova conclusão exige apontamento mínimo válido (sem backfill histórico).
+  if (to === "concluida" && from !== "concluida") {
+    const { operacaoHasMinimalValidApontamento } = await import("./db-operacoes-apontamentos");
+    const ok = await operacaoHasMinimalValidApontamento(tenant.organizationId, op.id);
+    if (!ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "APONTAMENTO_REQUIRED: registre execução real (início e autoria) antes de concluir",
+      });
+    }
   }
 
   const { operacaoTransitionRequiredPermission } = await import(

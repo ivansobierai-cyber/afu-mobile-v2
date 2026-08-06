@@ -867,6 +867,93 @@ export const operacoesAgricolasStatusHistorico = mysqlTable(
 export type OperacaoStatusHistoricoRow = typeof operacoesAgricolasStatusHistorico.$inferSelect;
 
 // ─────────────────────────────────────────────
+// TABELA: operacoes_agricolas_apontamentos (FASE 2H — execução real)
+// Distinta de apontamentos_operacao (legado de tarefa).
+// Insumos aqui são consumo apontado — NÃO movimentam estoque.
+// ─────────────────────────────────────────────
+export const operacoesAgricolasApontamentos = mysqlTable(
+  "operacoes_agricolas_apontamentos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    safraId: int("safraId"),
+    operacaoAgricolaId: int("operacaoAgricolaId").notNull(),
+    talhaoId: int("talhaoId"),
+    inicioReal: timestamp("inicioReal").notNull(),
+    fimReal: timestamp("fimReal"),
+    areaExecutada: decimal("areaExecutada", { precision: 12, scale: 2 }),
+    areaUnidade: varchar("areaUnidade", { length: 16 }).default("ha"),
+    operadorUserId: int("operadorUserId"),
+    equipeTexto: varchar("equipeTexto", { length: 200 }),
+    maquinaOperacionalId: int("maquinaOperacionalId"),
+    implementoTexto: varchar("implementoTexto", { length: 200 }),
+    condicoesObservadas: text("condicoesObservadas"),
+    problemasPausas: text("problemasPausas"),
+    resultadoImediato: mysqlEnum("resultadoImediato", ["ok", "parcial", "problema"]).default("ok"),
+    observacoes: text("observacoes"),
+    revision: int("revision").default(0).notNull(),
+    clientMutationId: varchar("clientMutationId", { length: 64 }),
+    createdByUserId: int("createdByUserId"),
+    updatedByUserId: int("updatedByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("op_apont_org_idx").on(t.organizationId),
+    index("op_apont_operacao_idx").on(t.operacaoAgricolaId, t.createdAt),
+    index("op_apont_org_prop_idx").on(t.organizationId, t.propriedadeId),
+    uniqueIndex("op_apont_client_mutation_unique").on(t.operacaoAgricolaId, t.clientMutationId),
+  ],
+);
+
+export type OperacaoApontamentoRow = typeof operacoesAgricolasApontamentos.$inferSelect;
+export type InsertOperacaoApontamento = typeof operacoesAgricolasApontamentos.$inferInsert;
+
+export const operacoesAgricolasApontamentoInsumos = mysqlTable(
+  "operacoes_agricolas_apontamento_insumos",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    apontamentoId: int("apontamentoId").notNull(),
+    estoqueItemId: int("estoqueItemId"),
+    descricao: varchar("descricao", { length: 200 }),
+    quantidade: decimal("quantidade", { precision: 14, scale: 3 }).notNull(),
+    unidade: varchar("unidade", { length: 30 }).notNull(),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("op_apont_insumo_org_idx").on(t.organizationId),
+    index("op_apont_insumo_apont_idx").on(t.apontamentoId),
+  ],
+);
+
+export type OperacaoApontamentoInsumoRow = typeof operacoesAgricolasApontamentoInsumos.$inferSelect;
+
+export const operacoesAgricolasApontamentoEvidencias = mysqlTable(
+  "operacoes_agricolas_apontamento_evidencias",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    apontamentoId: int("apontamentoId").notNull(),
+    nome: varchar("nome", { length: 200 }).notNull(),
+    contentType: varchar("contentType", { length: 120 }),
+    url: text("url"),
+    privateFileId: int("privateFileId"),
+    createdByUserId: int("createdByUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("op_apont_evid_org_idx").on(t.organizationId),
+    index("op_apont_evid_apont_idx").on(t.apontamentoId),
+  ],
+);
+
+export type OperacaoApontamentoEvidenciaRow =
+  typeof operacoesAgricolasApontamentoEvidencias.$inferSelect;
+
+// ─────────────────────────────────────────────
 // TABELA: sensores (IoT)
 // ─────────────────────────────────────────────
 export const sensores = mysqlTable(

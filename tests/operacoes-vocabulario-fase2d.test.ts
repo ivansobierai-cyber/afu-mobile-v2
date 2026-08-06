@@ -92,8 +92,10 @@ describe("FASE 2D — vocabulário operacional", () => {
     expect(new Set(tabelas).size).toBeGreaterThanOrEqual(3);
     expect(getEntidadeOperacionalMeta("evento").tabelaPersistencia).toBe("calendario_cuidados");
     expect(getEntidadeOperacionalMeta("tarefa").tabelaPersistencia).toBe("tarefas_operacionais");
-    expect(getEntidadeOperacionalMeta("apontamento").tabelaPersistencia).toBe("apontamentos_operacao");
-    expect(getEntidadeOperacionalMeta("operacao").tabelaPersistencia).toBeNull();
+    expect(getEntidadeOperacionalMeta("apontamento").tabelaPersistencia).toBe(
+      "operacoes_agricolas_apontamentos",
+    );
+    expect(getEntidadeOperacionalMeta("operacao").tabelaPersistencia).toBe("operacoes_agricolas");
 
     const definicoes = ENTIDADE_OPERACIONAL.map((e) => ENTIDADE_OPERACIONAL_META[e].definicao);
     expect(new Set(definicoes).size).toBe(ENTIDADE_OPERACIONAL.length);
