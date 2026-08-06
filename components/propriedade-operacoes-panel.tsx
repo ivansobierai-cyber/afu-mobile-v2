@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { PropriedadeOperacoesAgricolasPanel } from "@/components/propriedade-operacoes-agricolas-panel";
 import { PropriedadeTarefasPanel } from "@/components/propriedade-tarefas-panel";
+import { resolveOperacoesPanelSectionForRegistrar } from "@/lib/operacoes";
 
 type Section = "operacoes" | "tarefas";
 
@@ -41,6 +42,18 @@ export function PropriedadeOperacoesPanel({
   const colors = useColors();
   const [section, setSection] = useState<Section>("operacoes");
 
+  useEffect(() => {
+    if (openCreateOperacaoNonce > 0) {
+      setSection(resolveOperacoesPanelSectionForRegistrar("operacao"));
+    }
+  }, [openCreateOperacaoNonce]);
+
+  useEffect(() => {
+    if (openCreateTarefaNonce > 0) {
+      setSection(resolveOperacoesPanelSectionForRegistrar("tarefa"));
+    }
+  }, [openCreateTarefaNonce]);
+
   const styles = StyleSheet.create({
     seg: {
       flexDirection: "row",
@@ -58,6 +71,11 @@ export function PropriedadeOperacoesPanel({
       paddingHorizontal: 8,
     },
   });
+
+  const contextTerrenoId =
+    culturaId != null
+      ? (cultivos.find((c) => c.id === culturaId)?.terrenoId ?? undefined)
+      : undefined;
 
   return (
     <View>
@@ -110,6 +128,8 @@ export function PropriedadeOperacoesPanel({
           safraId={safraId}
           readOnly={readOnly}
           canWriteOperations={canWriteOperations}
+          prefillCulturaId={culturaId}
+          prefillTerrenoId={contextTerrenoId ?? undefined}
           openCreateNonce={openCreateOperacaoNonce}
           onCreateOpened={onCreateOperacaoOpened}
         />

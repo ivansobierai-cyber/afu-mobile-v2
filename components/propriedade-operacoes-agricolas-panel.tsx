@@ -32,6 +32,8 @@ import {
   type OperacoesClientFilters,
   type OperacoesViewMode,
   resolveDefaultOperacoesViewMode,
+  resolveContextualOperacaoCulturaId,
+  shouldShowOperacoesEmptyState,
 } from "@/lib/operacoes";
 
 type Props = {
@@ -41,6 +43,8 @@ type Props = {
   safraId?: number;
   readOnly?: boolean;
   canWriteOperations?: boolean;
+  prefillCulturaId?: number;
+  prefillTerrenoId?: number;
   openCreateNonce?: number;
   onCreateOpened?: () => void;
 };
@@ -59,6 +63,8 @@ export function PropriedadeOperacoesAgricolasPanel({
   safraId,
   readOnly = false,
   canWriteOperations = false,
+  prefillCulturaId,
+  prefillTerrenoId,
   openCreateNonce = 0,
   onCreateOpened,
 }: Props) {
@@ -95,11 +101,27 @@ export function PropriedadeOperacoesAgricolasPanel({
 
   const canCreate = canShowCreateOperacaoButton({ readOnly, canWriteOperations });
 
+  const applyFormPrefill = () => {
+    setTerrenoId(prefillTerrenoId);
+    setCulturaId(prefillCulturaId);
+  };
+
+  const resetForm = () => {
+    setTitulo("");
+    setDescricao("");
+    setTipo("monitoramento");
+    setDataPrevista(new Date().toISOString().slice(0, 10));
+    setFormSafraId(safraId);
+    setTarefaId(undefined);
+    applyFormPrefill();
+  };
+
   useEffect(() => {
     if (!openCreateNonce || !canCreate) return;
+    applyFormPrefill();
     setModalOpen(true);
     onCreateOpened?.();
-  }, [openCreateNonce, canCreate, onCreateOpened]);
+  }, [openCreateNonce, canCreate, onCreateOpened, prefillCulturaId, prefillTerrenoId]);
 
   const {
     data: rawOps = [],
@@ -175,17 +197,6 @@ export function PropriedadeOperacoesAgricolasPanel({
     [colors, isNarrow],
   );
 
-  const resetForm = () => {
-    setTitulo("");
-    setDescricao("");
-    setTipo("monitoramento");
-    setDataPrevista(new Date().toISOString().slice(0, 10));
-    setFormSafraId(safraId);
-    setTerrenoId(undefined);
-    setCulturaId(undefined);
-    setTarefaId(undefined);
-  };
-
   const closeModal = () => {
     setModalOpen(false);
     resetForm();
@@ -198,11 +209,15 @@ export function PropriedadeOperacoesAgricolasPanel({
     }
     setSaving(true);
     try {
+      const culturaPayload = resolveContextualOperacaoCulturaId({
+        prefillCulturaId,
+        selectedCulturaId: culturaId,
+      });
       const id = await createMut.mutateAsync({
         propriedadeId,
         safraId: formSafraId,
         terrenoId,
-        culturaId,
+        culturaId: culturaPayload,
         tarefaId,
         tipoOperacao: tipo,
         titulo: titulo.trim(),
@@ -436,6 +451,7 @@ export function PropriedadeOperacoesAgricolasPanel({
         ))}
       </ScrollView>
 
+      {filtered.length === 0 ? (
         <ScreenState
           status="empty"
           compact

@@ -39,6 +39,7 @@ import {
   type CultivoWorkspaceTab,
 } from "@/lib/cultivos/cultivo-workspace";
 import { trpc } from "@/lib/trpc";
+import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
@@ -87,6 +88,9 @@ export default function CultivoDetailScreen() {
   );
 
   const { cacheInput, tenantReady } = useTenantQueryScope();
+  const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const activeRole = (sessionProp?.activeRole ?? null) as OrgRole | null;
+  const canWriteOperations = activeRole ? roleHasPermission(activeRole, "operations.write") : false;
   const { data: cultivos = [], isLoading, isError, refetch } = trpc.coreData.cultivos.list.useQuery(
     cacheInput,
     {
@@ -121,6 +125,17 @@ export default function CultivoDetailScreen() {
     },
   );
   const terrenosDaProp = terrenosDaPropRaw.map((t) => ({ id: t.id, nome: t.nome }));
+
+  const { data: safrasDaProp = [] } = trpc.coreData.expansao.safras.list.useQuery(
+    { propriedadeId: cultivo?.propriedadeId ?? 0 },
+    {
+      enabled: tenantReady && !!cultivo?.propriedadeId && tab === "operacoes",
+    },
+  );
+  const linkedSafra =
+    cultivo?.safraId != null ? safrasDaProp.find((s) => s.id === cultivo.safraId) : undefined;
+  const operacoesTabReadOnly =
+    linkedSafra?.status === "encerrada" || linkedSafra?.status === "arquivada";
 
   const advanceFase = async () => {
     if (!cultivo) return;
@@ -288,6 +303,8 @@ export default function CultivoDetailScreen() {
             terrenoId={cultivo.terrenoId}
             safraId={cultivo.safraId}
             terrenos={terrenosDaProp}
+            readOnly={operacoesTabReadOnly}
+            canWriteOperations={canWriteOperations}
           />
         )}
         {tab === "monitoramento" && (

@@ -34,6 +34,10 @@ import {
 import { getPrioridadeInfo, getTipoInfo } from "@/lib/eventos/constants";
 import { formatShortDate } from "@/lib/eventos/date-utils";
 import type { EventoItem } from "@/lib/eventos/types";
+import {
+  operacoesListByPropriedadeInvalidateInput,
+  resolvePromoteOperacaoUiId,
+} from "@/lib/operacoes";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 
 type Props = {
@@ -598,15 +602,21 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
                   if (!eventoId) return;
                   try {
                     const result = await promoteMut.mutateAsync({ eventoId });
+                    const operacaoId = resolvePromoteOperacaoUiId(result);
+                    if (item.propriedadeId) {
+                      await utils.coreData.operacoes.listByPropriedade.invalidate(
+                        operacoesListByPropriedadeInvalidateInput(item.propriedadeId),
+                      );
+                    }
                     if (result.alreadyExisted) {
                       Alert.alert(
                         "Operação existente",
-                        `Este evento já havia sido promovido (operação #${result.operacaoId}).`,
+                        `Este evento já havia sido promovido (operação #${operacaoId}).`,
                       );
                     } else {
                       Alert.alert(
                         "Operação criada",
-                        `Operação #${result.operacaoId} registrada como planejada.`,
+                        `Operação #${operacaoId} registrada como planejada.`,
                       );
                     }
                     onSaved?.();

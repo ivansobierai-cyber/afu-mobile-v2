@@ -143,3 +143,37 @@ export function assertOperacoesPropriedadeScope(
 ): OperacaoListItem[] {
   return items.filter((op) => op.propriedadeId === propriedadeId);
 }
+
+export function shouldShowOperacoesEmptyState(filteredCount: number): boolean {
+  return filteredCount === 0;
+}
+
+export function shouldRenderOperacoesListOrKanban(filteredCount: number): boolean {
+  return filteredCount > 0;
+}
+
+export type OperacoesPanelSection = "operacoes" | "tarefas";
+
+export function resolveOperacoesPanelSectionForRegistrar(
+  action: "tarefa" | "operacao",
+): OperacoesPanelSection {
+  return action === "tarefa" ? "tarefas" : "operacoes";
+}
+
+export function resolveContextualOperacaoCulturaId(opts: {
+  prefillCulturaId?: number;
+  selectedCulturaId?: number;
+}): number | undefined {
+  return opts.selectedCulturaId ?? opts.prefillCulturaId;
+}
+
+export function operacoesListByPropriedadeInvalidateInput(propriedadeId: number) {
+  return { propriedadeId };
+}
+
+export function resolvePromoteOperacaoUiId(result: {
+  operacaoId: number;
+  alreadyExisted: boolean;
+}): number {
+  return result.operacaoId;
+}

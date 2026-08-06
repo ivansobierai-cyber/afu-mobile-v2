@@ -10,6 +10,12 @@ import {
   labelTipoOperacao,
   resolveDefaultOperacoesViewMode,
   toggleOperacoesViewMode,
+  shouldShowOperacoesEmptyState,
+  shouldRenderOperacoesListOrKanban,
+  resolveOperacoesPanelSectionForRegistrar,
+  resolveContextualOperacaoCulturaId,
+  operacoesListByPropriedadeInvalidateInput,
+  resolvePromoteOperacaoUiId,
   type OperacaoListItem,
 } from "../lib/operacoes/operacoes-workspace-ui";
 import { roleHasPermission } from "../lib/security/org-roles";
@@ -112,5 +118,49 @@ describe("FASE 2F — operações UX", () => {
     const retry = { operacaoId: 42, alreadyExisted: true };
     expect(retry.operacaoId).toBe(first.operacaoId);
     expect(retry.alreadyExisted).toBe(true);
+    expect(resolvePromoteOperacaoUiId(retry)).toBe(42);
+  });
+
+  it("A — filtered vazio → estado vazio", () => {
+    expect(shouldShowOperacoesEmptyState(0)).toBe(true);
+    expect(shouldRenderOperacoesListOrKanban(0)).toBe(false);
+  });
+
+  it("B — filtros com resultado → lista/kanban", () => {
+    expect(shouldShowOperacoesEmptyState(2)).toBe(false);
+    expect(shouldRenderOperacoesListOrKanban(2)).toBe(true);
+  });
+
+  it("C — + Registrar Nova tarefa → segmento Tarefas", () => {
+    expect(resolveOperacoesPanelSectionForRegistrar("tarefa")).toBe("tarefas");
+  });
+
+  it("D — + Registrar Nova operação → segmento Operações agrícolas", () => {
+    expect(resolveOperacoesPanelSectionForRegistrar("operacao")).toBe("operacoes");
+  });
+
+  it("E — auditor no cultivo: sem operations.write", () => {
+    expect(canShowCreateOperacaoButton({ readOnly: false, canWriteOperations: false })).toBe(false);
+  });
+
+  it("F — operations.write: criação disponível na UI", () => {
+    expect(canShowCreateOperacaoButton({ readOnly: false, canWriteOperations: true })).toBe(true);
+  });
+
+  it("G — cultura contextual no create", () => {
+    expect(resolveContextualOperacaoCulturaId({ prefillCulturaId: 99 })).toBe(99);
+    expect(
+      resolveContextualOperacaoCulturaId({ prefillCulturaId: 99, selectedCulturaId: 100 }),
+    ).toBe(100);
+  });
+
+  it("H — promote invalida listByPropriedade", () => {
+    expect(operacoesListByPropriedadeInvalidateInput(42)).toEqual({ propriedadeId: 42 });
+  });
+
+  it("I — promote repetido converge no mesmo id", () => {
+    const a = resolvePromoteOperacaoUiId({ operacaoId: 7, alreadyExisted: false });
+    const b = resolvePromoteOperacaoUiId({ operacaoId: 7, alreadyExisted: true });
+    expect(a).toBe(b);
   });
 });
