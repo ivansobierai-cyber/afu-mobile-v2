@@ -697,6 +697,9 @@ export default function PropriedadeDetailScreen() {
   const canWriteOperations = activeRole
     ? roleHasPermission(activeRole, "operations.write")
     : false;
+  const canApproveOperations = activeRole
+    ? roleHasPermission(activeRole, "operations.approve")
+    : false;
   const canRegister = resolveCanRegister({
     mode: workspaceMode,
     canWriteProperty,
@@ -1229,6 +1232,7 @@ export default function PropriedadeDetailScreen() {
             safraId={activeSafraId ?? undefined}
             readOnly={isHistorical}
             canWriteOperations={canWriteOperations}
+            canApproveOperations={canApproveOperations}
             openCreateTarefaNonce={openTarefaNonce}
             openCreateOperacaoNonce={openOperacaoNonce}
           />

@@ -14,9 +14,14 @@ import {
   listOperacoesByPropriedade,
   promoteFromEvento,
 } from "../db-operacoes";
-import { TIPO_OPERACAO_AGRICOLA } from "../../lib/operacoes";
+import {
+  listOperacaoStatusHistorico,
+  transitionOperacaoAgricolaStatus,
+} from "../db-operacoes-transition";
+import { TIPO_OPERACAO_AGRICOLA, OPERACAO_AGRICOLA_STATUS } from "../../lib/operacoes";
 
 const tipoOperacaoSchema = z.enum(TIPO_OPERACAO_AGRICOLA);
+const operacaoStatusSchema = z.enum(OPERACAO_AGRICOLA_STATUS);
 
 const createInput = z.object({
   propriedadeId: z.number().int().positive(),
@@ -65,5 +70,29 @@ export const operacoesRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       return promoteFromEvento(tenant, input.eventoId);
+    }),
+
+  listStatusHistorico: organizationProcedure
+    .input(z.object({ operacaoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      return listOperacaoStatusHistorico(tenant, input.operacaoId);
+    }),
+
+  transitionStatus: orgPermissionProcedure("operations.write")
+    .input(
+      z.object({
+        operacaoId: z.number().int().positive(),
+        toStatus: operacaoStatusSchema,
+        motivo: z.string().max(2000).optional(),
+        expectedStatus: operacaoStatusSchema.optional(),
+        expectedRevision: z.number().int().min(0).optional(),
+        clientMutationId: z.string().min(8).max(64).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      return transitionOperacaoAgricolaStatus(tenant, input);
     }),
 });

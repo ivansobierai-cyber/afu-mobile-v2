@@ -780,12 +780,29 @@ export const operacoesAgricolas = mysqlTable(
     descricao: text("descricao"),
     status: mysqlEnum("status", [
       "planejada",
+      "liberada",
       "em_execucao",
+      "pausada",
       "concluida",
+      "aprovada",
       "cancelada",
+      "bloqueada",
+      "reaberta",
     ])
       .default("planejada")
       .notNull(),
+    statusRevision: int("statusRevision").default(0).notNull(),
+    statusBeforeBlocked: mysqlEnum("statusBeforeBlocked", [
+      "planejada",
+      "liberada",
+      "em_execucao",
+      "pausada",
+      "concluida",
+      "aprovada",
+      "cancelada",
+      "bloqueada",
+      "reaberta",
+    ]),
     dataPrevista: timestamp("dataPrevista").notNull(),
     createdByUserId: int("createdByUserId"),
     origem: mysqlEnum("origem", ["manual", "evento_calendario", "tarefa"]).default("manual").notNull(),
@@ -804,6 +821,50 @@ export const operacoesAgricolas = mysqlTable(
 
 export type OperacaoAgricolaRow = typeof operacoesAgricolas.$inferSelect;
 export type InsertOperacaoAgricola = typeof operacoesAgricolas.$inferInsert;
+
+export const operacoesAgricolasStatusHistorico = mysqlTable(
+  "operacoes_agricolas_status_historico",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    organizationId: int("organizationId").notNull(),
+    propriedadeId: int("propriedadeId").notNull(),
+    operacaoId: int("operacaoId").notNull(),
+    fromStatus: mysqlEnum("fromStatus", [
+      "planejada",
+      "liberada",
+      "em_execucao",
+      "pausada",
+      "concluida",
+      "aprovada",
+      "cancelada",
+      "bloqueada",
+      "reaberta",
+    ]).notNull(),
+    toStatus: mysqlEnum("toStatus", [
+      "planejada",
+      "liberada",
+      "em_execucao",
+      "pausada",
+      "concluida",
+      "aprovada",
+      "cancelada",
+      "bloqueada",
+      "reaberta",
+    ]).notNull(),
+    actorUserId: int("actorUserId"),
+    motivo: text("motivo"),
+    origem: varchar("origem", { length: 32 }).default("transition").notNull(),
+    clientMutationId: varchar("clientMutationId", { length: 64 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("operacoes_hist_org_idx").on(t.organizationId),
+    index("operacoes_hist_operacao_idx").on(t.operacaoId, t.createdAt),
+    uniqueIndex("operacoes_hist_client_mutation_unique").on(t.operacaoId, t.clientMutationId),
+  ],
+);
+
+export type OperacaoStatusHistoricoRow = typeof operacoesAgricolasStatusHistorico.$inferSelect;
 
 // ─────────────────────────────────────────────
 // TABELA: sensores (IoT)
