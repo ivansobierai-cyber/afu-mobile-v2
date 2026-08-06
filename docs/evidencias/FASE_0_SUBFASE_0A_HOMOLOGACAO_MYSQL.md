@@ -2,7 +2,7 @@
 
 **Data da homologação (sessão cloud):** 2026-08-05  
 **Escopo:** `db:schema:prepare` / `db:schema:verify` (Correção 1)  
-**PR:** [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32) (draft, **merge não autorizado**)  
+**PR:** [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32) — **MERGED** (`67f9308`; registro histórico da homologação pré-merge)
 **SHA canônico (remoto / PR / homologação):** `3aac437c03bf3eaf0636d8b415018fff074d9cee`  
 **SHA local equivalente em `main`:** `8d4ff2c82bc0a3408addb5bcce8fab4672ea61e7` — mesmo conteúdo (`git diff 3aac437 8d4ff2c` sem diferenças); **não** são duas correções distintas.
 
@@ -118,6 +118,9 @@ Simulação: `drizzle-kit migrate` + apenas `db:safras:apply` e `db:archive:appl
 
 **CORREÇÃO 1 HOMOLOGADA** (referência técnica **`3aac437`** / PR #32).
 
-- **SUBFASE 0B** (`diagnostics.write`): **não iniciada**.
-- **Merge da PR #32:** **não autorizado** neste estágio.
-- **Homologação MySQL:** **não repetir** até nova autorização.
+**Atualização pós-encerramento FASE 0 (2026-08-06):**
+
+- **PR #32:** **MERGED** em `main` (`67f9308`).
+- **SUBFASE 0B:** **concluída** — ver [`FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md`](FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md).
+- **FASE 0:** **concluída** — ver `MAPA_MESTRE_ATUAL_AFU.md` §5 e §7.
+- **Homologação MySQL (0A):** **não repetir** até nova autorização explícita.
