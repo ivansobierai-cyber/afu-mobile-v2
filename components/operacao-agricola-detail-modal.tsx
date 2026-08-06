@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
   View,
   Text,
@@ -31,7 +31,21 @@ type Props = {
   readOnly?: boolean;
   canWriteOperations?: boolean;
   canApproveOperations?: boolean;
+  onOperacaoUpdated?: (op: OperacaoListItem) => void;
 };
+
+function toListItem(base: OperacaoListItem, row: {
+  status: string;
+  statusRevision?: number | null;
+  statusBeforeBlocked?: string | null;
+}): OperacaoListItem {
+  return {
+    ...base,
+    status: row.status as OperacaoListItem["status"],
+    statusRevision: row.statusRevision ?? 0,
+    statusBeforeBlocked: (row.statusBeforeBlocked ?? null) as OperacaoAgricolaStatus | null,
+  };
+}
 
 export function OperacaoAgricolaDetailModal({
   operacao,
@@ -41,12 +55,26 @@ export function OperacaoAgricolaDetailModal({
   readOnly = false,
   canWriteOperations = false,
   canApproveOperations = false,
+  onOperacaoUpdated,
 }: Props) {
   const colors = useColors();
   const utils = trpc.useUtils();
   const [pendingTo, setPendingTo] = useState<OperacaoAgricolaStatus | null>(null);
   const [motivo, setMotivo] = useState("");
   const [saving, setSaving] = useState(false);
+  const pendingMutationId = useRef<string | null>(null);
+
+  const operacaoQ = trpc.coreData.operacoes.get.useQuery(
+    { id: operacao.id },
+    { enabled: visible },
+  );
+
+  const currentOperacao = useMemo(() => {
+    if (operacaoQ.data) {
+      return toListItem(operacao, operacaoQ.data);
+    }
+    return operacao;
+  }, [operacao, operacaoQ.data]);
 
   const historicoQ = trpc.coreData.operacoes.listStatusHistorico.useQuery(
     { operacaoId: operacao.id },
@@ -55,47 +83,57 @@ export function OperacaoAgricolaDetailModal({
 
   const transitionMut = trpc.coreData.operacoes.transitionStatus.useMutation({
     onSuccess: async () => {
-      await utils.coreData.operacoes.listByPropriedade.invalidate({
-        propriedadeId,
-      });
+      await utils.coreData.operacoes.listByPropriedade.invalidate({ propriedadeId });
+      const fresh = await utils.coreData.operacoes.get.fetch({ id: operacao.id });
+      const updated = toListItem(operacao, fresh);
+      onOperacaoUpdated?.(updated);
+      await utils.coreData.operacoes.get.setData({ id: operacao.id }, fresh);
       await utils.coreData.operacoes.listStatusHistorico.invalidate({
         operacaoId: operacao.id,
       });
       setPendingTo(null);
       setMotivo("");
+      pendingMutationId.current = null;
     },
   });
 
   const actions = useMemo(() => {
     const ctx = {
-      statusBeforeBlocked: (operacao.statusBeforeBlocked ?? null) as OperacaoAgricolaStatus | null,
+      statusBeforeBlocked: (currentOperacao.statusBeforeBlocked ?? null) as OperacaoAgricolaStatus | null,
     };
-    const all = listOperacaoTransitionActions(operacao.status as OperacaoAgricolaStatus, ctx);
+    const all = listOperacaoTransitionActions(
+      currentOperacao.status as OperacaoAgricolaStatus,
+      ctx,
+    );
     if (readOnly) return [];
     return filterOperacaoTransitionActionsByPermission(all, {
       canWrite: canWriteOperations,
       canApprove: canApproveOperations,
     });
   }, [
-    operacao.status,
-    operacao.statusBeforeBlocked,
+    currentOperacao.status,
+    currentOperacao.statusBeforeBlocked,
     readOnly,
     canWriteOperations,
     canApproveOperations,
   ]);
 
   const runTransition = async (to: OperacaoAgricolaStatus, motivoText?: string) => {
+    if (!pendingMutationId.current) {
+      pendingMutationId.current = `ui-${operacao.id}-${to}-${crypto.randomUUID?.() ?? Date.now()}`;
+    }
     setSaving(true);
     try {
       await transitionMut.mutateAsync({
         operacaoId: operacao.id,
         toStatus: to,
         motivo: motivoText,
-        expectedStatus: operacao.status as OperacaoAgricolaStatus,
-        expectedRevision: operacao.statusRevision,
-        clientMutationId: `ui-${operacao.id}-${to}-${Date.now()}`,
+        expectedStatus: currentOperacao.status as OperacaoAgricolaStatus,
+        expectedRevision: currentOperacao.statusRevision ?? 0,
+        clientMutationId: pendingMutationId.current,
       });
     } catch (e: unknown) {
+      pendingMutationId.current = null;
       const msg = e instanceof Error ? e.message : "Não foi possível alterar o status.";
       Alert.alert("Erro", msg);
     } finally {
@@ -104,6 +142,7 @@ export function OperacaoAgricolaDetailModal({
   };
 
   const onActionPress = (to: OperacaoAgricolaStatus, destructive?: boolean) => {
+    pendingMutationId.current = null;
     if (operacaoTransitionRequiresMotivo(to)) {
       setPendingTo(to);
       setMotivo("");
@@ -146,7 +185,7 @@ export function OperacaoAgricolaDetailModal({
         >
           <View style={{ flexDirection: "row", justifyContent: "space-between", marginBottom: 12 }}>
             <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1 }}>
-              {operacao.titulo}
+              {currentOperacao.titulo}
             </Text>
             <TouchableOpacity onPress={onClose} accessibilityRole="button" accessibilityLabel="Fechar">
               <IconSymbol name="xmark" size={22} color={colors.muted} />
@@ -154,13 +193,17 @@ export function OperacaoAgricolaDetailModal({
           </View>
           <ScrollView showsVerticalScrollIndicator={false}>
             <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 8 }}>
-              {labelTipoOperacao(operacao.tipoOperacao)} ·{" "}
-              {OPERACAO_STATUS_LABELS[operacao.status as OperacaoAgricolaStatus]}
+              {labelTipoOperacao(currentOperacao.tipoOperacao)} ·{" "}
+              {OPERACAO_STATUS_LABELS[currentOperacao.status as OperacaoAgricolaStatus]}
             </Text>
-            {operacao.descricao ? (
+            {currentOperacao.descricao ? (
               <Text style={{ fontSize: 14, color: colors.foreground, marginBottom: 12 }}>
-                {operacao.descricao}
+                {currentOperacao.descricao}
               </Text>
+            ) : null}
+
+            {operacaoQ.isFetching && saving ? (
+              <ActivityIndicator style={{ marginBottom: 8 }} />
             ) : null}
 
             {actions.length > 0 ? (

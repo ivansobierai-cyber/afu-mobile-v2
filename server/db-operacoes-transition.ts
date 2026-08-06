@@ -35,6 +35,27 @@ export type TransitionOperacaoResult = {
   idempotentReplay: boolean;
 };
 
+function buildIdempotentReplayResult(
+  row: { fromStatus: string; toStatus: string },
+  requestedTo: OperacaoAgricolaStatus,
+  current: OperacaoAgricolaRow,
+): TransitionOperacaoResult {
+  const storedTo = row.toStatus as OperacaoAgricolaStatus;
+  if (storedTo !== requestedTo) {
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: `clientMutationId já registrado para transição → ${storedTo}, não → ${requestedTo}`,
+    });
+  }
+  return {
+    operacaoId: current.id,
+    fromStatus: row.fromStatus as OperacaoAgricolaStatus,
+    toStatus: storedTo,
+    statusRevision: current.statusRevision ?? 0,
+    idempotentReplay: true,
+  };
+}
+
 async function resolveWritableSafraForOperacao(
   tenant: TenantContext,
   op: OperacaoAgricolaRow,
@@ -95,13 +116,7 @@ export async function transitionOperacaoAgricolaStatus(
       .limit(1);
     if (existing[0]) {
       const current = await requireOperacaoInTenant(tenant, input.operacaoId);
-      return {
-        operacaoId: current.id,
-        fromStatus: existing[0].fromStatus as OperacaoAgricolaStatus,
-        toStatus: existing[0].toStatus as OperacaoAgricolaStatus,
-        statusRevision: current.statusRevision ?? 0,
-        idempotentReplay: true,
-      };
+      return buildIdempotentReplayResult(existing[0], input.toStatus, current);
     }
   }
 
@@ -226,13 +241,7 @@ export async function transitionOperacaoAgricolaStatus(
         .limit(1);
       if (replay[0]) {
         const current = await requireOperacaoInTenant(tenant, input.operacaoId);
-        return {
-          operacaoId: current.id,
-          fromStatus: replay[0].fromStatus as OperacaoAgricolaStatus,
-          toStatus: replay[0].toStatus as OperacaoAgricolaStatus,
-          statusRevision: current.statusRevision ?? 0,
-          idempotentReplay: true,
-        };
+        return buildIdempotentReplayResult(replay[0], input.toStatus, current);
       }
     }
     throw e;

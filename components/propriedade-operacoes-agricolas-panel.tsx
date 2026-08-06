@@ -669,6 +669,7 @@ export function PropriedadeOperacoesAgricolasPanel({
           readOnly={readOnly}
           canWriteOperations={canWriteOperations}
           canApproveOperations={canApproveOperations}
+          onOperacaoUpdated={setDetailOperacao}
         />
       ) : null}
     </View>

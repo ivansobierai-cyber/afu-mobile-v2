@@ -196,6 +196,58 @@ describe.skipIf(!hasDb)("FASE 2G — transições server-side", () => {
     expect(hist.filter((h) => h.toStatus === "liberada")).toHaveLength(1);
   });
 
+  it("clientMutationId com toStatus divergente → CONFLICT", async () => {
+    const id = await createOp(a, "MidConflict");
+    const mid = `mid-conflict-${id}`;
+    await a.caller.coreData.operacoes.transitionStatus({
+      operacaoId: id,
+      toStatus: "liberada",
+      expectedStatus: "planejada",
+      expectedRevision: 0,
+      clientMutationId: mid,
+    });
+    await expect(
+      a.caller.coreData.operacoes.transitionStatus({
+        operacaoId: id,
+        toStatus: "cancelada",
+        motivo: "Tentativa errada",
+        expectedStatus: "liberada",
+        expectedRevision: 1,
+        clientMutationId: mid,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const hist = await a.caller.coreData.operacoes.listStatusHistorico({ operacaoId: id });
+    expect(hist).toHaveLength(1);
+  });
+
+  it("expectedRevision incorreto → CONFLICT", async () => {
+    const id = await createOp(a, "Rev");
+    await expect(
+      a.caller.coreData.operacoes.transitionStatus({
+        operacaoId: id,
+        toStatus: "liberada",
+        expectedStatus: "planejada",
+        expectedRevision: 99,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const op = await a.caller.coreData.operacoes.get({ id });
+    expect(op.status).toBe("planejada");
+    expect(await a.caller.coreData.operacoes.listStatusHistorico({ operacaoId: id })).toHaveLength(0);
+  });
+
+  it("transição inválida não grava histórico", async () => {
+    const id = await createOp(a, "Invalid");
+    await expect(
+      a.caller.coreData.operacoes.transitionStatus({
+        operacaoId: id,
+        toStatus: "concluida",
+        expectedStatus: "planejada",
+        expectedRevision: 0,
+      }),
+    ).rejects.toBeInstanceOf(TRPCError);
+    expect(await a.caller.coreData.operacoes.listStatusHistorico({ operacaoId: id })).toHaveLength(0);
+  });
+
   it("promoteFromEvento permanece planejada", async () => {
     const eventoId = await a.caller.coreData.calendario.create({
       propriedadeId: a.propriedadeId,
