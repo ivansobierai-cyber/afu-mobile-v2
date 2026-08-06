@@ -34,6 +34,11 @@ import {
 import { getPrioridadeInfo, getTipoInfo } from "@/lib/eventos/constants";
 import { formatShortDate } from "@/lib/eventos/date-utils";
 import type { EventoItem } from "@/lib/eventos/types";
+import {
+  operacoesListByPropriedadeInvalidateInput,
+  resolvePromoteOperacaoUiId,
+} from "@/lib/operacoes";
+import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 
 type Props = {
   visible: boolean;
@@ -87,6 +92,14 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const addAnexoArquivoMut = trpc.coreData.calendario.addAnexoArquivo.useMutation();
   const getAnexoDownloadMut = trpc.coreData.calendario.getAnexoDownloadUrl.useMutation();
   const deleteAnexoMut = trpc.coreData.calendario.deleteAnexo.useMutation();
+
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const activeRole = (session?.activeRole ?? null) as OrgRole | null;
+  const canPromoteOperacao =
+    activeRole != null &&
+    roleHasPermission(activeRole, "operations.write") &&
+    Boolean(item?.propriedadeId);
+  const promoteMut = trpc.coreData.operacoes.promoteFromEvento.useMutation();
 
   const progress = useMemo(() => checklistProgress(checklist), [checklist]);
   const tipo = getTipoInfo(item?.tipoAtividade);
@@ -574,6 +587,59 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
               <Text style={{ color: "#fff", fontWeight: "700" }}>Link</Text>
             </TouchableOpacity>
           </View>
+
+          {canPromoteOperacao ? (
+            <View style={{ marginTop: 16, marginBottom: 8 }}>
+              <Text style={[styles.section, { color: colors.foreground }]}>Operação agrícola</Text>
+              <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10, lineHeight: 18 }}>
+                Transforma este evento em uma operação planejada. O evento permanece na agenda; a
+                promoção não cria apontamento nem conclui execução.
+              </Text>
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel="Transformar em operação"
+                onPress={async () => {
+                  if (!eventoId) return;
+                  try {
+                    const result = await promoteMut.mutateAsync({ eventoId });
+                    const operacaoId = resolvePromoteOperacaoUiId(result);
+                    if (item.propriedadeId) {
+                      await utils.coreData.operacoes.listByPropriedade.invalidate(
+                        operacoesListByPropriedadeInvalidateInput(item.propriedadeId),
+                      );
+                    }
+                    if (result.alreadyExisted) {
+                      Alert.alert(
+                        "Operação existente",
+                        `Este evento já havia sido promovido (operação #${operacaoId}).`,
+                      );
+                    } else {
+                      Alert.alert(
+                        "Operação criada",
+                        `Operação #${operacaoId} registrada como planejada.`,
+                      );
+                    }
+                    onSaved?.();
+                  } catch (e: unknown) {
+                    Alert.alert(
+                      "Não foi possível promover",
+                      e instanceof Error ? e.message : "Erro desconhecido",
+                    );
+                  }
+                }}
+                disabled={promoteMut.isPending}
+                style={[styles.addBtn, { backgroundColor: MODULE_COLORS.eventos }]}
+              >
+                {promoteMut.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={{ color: "#fff", fontWeight: "700", textAlign: "center" }}>
+                    Transformar em operação
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          ) : null}
 
           <TouchableOpacity style={styles.closeBtn} onPress={onClose}>
             <Text style={{ color: colors.muted, fontWeight: "600" }}>Fechar</Text>

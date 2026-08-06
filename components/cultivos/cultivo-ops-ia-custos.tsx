@@ -85,7 +85,9 @@ type OpsProps = {
   terrenoId?: number | null;
   safraId?: number | null;
   terrenos: { id: number; nome: string }[];
-  canWrite?: boolean;
+  /** Safra histórica / somente consulta */
+  readOnly?: boolean;
+  canWriteOperations?: boolean;
 };
 
 /** Aba Operações contextuais (Etapa 8). */
@@ -95,7 +97,8 @@ export function CultivoOperacoesTab({
   terrenoId,
   safraId,
   terrenos,
-  canWrite = true,
+  readOnly = false,
+  canWriteOperations = false,
 }: OpsProps) {
   const colors = useColors();
   const filtered =
@@ -110,15 +113,18 @@ export function CultivoOperacoesTab({
         ]}
       >
         <Text style={{ fontSize: 13, color: colors.foreground }}>
-          Tarefas deste cultivo. Novas operações já saem com culturaId vinculado.
+          Operações e tarefas deste cultivo. Novas operações agrícolas usam o culturaId deste
+          contexto quando aplicável.
         </Text>
       </View>
       <PropriedadeOperacoesPanel
         propriedadeId={propriedadeId}
         terrenos={filtered.length ? filtered : terrenos}
+        cultivos={[{ id: culturaId, nomeCultura: "Cultivo atual", terrenoId: terrenoId ?? null }]}
         safraId={safraId ?? undefined}
         culturaId={culturaId}
-        readOnly={!canWrite}
+        readOnly={readOnly}
+        canWriteOperations={canWriteOperations && !readOnly}
       />
     </View>
   );

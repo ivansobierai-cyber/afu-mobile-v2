@@ -143,6 +143,7 @@ export default function PropriedadeDetailScreen() {
   const [maisSection, setMaisSection] = useState<MaisSection>("menu");
   const [menu, setMenu] = useState<"safra" | "registrar" | "admin" | null>(null);
   const [openTarefaNonce, setOpenTarefaNonce] = useState(0);
+  const [openOperacaoNonce, setOpenOperacaoNonce] = useState(0);
   const [openOcorrenciaNonce, setOpenOcorrenciaNonce] = useState(0);
   const [cultivoModalOpen, setCultivoModalOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
@@ -693,12 +694,13 @@ export default function PropriedadeDetailScreen() {
     filterComplete,
   });
   const isHistorical = workspaceMode === "historical";
+  const canWriteOperations = activeRole
+    ? roleHasPermission(activeRole, "operations.write")
+    : false;
   const canRegister = resolveCanRegister({
     mode: workspaceMode,
     canWriteProperty,
-    canWriteOperations: activeRole
-      ? roleHasPermission(activeRole, "operations.write")
-      : false,
+    canWriteOperations,
   });
   const bannerKind = resolveSafraBannerKind({
     safraStatus: resolvedSafra?.status ?? null,
@@ -721,6 +723,7 @@ export default function PropriedadeDetailScreen() {
     if (target.tab) selectTab(target.tab);
     if (target.maisSection) setMaisSection(target.maisSection);
     if (action === "tarefa") setOpenTarefaNonce((n) => n + 1);
+    else if (action === "operacao") setOpenOperacaoNonce((n) => n + 1);
     else if (action === "ocorrencia") setOpenOcorrenciaNonce((n) => n + 1);
     else if (action === "cultivo") setCultivoModalOpen(true);
   };
@@ -1218,9 +1221,16 @@ export default function PropriedadeDetailScreen() {
           <PropriedadeOperacoesPanel
             propriedadeId={propriedade.id}
             terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+            cultivos={cultivos.map((c) => ({
+              id: c.id,
+              nomeCultura: c.nomeCultura,
+              terrenoId: c.terrenoId ?? null,
+            }))}
             safraId={activeSafraId ?? undefined}
             readOnly={isHistorical}
-            openCreateNonce={openTarefaNonce}
+            canWriteOperations={canWriteOperations}
+            openCreateTarefaNonce={openTarefaNonce}
+            openCreateOperacaoNonce={openOperacaoNonce}
           />
         )}
 
