@@ -27,11 +27,11 @@ describe("FASE 2D — vocabulário operacional", () => {
       legadoDesconhecido: false,
     });
     expect(mapTipoAtividadeToOperacao("laboratorio")).toMatchObject({
-      operacao: "amostragem",
+      operacao: "laboratorio",
       legadoDesconhecido: false,
     });
     expect(mapTipoAtividadeToOperacao("analise")).toMatchObject({
-      operacao: "amostragem",
+      operacao: "analise",
       legadoDesconhecido: false,
     });
   });
@@ -43,7 +43,7 @@ describe("FASE 2D — vocabulário operacional", () => {
       legadoDesconhecido: false,
     });
     expect(mapTipoOperacaoTarefaToOperacao("analise")).toMatchObject({
-      operacao: "amostragem",
+      operacao: "analise",
       legadoDesconhecido: false,
     });
     expect(mapTipoOperacaoTarefaToOperacao("pulverizacao").operacao).toBe("pulverizacao");
@@ -63,6 +63,15 @@ describe("FASE 2D — vocabulário operacional", () => {
     for (const row of rows) {
       expect(TIPO_OPERACAO_AGRICOLA).toContain(row.operacao);
     }
+  });
+
+  it("amostragem canônica não é inferida de analise/laboratorio (semântica legada distinta)", () => {
+    const eventoRows = listarMapeamentosEvento();
+    const tarefaRows = listarMapeamentosTarefa();
+    expect(eventoRows.some((r) => r.operacao === "amostragem")).toBe(false);
+    expect(tarefaRows.some((r) => r.operacao === "amostragem")).toBe(false);
+    expect(mapTipoAtividadeToOperacao("analise").operacao).toBe("analise");
+    expect(mapTipoAtividadeToOperacao("laboratorio").operacao).toBe("laboratorio");
   });
 
   it("valores desconhecidos → outro + legadoDesconhecido (sem inventar equivalência)", () => {
