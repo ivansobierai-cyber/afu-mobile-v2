@@ -25,6 +25,19 @@ npm run db:schema:verify
 
 CI e boot de produção (`scripts/start-api-production.sh`) usam `db:schema:prepare`.
 
+## Integração CI / teste local (`tests/db-schema-prepare.test.ts`)
+
+O teste de integração usa um **banco MySQL efêmero** (`afu_schema_prepare_<timestamp>`). Criar e remover esse banco exige privilégios administrativos que o usuário da aplicação **não** possui.
+
+| Variável | Uso |
+|----------|-----|
+| `DATABASE_URL` | Usuário da aplicação (`afu`) — `runSchemaPrepare`, asserts e demais testes |
+| `SCHEMA_PREPARE_TEST_ADMIN_URL` | **Somente** setup/teardown do harness (ex.: `mysql://root:…@127.0.0.1:3306/` no service MySQL do GitHub Actions) |
+
+**Nunca** configure `SCHEMA_PREPARE_TEST_ADMIN_URL` no runtime de produção, no boot da API nem no `.env` normal do deploy. No CI ela é definida apenas no job `validate` em `.github/workflows/ci.yml`.
+
+Sem `SCHEMA_PREPARE_TEST_ADMIN_URL`, a suíte de integração `db-schema-prepare` **não roda** (Vitest skip explícito); os demais testes do manifesto (`db-schema-prepare-manifest.test.ts`) continuam sem MySQL.
+
 ## Instalação limpa (desenvolvimento)
 
 ```bash
