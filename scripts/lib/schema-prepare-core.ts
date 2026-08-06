@@ -100,6 +100,15 @@ async function verify0036Produtividade(conn: mysql.Connection): Promise<void> {
   }
 }
 
+async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "operacoes_agricolas"))) {
+    throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
+  }
+  if (!(await indexExists(conn, "operacoes_evento_origem_unique"))) {
+    throw new Error("0037_operacoes_agricolas: índice operacoes_evento_origem_unique ausente");
+  }
+}
+
 async function verifyRepair0022(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, "tarefas_operacionais", "responsavelUserId"))) {
     throw new Error("0022_tarefas_responsavel: responsavelUserId ausente");
@@ -265,6 +274,12 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:eventos-produtividade:apply",
     required: true,
     verify: verify0036Produtividade,
+  },
+  {
+    tag: "0037_operacoes_agricolas",
+    npmScript: "db:operacoes:apply",
+    required: true,
+    verify: verify0037Operacoes,
   },
 ];
 
