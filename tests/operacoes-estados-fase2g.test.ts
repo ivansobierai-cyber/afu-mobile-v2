@@ -216,11 +216,13 @@ describe.skipIf(!hasDb)("FASE 2G — transições server-side", () => {
 
   it("safra encerrada nega transição", async () => {
     const { createSafra } = await import("../server/db-safras");
+    const { getDb } = await import("../server/db");
+    const { safras } = await import("../drizzle/schema");
     const safraId = await createSafra({
       organizationId: a.organizationId,
       propriedadeId: a.propriedadeId,
       nome: `Safra 2G encerrada ${Date.now()}`,
-      status: "encerrada",
+      status: "ativa",
       isDefault: false,
     });
     const id = await a.caller.coreData.operacoes.create({
@@ -230,6 +232,9 @@ describe.skipIf(!hasDb)("FASE 2G — transições server-side", () => {
       titulo: "Op safra fechada",
       dataPrevista: new Date().toISOString(),
     });
+    const db = await getDb();
+    if (!db) throw new Error("DB unavailable");
+    await db.update(safras).set({ status: "encerrada" }).where(eq(safras.id, safraId));
     await expect(transition(a, id, "liberada")).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
