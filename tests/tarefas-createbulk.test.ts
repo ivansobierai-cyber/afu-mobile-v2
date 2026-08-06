@@ -28,7 +28,6 @@ describe.skipIf(!hasDb)("tarefas.createBulk atomicidade", () => {
     const ids = await a.caller.coreData.tarefas.createBulk({
       propriedadeId: a.propriedadeId,
       terrenoIds: [a.terrenoId, terreno2],
-      culturaId: a.cultivoId,
       tipoOperacao: "pulverizacao",
       titulo: "Bulk ok",
       dataPrevista: new Date().toISOString(),
@@ -37,6 +36,25 @@ describe.skipIf(!hasDb)("tarefas.createBulk atomicidade", () => {
     });
     expect(ids).toHaveLength(2);
     expect(ids[0]).not.toBe(ids[1]);
+  });
+
+  it("falha com culturaId em talhão sem vínculo cadastral", async () => {
+    const terreno2 = await a.caller.coreData.terrenos.create({
+      propriedadeId: a.propriedadeId,
+      nome: "Talhao bulk cultura mismatch",
+      area: 2,
+    });
+    await expectTenantDenied(
+      a.caller.coreData.tarefas.createBulk({
+        propriedadeId: a.propriedadeId,
+        terrenoIds: [a.terrenoId, terreno2],
+        culturaId: a.cultivoId,
+        tipoOperacao: "pulverizacao",
+        titulo: "Bulk cultura errada",
+        dataPrevista: new Date().toISOString(),
+        clientMutationId: `bulk_cult_${Date.now()}`,
+      }),
+    );
   });
 
   it("falha com terreno de outro tenant: não cria nenhuma tarefa nova", async () => {
