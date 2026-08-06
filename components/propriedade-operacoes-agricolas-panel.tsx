@@ -392,7 +392,50 @@ export function PropriedadeOperacoesAgricolasPanel({
         </ScrollView>
       ) : null}
 
-      {filtered.length === 0 ? (
+      {cultivos.length > 0 ? (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 8 }}>
+          <TouchableOpacity
+            onPress={() => setFilters((f) => ({ ...f, culturaId: null }))}
+            style={styles.chip}
+          >
+            <Text style={{ fontSize: 12 }}>Cultivo: todos</Text>
+          </TouchableOpacity>
+          {cultivos.map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              onPress={() => setFilters((f) => ({ ...f, culturaId: c.id }))}
+              style={[
+                styles.chip,
+                filters.culturaId === c.id ? { borderColor: colors.primary, backgroundColor: colors.primary + "14" } : {},
+              ]}
+            >
+              <Text style={{ fontSize: 12 }}>{c.nomeCultura}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      ) : null}
+
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
+        <TouchableOpacity
+          onPress={() => setFilters((f) => ({ ...f, tipoOperacao: "todos" }))}
+          style={styles.chip}
+        >
+          <Text style={{ fontSize: 12 }}>Tipo: todos</Text>
+        </TouchableOpacity>
+        {TIPO_OPERACAO_AGRICOLA.map((t) => (
+          <TouchableOpacity
+            key={t}
+            onPress={() => setFilters((f) => ({ ...f, tipoOperacao: t }))}
+            style={[
+              styles.chip,
+              filters.tipoOperacao === t ? { borderColor: colors.primary, backgroundColor: colors.primary + "14" } : {},
+            ]}
+          >
+            <Text style={{ fontSize: 12 }}>{OPERACAO_AGRICOLA_LABELS[t]}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
+
         <ScreenState
           status="empty"
           compact
