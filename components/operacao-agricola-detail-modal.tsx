@@ -23,6 +23,7 @@ import {
   listOperacaoTransitionActions,
   mapApontamentoServerError,
   operacaoTransitionRequiresMotivo,
+  resolveApontamentoOperacaoId,
   labelTipoOperacao,
   toApontamentoDateTimeLocalValue,
   validateApontamentoForm,
@@ -133,6 +134,11 @@ export function OperacaoAgricolaDetailModal({
     { enabled: visible },
   );
 
+  const operacaoIdForApi = useMemo(
+    () => resolveApontamentoOperacaoId(operacao.id, operacaoQ.data ?? undefined),
+    [operacao.id, operacaoQ.data],
+  );
+
   const currentOperacao = useMemo(() => {
     if (operacaoQ.data) {
       return toListItem(operacao, operacaoQ.data);
@@ -144,18 +150,18 @@ export function OperacaoAgricolaDetailModal({
   const status = currentOperacao.status as OperacaoAgricolaStatus;
 
   const historicoQ = trpc.coreData.operacoes.listStatusHistorico.useQuery(
-    { operacaoId: operacao.id },
-    { enabled: visible },
+    { operacaoId: operacaoIdForApi },
+    { enabled: visible && operacaoServerReady },
   );
 
   const apontamentosQ = trpc.coreData.operacoes.listApontamentos.useQuery(
-    { operacaoId: operacao.id },
-    { enabled: visible },
+    { operacaoId: operacaoIdForApi },
+    { enabled: visible && operacaoServerReady },
   );
 
   const resumoQ = trpc.coreData.operacoes.planejadoRealizado.useQuery(
-    { operacaoId: operacao.id },
-    { enabled: visible },
+    { operacaoId: operacaoIdForApi },
+    { enabled: visible && operacaoServerReady },
   );
 
   const transitionMut = trpc.coreData.operacoes.transitionStatus.useMutation({
@@ -292,8 +298,8 @@ export function OperacaoAgricolaDetailModal({
   };
 
   const refreshApontamentos = async () => {
-    await utils.coreData.operacoes.listApontamentos.invalidate({ operacaoId: operacao.id });
-    await utils.coreData.operacoes.planejadoRealizado.invalidate({ operacaoId: operacao.id });
+    await utils.coreData.operacoes.listApontamentos.invalidate({ operacaoId: operacaoIdForApi });
+    await utils.coreData.operacoes.planejadoRealizado.invalidate({ operacaoId: operacaoIdForApi });
   };
 
   const clearFieldError = (key: ApontamentoFieldKey) => {
@@ -307,6 +313,14 @@ export function OperacaoAgricolaDetailModal({
 
   const saveApontamento = async () => {
     if (savingApont) return;
+
+    if (!operacaoServerReady) {
+      setApontBanner({
+        kind: "error",
+        text: "Aguarde o carregamento da operação antes de salvar o apontamento.",
+      });
+      return;
+    }
 
     setApontBanner(null);
     const parsed = validateApontamentoForm({
@@ -377,10 +391,10 @@ export function OperacaoAgricolaDetailModal({
         });
       } else {
         if (!apontMutationId.current) {
-          apontMutationId.current = `apt-${operacao.id}-${crypto.randomUUID?.() ?? Date.now()}`;
+          apontMutationId.current = `apt-${operacaoIdForApi}-${crypto.randomUUID?.() ?? Date.now()}`;
         }
         await createApontMut.mutateAsync({
-          operacaoId: operacao.id,
+          operacaoId: operacaoIdForApi,
           inicioReal: parsed.inicioReal.toISOString(),
           fimReal: parsed.fimReal ? parsed.fimReal.toISOString() : null,
           areaExecutada: parsed.areaExecutada,

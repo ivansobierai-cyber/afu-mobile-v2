@@ -486,4 +486,59 @@ describe.skipIf(!hasDb)("FASE 2H — apontamentos server-side", () => {
       a.caller.coreData.operacoes.createApontamento(minimalPayload(id)),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   });
+
+  it("smoke — list → get → create usam o mesmo operacaoId no tenant", async () => {
+    const id = await createOp(a, "SmokeConsistency");
+    await toEmExecucao(a, id);
+
+    const listed = await a.caller.coreData.operacoes.listByPropriedade({
+      propriedadeId: a.propriedadeId,
+    });
+    const fromList = listed.find((row) => row.id === id);
+    expect(fromList).toBeDefined();
+
+    const got = await a.caller.coreData.operacoes.get({ id });
+    expect(got.id).toBe(id);
+    expect(got.organizationId).toBe(a.organizationId);
+    expect(got.propriedadeId).toBe(a.propriedadeId);
+
+    const created = await a.caller.coreData.operacoes.createApontamento(minimalPayload(id, "-smoke"));
+    expect(created.apontamentoId).toBeGreaterThan(0);
+
+    const apontamentos = await a.caller.coreData.operacoes.listApontamentos({ operacaoId: id });
+    expect(apontamentos.some((row) => row.id === created.apontamentoId)).toBe(true);
+  });
+
+  it("safra órfã na operação não bloqueia apontamento (resolve safra padrão gravável)", async () => {
+    const id = await createOp(a, "OrphanSafra");
+    await toEmExecucao(a, id);
+
+    const { getDb } = await import("../server/db");
+    const { operacoesAgricolas } = await import("../drizzle/schema");
+    const db = await getDb();
+    if (!db) throw new Error("DB unavailable");
+    await db
+      .update(operacoesAgricolas)
+      .set({ safraId: 9_999_999 })
+      .where(eq(operacoesAgricolas.id, id));
+
+    const got = await a.caller.coreData.operacoes.get({ id });
+    expect(got.safraId).toBe(9_999_999);
+
+    const created = await a.caller.coreData.operacoes.createApontamento(
+      minimalPayload(id, "-orphan-safra"),
+    );
+    expect(created.apontamentoId).toBeGreaterThan(0);
+  });
+
+  it("create com operacaoId de outro tenant continua NOT_FOUND", async () => {
+    const idA = await createOp(a, "TenantA");
+    await toEmExecucao(a, idA);
+    const idB = await createOp(b, "TenantB");
+    await toEmExecucao(b, idB);
+
+    await expect(
+      b.caller.coreData.operacoes.createApontamento(minimalPayload(idA, "-cross")),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
 });

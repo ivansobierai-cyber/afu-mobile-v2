@@ -92,10 +92,14 @@ export type ApontamentoComDetalhes = OperacaoApontamentoRow & {
 async function resolveWritableSafraForOperacao(
   tenant: TenantContext,
   op: OperacaoAgricolaRow,
-): Promise<void> {
-  const { requireWritableSafraId, SAFRA_READ_ONLY } = await import("./db-safras");
+) {
+  const { resolveWritableSafraForOperacaoRow, SAFRA_READ_ONLY } = await import("./db-safras");
   try {
-    await requireWritableSafraId(tenant.organizationId, op.propriedadeId, op.safraId);
+    return await resolveWritableSafraForOperacaoRow(
+      tenant.organizationId,
+      op.propriedadeId,
+      op.safraId,
+    );
   } catch (e) {
     if (e instanceof TRPCError && e.message.includes(SAFRA_READ_ONLY)) {
       throw new TRPCError({
@@ -107,8 +111,20 @@ async function resolveWritableSafraForOperacao(
   }
 }
 
-function denyNotFound(): never {
-  throw new TRPCError({ code: "NOT_FOUND", message: "Recurso não encontrado" });
+function denyApontamentoNotFound(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "APONTAMENTO_NOT_FOUND" });
+}
+
+function denyMaquinaNotFound(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "APONTAMENTO_MAQUINA_NOT_FOUND" });
+}
+
+function denyInsumoNotFound(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "APONTAMENTO_INSUMO_NOT_FOUND" });
+}
+
+function denyEvidenciaFileNotFound(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "APONTAMENTO_EVIDENCIA_NOT_FOUND" });
 }
 
 async function requireApontamentoInTenant(
@@ -127,7 +143,7 @@ async function requireApontamentoInTenant(
       ),
     )
     .limit(1);
-  if (!rows[0]) denyNotFound();
+  if (!rows[0]) denyApontamentoNotFound();
   return rows[0];
 }
 
@@ -150,9 +166,9 @@ async function validateMaquinaInProperty(
     )
     .limit(1);
   const row = rows[0];
-  if (!row) denyNotFound();
+  if (!row) denyMaquinaNotFound();
   if (row.organizationId != null && row.organizationId !== tenant.organizationId) {
-    denyNotFound();
+    denyMaquinaNotFound();
   }
 }
 
@@ -172,9 +188,9 @@ async function validateEstoqueItemInProperty(
     )
     .limit(1);
   const row = rows[0];
-  if (!row) denyNotFound();
+  if (!row) denyInsumoNotFound();
   if (row.organizationId != null && row.organizationId !== tenant.organizationId) {
-    denyNotFound();
+    denyInsumoNotFound();
   }
 }
 
@@ -478,7 +494,7 @@ export async function createApontamento(
 ): Promise<{ apontamentoId: number; revision: number; idempotentReplay: boolean }> {
   requireOrgPermission(tenant, "operations.write");
   const op = await requireOperacaoInTenant(tenant, input.operacaoId);
-  await resolveWritableSafraForOperacao(tenant, op);
+  const writableSafra = await resolveWritableSafraForOperacao(tenant, op);
 
   const status = op.status as OperacaoAgricolaStatus;
   if (!canCreateApontamentoForStatus(status)) {
@@ -526,7 +542,7 @@ export async function createApontamento(
       const inserted = await tx.insert(operacoesAgricolasApontamentos).values({
         organizationId: tenant.organizationId,
         propriedadeId: op.propriedadeId,
-        safraId: op.safraId ?? null,
+        safraId: writableSafra.id,
         operacaoAgricolaId: op.id,
         talhaoId,
         inicioReal: input.inicioReal,
@@ -789,7 +805,7 @@ export async function addApontamentoEvidencia(
         ),
       )
       .limit(1);
-    if (!fileRows[0]) denyNotFound();
+    if (!fileRows[0]) denyEvidenciaFileNotFound();
   }
 
   const result = await db.insert(operacoesAgricolasApontamentoEvidencias).values({

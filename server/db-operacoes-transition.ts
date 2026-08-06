@@ -60,9 +60,13 @@ async function resolveWritableSafraForOperacao(
   tenant: TenantContext,
   op: OperacaoAgricolaRow,
 ): Promise<void> {
-  const { requireWritableSafraId, SAFRA_READ_ONLY } = await import("./db-safras");
+  const { resolveWritableSafraForOperacaoRow, SAFRA_READ_ONLY } = await import("./db-safras");
   try {
-    await requireWritableSafraId(tenant.organizationId, op.propriedadeId, op.safraId);
+    await resolveWritableSafraForOperacaoRow(
+      tenant.organizationId,
+      op.propriedadeId,
+      op.safraId,
+    );
   } catch (e) {
     if (e instanceof TRPCError && e.message.includes(SAFRA_READ_ONLY)) {
       throw new TRPCError({

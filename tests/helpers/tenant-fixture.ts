@@ -194,7 +194,9 @@ export async function expectTenantDenied(promise: Promise<unknown>): Promise<str
     const err = e as { code?: string; message?: string };
     expect(["NOT_FOUND", "FORBIDDEN", "UNAUTHORIZED"]).toContain(err.code);
     if (err.code === "NOT_FOUND") {
-      expect(String(err.message)).toMatch(/não encontrado|nao encontrado|Recurso|Arquivo/i);
+      expect(String(err.message)).toMatch(
+        /não encontrado|nao encontrado|Recurso|Arquivo|NOT_FOUND/i,
+      );
     }
     return `${err.code}:${err.message}`;
   }

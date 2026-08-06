@@ -180,16 +180,47 @@ export function validateApontamentoForm(
   };
 }
 
+export function resolveApontamentoOperacaoId(
+  listItemId: number,
+  serverRow: { id: number } | null | undefined,
+): number {
+  if (serverRow?.id != null && Number.isFinite(serverRow.id)) {
+    return serverRow.id;
+  }
+  return listItemId;
+}
+
 export type MappedApontamentoError = {
   userMessage: string;
   field?: ApontamentoFieldKey;
   technicalLog: string;
 };
 
+function readTrpcErrorMeta(error: unknown): { code: string; message: string } {
+  if (error && typeof error === "object") {
+    const e = error as {
+      message?: string;
+      data?: { code?: string };
+      shape?: { data?: { code?: string }; message?: string };
+    };
+    const code = String(e.data?.code ?? e.shape?.data?.code ?? "");
+    const message =
+      typeof e.message === "string" && e.message.length > 0
+        ? e.message
+        : typeof e.shape?.message === "string"
+          ? e.shape.message
+          : "";
+    return { code, message };
+  }
+  if (typeof error === "string") return { code: "", message: error };
+  return { code: "", message: "" };
+}
+
 /**
  * Mapeia erros tRPC/servidor para português simples (sem vazar stack/JSON feio).
  */
 export function mapApontamentoServerError(error: unknown): MappedApontamentoError {
+  const { code, message: trpcMessage } = readTrpcErrorMeta(error);
   const technical =
     error instanceof Error
       ? error.message
@@ -197,16 +228,7 @@ export function mapApontamentoServerError(error: unknown): MappedApontamentoErro
         ? error
         : JSON.stringify(error);
 
-  const code =
-    error && typeof error === "object" && "data" in error
-      ? String((error as { data?: { code?: string } }).data?.code ?? "")
-      : error && typeof error === "object" && "shape" in error
-        ? String(
-            (error as { shape?: { data?: { code?: string } } }).shape?.data?.code ?? "",
-          )
-        : "";
-
-  const msg = technical;
+  const msg = trpcMessage || technical;
 
   if (
     code === "FORBIDDEN" ||
@@ -289,9 +311,46 @@ export function mapApontamentoServerError(error: unknown): MappedApontamentoErro
     };
   }
 
-  if (code === "NOT_FOUND" || /NOT_FOUND|Recurso não encontrado/i.test(msg)) {
+  if (/APONTAMENTO_INSUMO_NOT_FOUND/i.test(msg)) {
+    return {
+      userMessage:
+        "O insumo selecionado não pertence a esta propriedade. Escolha outro item ou informe o nome manualmente.",
+      field: "insumoDesc",
+      technicalLog: technical,
+    };
+  }
+
+  if (/APONTAMENTO_MAQUINA_NOT_FOUND/i.test(msg)) {
+    return {
+      userMessage: "A máquina selecionada não pertence a esta propriedade.",
+      field: "_form",
+      technicalLog: technical,
+    };
+  }
+
+  if (/APONTAMENTO_EVIDENCIA_NOT_FOUND/i.test(msg)) {
+    return {
+      userMessage: "O arquivo de evidência não foi encontrado. Remova ou anexe novamente.",
+      field: "_form",
+      technicalLog: technical,
+    };
+  }
+
+  if (
+    code === "NOT_FOUND" &&
+    (/OPERACAO_AGRICOLA_NOT_FOUND|TENANT_NOT_FOUND|Recurso não encontrado/i.test(msg) ||
+      (!/APONTAMENTO_/i.test(msg) && /NOT_FOUND/i.test(msg)))
+  ) {
     return {
       userMessage: "Operação não encontrada ou sem acesso. Atualize a tela e tente novamente.",
+      field: "_form",
+      technicalLog: technical,
+    };
+  }
+
+  if (code === "NOT_FOUND" || /NOT_FOUND/i.test(msg)) {
+    return {
+      userMessage: "Não foi possível salvar o apontamento. Atualize a tela e tente novamente.",
       field: "_form",
       technicalLog: technical,
     };

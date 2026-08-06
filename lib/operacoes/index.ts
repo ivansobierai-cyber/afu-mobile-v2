@@ -59,6 +59,7 @@ export {
   firstApontamentoErrorMessage,
   mapApontamentoServerError,
   parseApontamentoDateTimeLocal,
+  resolveApontamentoOperacaoId,
   toApontamentoDateTimeLocalValue,
   validateApontamentoForm,
   type ApontamentoFieldErrors,

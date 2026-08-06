@@ -13,6 +13,7 @@ import {
 } from "../lib/operacoes/operacoes-workspace-ui";
 import {
   mapApontamentoServerError,
+  resolveApontamentoOperacaoId,
   validateApontamentoForm,
 } from "../lib/operacoes/apontamento-form";
 
@@ -72,5 +73,19 @@ describe("FASE 2H — UI apontamento (puro)", () => {
   it("erro server-side é apresentado (não silencioso)", () => {
     const mapped = mapApontamentoServerError(new Error("random failure"));
     expect(mapped.userMessage.length).toBeGreaterThan(10);
+  });
+
+  it("NOT_FOUND de insumo não é confundido com operação", () => {
+    const mapped = mapApontamentoServerError({
+      message: "APONTAMENTO_INSUMO_NOT_FOUND",
+      data: { code: "NOT_FOUND" },
+    });
+    expect(mapped.userMessage).toMatch(/insumo/i);
+    expect(mapped.userMessage).not.toMatch(/Operação não encontrada/i);
+  });
+
+  it("resolveApontamentoOperacaoId prioriza id confirmado pelo servidor", () => {
+    expect(resolveApontamentoOperacaoId(10, { id: 42 })).toBe(42);
+    expect(resolveApontamentoOperacaoId(10, undefined)).toBe(10);
   });
 });
