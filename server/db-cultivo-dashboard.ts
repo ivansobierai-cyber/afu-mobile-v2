@@ -112,7 +112,7 @@ export async function buildCultivoDashboard(
   if (!db) throw new Error("Database not available");
 
   const [tarefas, ocorrencias, diagnosticos, faseEventos, prop] = await Promise.all([
-    getTarefasByPropriedade(cultura.propriedadeId),
+    getTarefasByPropriedade(cultura.propriedadeId, organizationId),
     db
       .select()
       .from(ocorrenciasCampo)

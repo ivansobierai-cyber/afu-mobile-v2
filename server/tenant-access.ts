@@ -268,17 +268,26 @@ export async function assertRelatedIdsInTenant(
     propriedadeId?: number;
     terrenoId?: number;
     culturaId?: number;
+    safraId?: number;
     responsavelUserId?: number;
   },
 ) {
   if (refs.propriedadeId != null) {
     await requireWritablePropertyInTenant(tenant, refs.propriedadeId);
   }
+  if (refs.safraId != null && refs.propriedadeId != null) {
+    const { requireSafraInProperty } = await import("./db-safras");
+    await requireSafraInProperty(tenant.organizationId, refs.propriedadeId, refs.safraId);
+  }
   if (refs.terrenoId != null) {
     await requireTerrenoInTenant(tenant, refs.terrenoId, refs.propriedadeId);
   }
   if (refs.culturaId != null) {
-    await requireCulturaInTenant(tenant, refs.culturaId, refs.propriedadeId);
+    const cultura = await requireCulturaInTenant(tenant, refs.culturaId, refs.propriedadeId);
+    if (refs.terrenoId != null && cultura.terrenoId != null && cultura.terrenoId !== refs.terrenoId) {
+      await auditTenantDenied(tenant, "cultivo", refs.culturaId, "terreno_mismatch");
+      throw new TRPCError({ code: "NOT_FOUND", message: TENANT_NOT_FOUND });
+    }
   }
   if (refs.responsavelUserId != null) {
     await requireOrgMemberUserId(tenant, refs.responsavelUserId);

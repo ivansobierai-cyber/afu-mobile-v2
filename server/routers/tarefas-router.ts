@@ -128,6 +128,7 @@ async function createTarefaForTenant(
     propriedadeId: input.propriedadeId,
     terrenoId,
     culturaId: input.culturaId,
+    safraId: input.safraId,
     responsavelUserId: input.responsavelUserId,
   });
   const safraId = await resolveSafraIdForCreate(tenant, input);
@@ -212,7 +213,7 @@ export const tarefasRouter = router({
         await requireCulturaInTenant(tenant, input.culturaId, input.propriedadeId);
       }
       const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
-      let lista = await getTarefasByPropriedade(input.propriedadeId);
+      let lista = await getTarefasByPropriedade(input.propriedadeId, tenant.organizationId);
       lista = filterRowsBySafraId(lista, input.safraId ?? null).matched;
       if (input.culturaId) {
         lista = lista.filter((t) => t.culturaId === input.culturaId);
@@ -245,7 +246,7 @@ export const tarefasRouter = router({
       }
       const { filterRowsBySafraId } = await import("../../lib/propriedades/safra-filter");
       const lista = filterRowsBySafraId(
-        await getTarefasByPropriedade(input.propriedadeId),
+        await getTarefasByPropriedade(input.propriedadeId, tenant.organizationId),
         input.safraId ?? null,
       ).matched;
       const start = new Date();
@@ -302,10 +303,15 @@ export const tarefasRouter = router({
       await assertRelatedIdsInTenant(tenant, {
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
+        safraId: input.safraId,
         responsavelUserId: input.responsavelUserId,
       });
       for (const terrenoId of terrenoIds) {
-        await requireTerrenoInTenant(tenant, terrenoId, input.propriedadeId);
+        await assertRelatedIdsInTenant(tenant, {
+          propriedadeId: input.propriedadeId,
+          terrenoId,
+          culturaId: input.culturaId,
+        });
       }
 
       const safraId = await resolveSafraIdForCreate(tenant, input);
@@ -477,6 +483,10 @@ export const tarefasRouter = router({
       }
       if (to === "cancelada" && !input.motivoCancelamento?.trim()) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Informe o motivo do cancelamento" });
+      }
+
+      if (to === "aprovada") {
+        requireOrgPermission(tenant, "operations.approve");
       }
 
       if (to === "em_execucao" && from !== "pausada") {

@@ -314,7 +314,7 @@ const propriedadesRouter = router({
       }
       const cultivosAll = await getCulturasByPropriedade(input.id);
       const cultivos = filterRowsBySafraId(cultivosAll, safraId ?? null).matched;
-      const tarefasAll = await getTarefasByPropriedade(input.id);
+      const tarefasAll = await getTarefasByPropriedade(input.id, tenant.organizationId);
       const tarefas = filterRowsBySafraId(tarefasAll as any[], safraId ?? null).matched;
       const abertas = tarefas.filter((t: any) =>
         ["planejada", "liberada", "em_execucao", "pausada", "bloqueada"].includes(t.status),
@@ -806,6 +806,8 @@ const calendarioRouter = router({
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
         terrenoId: input.terrenoId,
+        safraId: input.safraId,
+        responsavelUserId: input.responsavelUserId,
       });
       if (input.safraId && input.propriedadeId) {
         const { requireWritableSafraInProperty } = await import("../db-safras");
@@ -853,12 +855,19 @@ const calendarioRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       const atual = await requireEventoInTenant(tenant, input.id);
+      const propId = input.data.propriedadeId ?? atual.propriedadeId ?? undefined;
+      const terrenoId =
+        input.data.terrenoId !== undefined ? input.data.terrenoId : (atual.terrenoId ?? undefined);
+      const culturaId =
+        input.data.culturaId !== undefined ? input.data.culturaId : (atual.culturaId ?? undefined);
       await assertRelatedIdsInTenant(tenant, {
-        propriedadeId: input.data.propriedadeId ?? atual.propriedadeId ?? undefined,
-        culturaId: input.data.culturaId,
-        terrenoId: input.data.terrenoId,
+        propriedadeId: propId ?? undefined,
+        culturaId: culturaId ?? undefined,
+        terrenoId: terrenoId ?? undefined,
+        safraId: input.data.safraId !== undefined ? input.data.safraId : undefined,
+        responsavelUserId:
+          input.data.responsavelUserId !== undefined ? input.data.responsavelUserId : undefined,
       });
-      const propId = input.data.propriedadeId ?? atual.propriedadeId;
       if (input.data.safraId != null && propId) {
         const { requireWritableSafraInProperty } = await import("../db-safras");
         await requireWritableSafraInProperty(
