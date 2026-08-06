@@ -22,7 +22,12 @@ O deploy web usa `vercel.json` na raiz:
 
 Projeto canônico: **afu-mobile-web** → https://afu-mobile-web.vercel.app
 
-Variáveis embutidas no build preview: `EXPO_PUBLIC_API_BASE_URL` (Railway staging) e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
+Variáveis no build preview:
+
+- `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1` (definida em `scripts/build-web-preview.mjs` se ausente).
+- `EXPO_PUBLIC_API_BASE_URL` — **usa o valor do ambiente Vercel** quando definido (recomendado em **Preview** por PR); caso contrário, fallback `https://afu-mobile-v2-production.up.railway.app`.
+
+**FASE 2H:** o preview web só chama procedures que existem na API Railway em execução. Se o smoke retornar `No procedure found on path "coreData.operacoes.createApontamento"`, o frontend está correto mas a API em produção ainda não foi implantada com o branch `feat/fase-2h-apontamento-real-execucao`. Rode `npm run probe:trpc:procedure` e faça **Redeploy** no Railway a partir desse commit antes do smoke.
 
 Deploy manual (opcional):
 
