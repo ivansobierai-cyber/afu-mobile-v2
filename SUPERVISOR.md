@@ -1,16 +1,17 @@
 # Autoridade operacional (vigente)
 
-**Atualizado:** 2026-08-06 (encerramento formal FASE 0 — somente documentação)
+**Atualizado:** 2026-08-06 (encerramento formal FASE 1 — somente documentação)
 
 ## O que seguir agora
 
 1. **Ordem de evolução do produto:** [`MAPA_MESTRE_ATUAL_AFU.md`](MAPA_MESTRE_ATUAL_AFU.md) — **FASE 0 a FASE 8** (única sequência canônica de implementação).
 2. **Este arquivo (`SUPERVISOR.md`):** regras de execução por tarefa, contexto de produto e **plano histórico** do gerenciamento de propriedades (Etapas 1–10 abaixo). As Etapas 1–10 **não** substituem o MAPA como ordem vigente.
 3. **Evidências FASE 0:** 0A — [`docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`](docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md); 0B — [`docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md`](docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md).
+4. **Evidência FASE 1:** [`docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md`](docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md).
 
 ## Estado da FASE 0
 
-**FASE 0 — CONCLUÍDA** (`origin/main` @ `37a74ff`; encerramento formal 2026-08-06).
+**FASE 0 — CONCLUÍDA** (encerramento formal 2026-08-06).
 
 | Item | Status |
 |------|--------|
@@ -21,13 +22,25 @@
 | **PR [#34](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/34)** | **MERGED** (SUBFASE 0B) |
 | P0 FASE 0 (MAPA §7) | **Zero aberto** |
 
-**Próximo gate canônico (somente quando autorizado explicitamente):** **FASE 1** — núcleo cadastral (ver MAPA §5). Não repetir homologação MySQL da 0A sem nova ordem.
+## Estado da FASE 1
+
+**FASE 1 — CONCLUÍDA** (`origin/main` @ `e63614e`; encerramento formal 2026-08-06).
+
+| Item | Status |
+|------|--------|
+| Aceite técnico (CI) | **Aprovado** — run [31067233542](https://github.com/ivansobierai-cyber/afu-mobile-v2/actions/runs/31067233542), `headSha` `e63614e`, job `validate` **SUCCESS** |
+| Homologação UI (FASE 1A) | **Aprovada** — Vercel web + API Railway |
+| Deploy homologado | **Production – afu-mobile-web** @ `e63614e` (`2026-08-06T03:07:59Z`) |
+| Evidência documental | [`docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md`](docs/evidencias/FASE_1_ENCERRAMENTO_NUCLEO_CADASTRAL.md) |
+| Órfãos (objetivo MAPA) | **PASS PARCIAL** — inventário operacional P1; não reabre a fase |
+
+**Próximo gate canônico (somente quando autorizado explicitamente):** **FASE 2** — modelo operacional (ver MAPA §5). Não repetir homologação MySQL da 0A sem nova ordem. **Não** iniciar FASE 2 neste pacote.
 
 ## Regras de parada
 
 - Não fazer merge, push de `main`, deploy nem migrations em produção sem autorização explícita.
 - Não tratar commits `3aac437` e `8d4ff2c` como duas correções diferentes (conteúdo equivalente).
-- FASE 0 está concluída; evolução de produto segue FASE 1+ conforme MAPA (não reabrir P0 da FASE 0 sem nova ordem).
+- FASE 0 e FASE 1 estão concluídas; evolução de produto segue FASE 2+ conforme MAPA (não reabrir P0 da FASE 0 sem nova ordem).
 
 ---
 
