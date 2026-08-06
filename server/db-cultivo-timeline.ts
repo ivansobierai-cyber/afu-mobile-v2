@@ -73,7 +73,7 @@ export async function buildCultivoTimeline(
     });
   }
 
-  const tarefas = (await getTarefasByPropriedade(cultura.propriedadeId)).filter(
+  const tarefas = (await getTarefasByPropriedade(cultura.propriedadeId, organizationId)).filter(
     (t) => t.culturaId === cultura.id,
   );
   for (const t of tarefas) {

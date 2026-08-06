@@ -11,7 +11,6 @@ import {
 } from "../_core/trpc";
 import {
   getPropriedadeById,
-  getTarefasByPropriedade,
   getCulturasByPropriedade,
   getTerrenosByPropriedade,
   createTarefa,

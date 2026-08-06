@@ -552,13 +552,18 @@ export async function getEventoById(id: number) {
 
 // ─── TAREFAS OPERACIONAIS (Etapa 3) ───────────────────────────────────────────
 
-export async function getTarefasByPropriedade(propriedadeId: number) {
+export async function getTarefasByPropriedade(propriedadeId: number, organizationId: number) {
   const db = await getDb();
   if (!db) return [];
   return db
     .select()
     .from(tarefasOperacionais)
-    .where(eq(tarefasOperacionais.propriedadeId, propriedadeId))
+    .where(
+      and(
+        eq(tarefasOperacionais.propriedadeId, propriedadeId),
+        eq(tarefasOperacionais.organizationId, organizationId),
+      ),
+    )
     .orderBy(tarefasOperacionais.dataPrevista);
 }
 
