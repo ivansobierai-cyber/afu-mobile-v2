@@ -94,6 +94,7 @@ export function OperacaoAgricolaDetailModal({
   const [insumoDesc, setInsumoDesc] = useState("");
   const [insumoQtd, setInsumoQtd] = useState("");
   const [insumoUnidade, setInsumoUnidade] = useState("kg");
+  const [insumoEstoqueItemId, setInsumoEstoqueItemId] = useState<number | null>(null);
   /** Insumos além do primeiro (preservados na edição para não apagar a coleção). */
   const [insumosExtras, setInsumosExtras] = useState<
     Array<{
@@ -210,6 +211,7 @@ export function OperacaoAgricolaDetailModal({
     setInsumoDesc("");
     setInsumoQtd("");
     setInsumoUnidade("kg");
+    setInsumoEstoqueItemId(null);
     setInsumosExtras([]);
     setEvidenciaNome("");
     setEvidenciaUrl("");
@@ -237,6 +239,7 @@ export function OperacaoAgricolaDetailModal({
     setInsumoDesc(firstInsumo?.descricao ?? "");
     setInsumoQtd(firstInsumo?.quantidade != null ? String(firstInsumo.quantidade) : "");
     setInsumoUnidade(firstInsumo?.unidade ?? "kg");
+    setInsumoEstoqueItemId(firstInsumo?.estoqueItemId ?? null);
     setInsumosExtras(
       (a.insumos ?? []).slice(1).map((i) => ({
         estoqueItemId: i.estoqueItemId,
@@ -280,11 +283,14 @@ export function OperacaoAgricolaDetailModal({
       return;
     }
 
-    const firstFilled = Boolean(insumoDesc.trim() && insumoQtd.trim());
-    const firstInsumo = firstFilled
+    const qtdParsed = insumoQtd.trim() ? Number(insumoQtd.replace(",", ".")) : null;
+    // Campos visíveis definem se a 1ª linha existe; estoqueItemId é preservado junto da qtd carregada.
+    const hasFirstInsumo = Boolean(insumoDesc.trim() || insumoQtd.trim());
+    const firstInsumo = hasFirstInsumo
       ? {
-          descricao: insumoDesc.trim(),
-          quantidade: Number(insumoQtd.replace(",", ".")),
+          estoqueItemId: insumoEstoqueItemId,
+          descricao: insumoDesc.trim() || null,
+          quantidade: qtdParsed != null && !Number.isNaN(qtdParsed) ? qtdParsed : Number.NaN,
           unidade: insumoUnidade.trim() || "kg",
         }
       : null;
@@ -293,7 +299,7 @@ export function OperacaoAgricolaDetailModal({
       return;
     }
 
-    // Edição: sempre envia coleção completa (vazio = limpar; extras preservados).
+    // Edição: sempre envia coleção completa (vazio = limpar; extras + estoqueItemId preservados).
     // Criação: só envia se houver insumos.
     const insumosForEdit = firstInsumo
       ? [firstInsumo, ...insumosExtras]

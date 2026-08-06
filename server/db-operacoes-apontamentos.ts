@@ -347,7 +347,8 @@ function sameTs(a: Date | string | null | undefined, b: Date | string | null | u
   const kb = tsKey(b);
   if (ka == null && kb == null) return true;
   if (ka == null || kb == null) return false;
-  return Math.abs(ka - kb) <= 1;
+  // Igualdade em segundos (ms truncados pelo MySQL) — sem tolerância extra.
+  return ka === kb;
 }
 
 function insumosFingerprint(insumos: ApontamentoInsumoInput[] | undefined): string {
