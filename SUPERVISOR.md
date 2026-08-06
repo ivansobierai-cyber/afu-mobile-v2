@@ -1,28 +1,33 @@
 # Autoridade operacional (vigente)
 
-**Atualizado:** 2026-08-05 (regularização documental FASE 0)
+**Atualizado:** 2026-08-06 (encerramento formal FASE 0 — somente documentação)
 
 ## O que seguir agora
 
 1. **Ordem de evolução do produto:** [`MAPA_MESTRE_ATUAL_AFU.md`](MAPA_MESTRE_ATUAL_AFU.md) — **FASE 0 a FASE 8** (única sequência canônica de implementação).
 2. **Este arquivo (`SUPERVISOR.md`):** regras de execução por tarefa, contexto de produto e **plano histórico** do gerenciamento de propriedades (Etapas 1–10 abaixo). As Etapas 1–10 **não** substituem o MAPA como ordem vigente.
-3. **Evidências:** homologação MySQL da Correção 1 em [`docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`](docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md).
+3. **Evidências FASE 0:** 0A — [`docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`](docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md); 0B — [`docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md`](docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md).
 
-## Estado atual da FASE 0
+## Estado da FASE 0
 
-| Subfase | Status |
-|---------|--------|
-| **0A** — Homologação MySQL Correção 1 (`db:schema:prepare` / `verify`) | **Homologada** (aceite formal 2026-08-05; SHA canônico `3aac437`; equivalente local `8d4ff2c`) |
-| **0B** — RBAC `diagnostics.write` nas mutations de diagnóstico | **Pendente, não iniciada** |
-| **PR [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32)** | Aberta, **draft** — **merge não autorizado** até fechar P0 da FASE 0 |
+**FASE 0 — CONCLUÍDA** (`origin/main` @ `37a74ff`; encerramento formal 2026-08-06).
 
-**Próxima ação (somente quando autorizada explicitamente):** SUBFASE 0B — RBAC `diagnostics.write`. Não repetir homologação MySQL sem nova ordem.
+| Item | Status |
+|------|--------|
+| **0A** — Homologação MySQL Correção 1 | **Concluída / homologada** (aceite 2026-08-05; SHA `3aac437`; PR #32 merged `67f9308`) |
+| **0B** — RBAC `diagnostics.write` | **Concluída / verificada** (PR #34; commit `7ecd4b3`; merge `37a74ff`) |
+| **PR [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32)** | **MERGED** |
+| **PR [#33](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/33)** | **MERGED** (autoridade FASE 0) |
+| **PR [#34](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/34)** | **MERGED** (SUBFASE 0B) |
+| P0 FASE 0 (MAPA §7) | **Zero aberto** |
+
+**Próximo gate canônico (somente quando autorizado explicitamente):** **FASE 1** — núcleo cadastral (ver MAPA §5). Não repetir homologação MySQL da 0A sem nova ordem.
 
 ## Regras de parada
 
 - Não fazer merge, push de `main`, deploy nem migrations em produção sem autorização explícita.
 - Não tratar commits `3aac437` e `8d4ff2c` como duas correções diferentes (conteúdo equivalente).
-- Não iniciar FASE 1+ com P0 da FASE 0 aberto.
+- FASE 0 está concluída; evolução de produto segue FASE 1+ conforme MAPA (não reabrir P0 da FASE 0 sem nova ordem).
 
 ---
 

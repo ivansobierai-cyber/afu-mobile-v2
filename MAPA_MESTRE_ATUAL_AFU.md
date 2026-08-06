@@ -1,8 +1,8 @@
 # MAPA MESTRE ATUAL DO AFU
 
 **Status:** documento oficial de evolução (**aprovado** 2026-08-05)  
-**Regularização documental:** 2026-08-05 (sem alteração de código de produto)  
-**Fonte da verdade:** código + auditoria de rumo 2026-08-05 + homologação SUBFASE 0A  
+**Regularização documental:** 2026-08-05 (autoridade FASE 0); **encerramento formal FASE 0:** 2026-08-06 (somente docs)
+**Fonte da verdade:** código + auditoria de rumo 2026-08-05 + homologação SUBFASE 0A + evidência SUBFASE 0B
 **Substitui, como ordem de execução:** planos auxiliares “Etapa N”, correções numeradas avulsas e checklists paralelos.  
 **Planos antigos** (`docs/PLANO_UNICO_PENDENCIAS.md`, `docs/PROPRIEDADES_*`, `docs/ETAPA_*`, `SUPERVISOR.md` Etapas 1–10, etc.) permanecem como **histórico / evidência**, não como sequência a seguir.
 
@@ -25,15 +25,17 @@ Cada capacidade transversal serve a espinha dorsal abaixo, com multi-tenant por 
 
 | Item | Valor |
 |------|--------|
-| Branch local | `main` @ `8d4ff2c82bc0a3408addb5bcce8fab4672ea61e7` |
-| Commit canônico Correção 1 / homologação / PR #32 | `3aac437c03bf3eaf0636d8b415018fff074d9cee` |
-| Equivalência `8d4ff2c` ↔ `3aac437` | Mesmo conteúdo (`git diff` sem diferenças); **não** são duas correções distintas |
-| `origin/main` (remoto) | `4ef523a` — Correção 1 **ainda não** mergeada |
-| PR Correção 1 | [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32) — **draft**, **merge não autorizado** |
-| Branch da PR | `cursor/db-schema-prepare-aa74` |
-| SUBFASE 0A | **Homologada** — ver [`docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`](docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md) |
-| SUBFASE 0B | **Pendente, não iniciada** — RBAC `diagnostics.write` |
-| Veredito consolidado | **ALINHADO COM CORREÇÕES — objetivo preservado, execução fragmentada** |
+| `origin/main` (remoto) | `37a74ff6d59fb4dc64b08caffbda9878d040886c` (merge PR #34) |
+| Commit canônico Correção 1 / homologação 0A | `3aac437c03bf3eaf0636d8b415018fff074d9cee` (integrado via PR #32) |
+| Equivalência histórica `8d4ff2c` ↔ `3aac437` | Mesmo conteúdo (`git diff` sem diferenças); **não** são duas correções distintas |
+| PR #32 (Correção 1 / schema prepare) | **MERGED** — merge `67f93084bca30d687e91dd46a8e8065efa2c1fae` |
+| PR #33 (autoridade FASE 0) | **MERGED** — merge `a8d55273d5046c833987ec0fc64d6510fdee19ac` |
+| PR #34 (SUBFASE 0B) | **MERGED** — merge `37a74ff6d59fb4dc64b08caffbda9878d040886c`; commit funcional `7ecd4b3` |
+| SUBFASE 0A | **Concluída / homologada** — [`docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`](docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md) |
+| SUBFASE 0B | **Concluída / verificada** — [`docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md`](docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md) |
+| **FASE 0** | **CONCLUÍDA** (critérios §5 satisfeitos; zero P0 aberto em §7) |
+| CI pós-merge #34 | GitHub Actions run [31065903370](https://github.com/ivansobierai-cyber/afu-mobile-v2/actions/runs/31065903370) — job `validate`, `headSha` `37a74ff`, **SUCCESS** |
+| Veredito consolidado | **ALINHADO COM CORREÇÕES — FASE 0 encerrada; próximo gate canônico: FASE 1** |
 
 **Regra de leitura:** existência de arquivo/tabela/endpoint ≠ funcionalidade concluída.
 
@@ -76,7 +78,7 @@ A ordem **FASE 0→8** foi validada contra dependências reais do código audita
 | FASE 5 após FASE 4 | Consumo/custo amarram-se a tarefa/transition |
 | FASE 6 após 2–5 | Offline/sync sem modelo estável aumenta conflito |
 | FASE 7 por último no núcleo | KPIs exigem dados das fases anteriores |
-| FASE 0 sem P0 aberto | Schema prepare homologado (0A); `diagnostics.write` ainda aberto (0B) |
+| FASE 0 sem P0 aberto | **Atendido** — 0A homologada; 0B verificada; Correção 1 em `main` (PR #32) |
 
 ---
 
@@ -84,23 +86,23 @@ A ordem **FASE 0→8** foi validada contra dependências reais do código audita
 
 ### FASE 0 — Integridade e bloqueadores
 
-**Objetivo:** instalação/schema, multi-tenant e RBAC sem P0 aberto antes de evoluir produto.
+**Status:** **CONCLUÍDA** (encerramento formal documental 2026-08-06).
+
+**Objetivo:** instalação/schema, multi-tenant e RBAC sem P0 aberto antes de evoluir produto — **atingido**.
 
 #### Subfases
 
 | Subfase | Descrição | Status |
 |---------|-----------|--------|
-| **0A** | Homologação MySQL Correção 1 (`db:schema:prepare`, `db:schema:verify`) — PR #32 / `3aac437` | **Homologada** (evidência durável em `docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`) |
-| **0B** | Enforcement RBAC `diagnostics.write` em mutations de diagnóstico | **Pendente — não iniciada** |
-| **Merge PR #32** | Integrar Correção 1 em `main` | **Não autorizado** até P0 da FASE 0 fechado (incl. 0B) |
+| **0A** | Homologação MySQL Correção 1 (`db:schema:prepare`, `db:schema:verify`) — PR #32 / `3aac437` | **Concluída / homologada** — `docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md` |
+| **0B** | Enforcement RBAC `diagnostics.write` em mutations de diagnóstico | **Concluída / verificada** — PR #34 / `7ecd4b3`; `docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md` |
+| **Merge PR #32** | Integrar Correção 1 em `main` | **Concluído** — merge `67f9308` |
 
-**O que já existe:** multi-tenant/RBAC base; guards safra/arquivo; `db:schema:prepare` / `verify`; CI/boot alinhados na Correção 1; matriz `lib/security/org-roles.ts`.
+**Entregue:** multi-tenant/RBAC base; guards safra/arquivo; `db:schema:prepare` / `verify` em `main`; CI/boot alinhados na Correção 1; matriz `lib/security/org-roles.ts`; `diagnostics.write` nas mutations `diagnostico.salvar` e `diagnostico.analisar`.
 
-**O que falta:** SUBFASE 0B; merge #32 somente após critérios; reconciliação git local `8d4ff2c` vs remoto (fora do escopo da homologação).
+**Critério de conclusão FASE 0 (§5):** 0A homologada ✓; 0B implementada e verificada ✓; PR #32 integrada em `main` ✓; zero P0 aberto em §7 ✓.
 
-**Critério de conclusão FASE 0:** 0A homologada ✓; 0B implementada e verificada; PR #32 mergeável **com autorização**; zero P0 em §7.
-
-**Arquivos-chave:** `scripts/lib/schema-prepare-core.ts`, `docs/DB_SCHEMA_PREPARE.md`, `server/routers.ts` (diagnóstico), `lib/security/org-roles.ts`, `.github/workflows/ci.yml`, `scripts/start-api-production.sh`.
+**Arquivos-chave:** `scripts/lib/schema-prepare-core.ts`, `docs/DB_SCHEMA_PREPARE.md`, `server/routers.ts` (diagnóstico), `lib/security/org-roles.ts`, `.github/workflows/ci.yml`, `scripts/start-api-production.sh`, `tests/diagnostics-rbac.test.ts`.
 
 ---
 
@@ -178,11 +180,13 @@ Estoque, máquinas, financeiro, Centro de Eventos/anexos R2, alertas, offline pa
 
 ## 7. Dívidas P0 / P1 / P2 / P3
 
-### P0
+### P0 (FASE 0 — todos resolvidos)
 
-- ~~Homologação MySQL Correção 1 (0A)~~ → **fechada** (homologada).
-- **`diagnostics.write`** declarado na matriz RBAC **sem** enforcement nas mutations de diagnóstico → **aberto** (0B).
-- Em `origin/main` (pré-merge #32): risco de schema/boot legado — **mitigado na Correção 1**, merge **ainda não autorizado**.
+- ~~Homologação MySQL Correção 1 (0A)~~ → **fechada** — evidência `docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md`; conteúdo em `main` via PR #32 (`67f9308`).
+- ~~`diagnostics.write` sem enforcement nas mutations de diagnóstico (0B)~~ → **fechada** — `requireOrgPermission(tenant, "diagnostics.write")` em `diagnostico.salvar` e `diagnostico.analisar`; PR #34 (`7ecd4b3` / merge `37a74ff`); evidência `docs/evidencias/FASE_0_SUBFASE_0B_DIAGNOSTICS_WRITE.md`.
+- ~~Risco de schema/boot legado em `main` sem Correção 1~~ → **fechada** — Correção 1 mergeada (PR #32); CI `validate` em push `37a74ff` (run 31065903370) **SUCCESS**.
+
+**P0 aberto da FASE 0:** nenhum.
 
 ### P1 (resumo)
 
@@ -194,16 +198,16 @@ Estoque, máquinas, financeiro, Centro de Eventos/anexos R2, alertas, offline pa
 
 ---
 
-## 8. Estado da PR #32 / Correção 1
+## 8. Correção 1 / PR #32 (registro pós-merge)
 
 | Item | Estado |
 |------|--------|
-| PR | [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32) — **draft**, **OPEN** |
-| SHA canônico | `3aac437` |
+| PR | [#32](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/32) — **MERGED** |
+| Merge commit | `67f93084bca30d687e91dd46a8e8065efa2c1fae` |
+| SHA canônico (conteúdo) | `3aac437` |
 | Conteúdo | `db:schema:prepare` / `verify`, supplementals 0020/0021…, CI + boot, `docs/DB_SCHEMA_PREPARE.md` |
-| Em `origin/main`? | **Não** |
-| Homologação MySQL (0A) | **Concluída** — evidência durável em `docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md` |
-| **Merge** | **Não autorizado** neste estágio |
+| Em `origin/main`? | **Sim** (ancestral de `37a74ff`) |
+| Homologação MySQL (0A) | **Concluída** — `docs/evidencias/FASE_0_SUBFASE_0A_HOMOLOGACAO_MYSQL.md` |
 
 ---
 
@@ -235,16 +239,16 @@ FASE 8  Expansões
 
 1. ~~Aprovar mapa~~ — **feito**.
 2. ~~SUBFASE 0A homologação MySQL~~ — **feita** (aceite formal).
-3. **Autorizar e executar SUBFASE 0B** — RBAC `diagnostics.write`.
-4. **Somente então** avaliar merge da PR #32 em `main` (**com autorização explícita**).
-5. Iniciar **FASE 1** com aceite Organização→…→Cultivo (sem abrir FASE 4 antes).
+3. ~~SUBFASE 0B — RBAC `diagnostics.write`~~ — **feita** (PR #34).
+4. ~~Merge PR #32 (Correção 1) em `main`~~ — **feito** (`67f9308`).
+5. **Próximo gate canônico (quando autorizado):** **FASE 1** — núcleo cadastral (Organização→…→Cultivo; ver §5 FASE 1). **Não** abrir FASE 4 antes.
 
 ---
 
 ## 12. Próxima ação quando autorizada
 
-**SUBFASE 0B — RBAC `diagnostics.write`** nas mutations de diagnóstico (server-side).  
-**Não** repetir homologação MySQL. **Não** merge PR #32 sem autorização. **Não** iniciar FASE 1 até FASE 0 P0 fechado.
+**FASE 1 — Núcleo cadastral** conforme critérios em §5.
+**Não** repetir homologação MySQL da 0A sem nova ordem. FASE 0 está **concluída**; P0 da FASE 0 em §7 está **fechado**.
 
 ---
 
