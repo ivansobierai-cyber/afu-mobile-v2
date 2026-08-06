@@ -28,6 +28,8 @@ jobs:
       JWT_SECRET: ci_jwt_secret_afu_mobile_validate
       NODE_ENV: test
       DATABASE_URL: mysql://afu:afu_local_dev@127.0.0.1:3306/afu_mobile
+      # Somente harness de integração (tests/db-schema-prepare.test.ts): CREATE/DROP banco efêmero
+      SCHEMA_PREPARE_TEST_ADMIN_URL: mysql://root:root@127.0.0.1:3306/
     steps:
       - uses: actions/checkout@v4
 
@@ -43,10 +45,10 @@ jobs:
         run: npm run check
 
       - name: Apply schema (MySQL)
-        run: |
-          npx drizzle-kit push --force
-          npm run db:safras:apply
-          npm run db:archive:apply
+        run: npm run db:schema:prepare
+
+      - name: Verify schema (migrations obrigatórias)
+        run: npm run db:schema:verify
 
 
       - name: Build web (Vercel)

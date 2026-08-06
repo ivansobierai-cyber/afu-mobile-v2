@@ -34,6 +34,8 @@
     "check:tenant-queries": "node scripts/check-tenant-queries.mjs",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "db:migrate": "drizzle-kit migrate",
+    "db:schema:prepare": "tsx scripts/db-schema-prepare.ts",
+    "db:schema:verify": "tsx scripts/db-schema-verify.ts",
     "db:up": "docker compose up -d",
     "db:down": "docker compose down",
     "db:logs": "docker compose logs -f mysql",
