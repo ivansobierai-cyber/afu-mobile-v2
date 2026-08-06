@@ -90,8 +90,8 @@ describe("aceitação painel propriedades (Etapa 10 / correção Etapa 2)", () =
 
   describe("+ Registrar contextual", () => {
     it("mapeia ações para aba/formulário", () => {
-      expect(resolveRegistrarTarget("tarefa").tab).toBe("operacoes");
-      expect(resolveRegistrarTarget("ocorrencia").maisSection).toBe("monitoramento");
+      expect(resolveRegistrarTarget("tarefa").tab).toBe("tarefas");
+      expect(resolveRegistrarTarget("ocorrencia").tab).toBe("monitoramento");
       expect(resolveRegistrarTarget("cultivo").tab).toBe("cultivos");
       expect(resolveRegistrarTarget("talhao").externalRoute).toBe("terrenos");
     });

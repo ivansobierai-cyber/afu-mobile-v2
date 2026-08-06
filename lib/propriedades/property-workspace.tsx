@@ -6,7 +6,19 @@ import React, { createContext, useCallback, useContext, useMemo } from "react";
 import type { OrgRole } from "@/lib/security/org-roles";
 import { roleHasPermission } from "@/lib/security/org-roles";
 
-export type PanelTab = "visao" | "mapa" | "operacoes" | "talhoes" | "cultivos" | "mais";
+export type PanelTab =
+  | "visao"
+  | "mapa"
+  | "talhoes"
+  | "cultivos"
+  | "operacoes"
+  | "tarefas"
+  | "monitoramento"
+  | "custos"
+  | "recursos"
+  | "documentos"
+  | "configuracoes"
+  | "mais";
 export type SafraStatus = "planejada" | "ativa" | "encerrada" | "arquivada";
 
 export type WorkspaceSafra = {
