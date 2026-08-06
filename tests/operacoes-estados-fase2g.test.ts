@@ -58,6 +58,20 @@ async function transition(
   });
 }
 
+/** FASE 2H — conclusão exige apontamento mínimo; helper para regressões 2G. */
+async function registerMinimalApontamento(fixture: TenantFixture, operacaoId: number) {
+  const inicio = new Date();
+  const fim = new Date(inicio.getTime() + 60_000);
+  return fixture.caller.coreData.operacoes.createApontamento({
+    operacaoId,
+    inicioReal: inicio.toISOString(),
+    fimReal: fim.toISOString(),
+    areaExecutada: 1,
+    areaUnidade: "ha",
+    clientMutationId: `2g-apt-${operacaoId}-${Date.now()}`,
+  });
+}
+
 describe("FASE 2G — domínio de status (unit)", () => {
   it("matriz — transições válidas principais", () => {
     expect(canTransitionOperacaoAgricola("planejada", "liberada")).toBe(true);
@@ -119,6 +133,7 @@ describe.skipIf(!hasDb)("FASE 2G — transições server-side", () => {
     const id = await createOp(a);
     await transition(a, id, "liberada");
     await transition(a, id, "em_execucao");
+    await registerMinimalApontamento(a, id);
     await transition(a, id, "concluida");
     await transition(a, id, "aprovada");
     const op = await a.caller.coreData.operacoes.get({ id });
@@ -157,6 +172,7 @@ describe.skipIf(!hasDb)("FASE 2G — transições server-side", () => {
     const id = await createOp(a, "NoApprove");
     await transition(a, id, "liberada");
     await transition(a, id, "em_execucao");
+    await registerMinimalApontamento(a, id);
     await transition(a, id, "concluida");
     await expect(transition(a, id, "aprovada")).rejects.toMatchObject({
       code: "FORBIDDEN",

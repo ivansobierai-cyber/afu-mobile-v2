@@ -163,6 +163,19 @@ export async function transitionOperacaoAgricolaStatus(
     });
   }
 
+  // FASE 2H — nova conclusão exige apontamento mínimo válido (sem backfill histórico).
+  if (to === "concluida" && from !== "concluida") {
+    const { operacaoHasMinimalValidApontamento } = await import("./db-operacoes-apontamentos");
+    const ok = await operacaoHasMinimalValidApontamento(tenant.organizationId, op.id);
+    if (!ok) {
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message:
+          "APONTAMENTO_REQUIRED: registre execução real (início e autoria) antes de concluir",
+      });
+    }
+  }
+
   const { operacaoTransitionRequiredPermission } = await import(
     "../lib/operacoes/operacao-agricola-status"
   );

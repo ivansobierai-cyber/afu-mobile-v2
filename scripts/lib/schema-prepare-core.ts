@@ -109,6 +109,22 @@ async function verify0038OperacoesStatus(conn: mysql.Connection): Promise<void> 
   }
 }
 
+async function verify0039OperacoesApontamentos(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "operacoes_agricolas_apontamentos"))) {
+    throw new Error("0039_operacoes_apontamentos: tabela operacoes_agricolas_apontamentos ausente");
+  }
+  if (!(await tableExists(conn, "operacoes_agricolas_apontamento_insumos"))) {
+    throw new Error(
+      "0039_operacoes_apontamentos: tabela operacoes_agricolas_apontamento_insumos ausente",
+    );
+  }
+  if (!(await tableExists(conn, "operacoes_agricolas_apontamento_evidencias"))) {
+    throw new Error(
+      "0039_operacoes_apontamentos: tabela operacoes_agricolas_apontamento_evidencias ausente",
+    );
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -295,6 +311,12 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:operacoes-status:apply",
     required: true,
     verify: verify0038OperacoesStatus,
+  },
+  {
+    tag: "0039_operacoes_apontamentos",
+    npmScript: "db:operacoes-apontamentos:apply",
+    required: true,
+    verify: verify0039OperacoesApontamentos,
   },
 ];
 

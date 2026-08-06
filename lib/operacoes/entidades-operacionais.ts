@@ -39,14 +39,15 @@ export const ENTIDADE_OPERACIONAL_META: Record<EntidadeOperacional, EntidadeOper
   operacao: {
     nome: "Operação",
     definicao:
-      "Atividade agrícola planejada ou executada no campo, classificada pelo vocabulário canônico (sem tabela dedicada).",
-    tabelaPersistencia: null,
-    campoTipoLegado: null,
+      "Atividade agrícola planejada ou executada no campo, classificada pelo vocabulário canônico.",
+    tabelaPersistencia: "operacoes_agricolas",
+    campoTipoLegado: "tipoOperacao",
   },
   apontamento: {
     nome: "Apontamento",
-    definicao: "Registro real da execução de uma tarefa (início/fim, área, notas, resultado).",
-    tabelaPersistencia: "apontamentos_operacao",
+    definicao:
+      "Registro real da execução de uma operação agrícola (início/fim, área, insumos apontados, evidências). Distinto do legado apontamentos_operacao (tarefa).",
+    tabelaPersistencia: "operacoes_agricolas_apontamentos",
     campoTipoLegado: null,
   },
 };

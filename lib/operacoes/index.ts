@@ -43,6 +43,19 @@ export {
 } from "./operacao-agricola-status";
 
 export {
+  APONTAMENTO_RESULTADO,
+  assertApontamentoHorarios,
+  assertAreaExecutada,
+  assertInsumoQuantidade,
+  canCreateApontamentoForStatus,
+  canEditApontamentoForStatus,
+  isApontamentoReadOnlyStatus,
+  isMinimalValidApontamento,
+  type ApontamentoResultado,
+  type PlanejadoRealizadoResumo,
+} from "./operacao-apontamento-rules";
+
+export {
   OPERACAO_ORIGEM_LABELS,
   OPERACAO_STATUS_LABELS,
   OPERACAO_STATUS_VALUES,
