@@ -11,6 +11,8 @@ export type ApontamentoFormFields = {
   insumoDesc: string;
   insumoQtd: string;
   insumoUnidade: string;
+  /** Quando preenchido, dispensa descrição textual (insumo de catálogo). */
+  insumoEstoqueItemId?: number | null;
 };
 
 export type ApontamentoFieldKey =
@@ -132,7 +134,11 @@ export function validateApontamentoForm(
     }
   }
 
-  const hasInsumo = Boolean(fields.insumoDesc.trim() || fields.insumoQtd.trim());
+  const hasInsumo = Boolean(
+    fields.insumoDesc.trim() ||
+      fields.insumoQtd.trim() ||
+      (fields.insumoEstoqueItemId != null && fields.insumoEstoqueItemId > 0),
+  );
   let insumos: ApontamentoFormParseOk["insumos"];
   if (hasInsumo) {
     const qtd = fields.insumoQtd.trim()
@@ -144,13 +150,14 @@ export function validateApontamentoForm(
     if (!fields.insumoUnidade.trim()) {
       errors.insumoUnidade = "Informe a unidade do insumo.";
     }
-    if (!fields.insumoDesc.trim()) {
+    const hasCatalogRef = fields.insumoEstoqueItemId != null && fields.insumoEstoqueItemId > 0;
+    if (!fields.insumoDesc.trim() && !hasCatalogRef) {
       errors.insumoDesc = "Informe o nome do insumo ou remova a quantidade.";
     }
     if (!errors.insumoQtd && !errors.insumoUnidade && !errors.insumoDesc) {
       insumos = [
         {
-          descricao: fields.insumoDesc.trim(),
+          descricao: fields.insumoDesc.trim() || null,
           quantidade: qtd,
           unidade: fields.insumoUnidade.trim(),
         },

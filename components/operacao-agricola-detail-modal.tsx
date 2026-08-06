@@ -317,6 +317,7 @@ export function OperacaoAgricolaDetailModal({
       insumoDesc,
       insumoQtd,
       insumoUnidade,
+      insumoEstoqueItemId,
     });
 
     if (!parsed.ok) {

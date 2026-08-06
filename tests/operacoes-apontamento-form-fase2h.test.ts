@@ -147,4 +147,18 @@ describe("FASE 2H — formulário apontamento (validação UX)", () => {
     expect(mapped.userMessage).not.toMatch(/invalid_type/);
     expect(mapped.userMessage).toMatch(/revise os campos/i);
   });
+
+  it("insumo só com estoqueItemId + quantidade é válido", () => {
+    const r = validateApontamentoForm({
+      inicioReal: "2026-08-06T08:30",
+      fimReal: "",
+      areaExecutada: "",
+      areaUnidade: "ha",
+      insumoDesc: "",
+      insumoQtd: "12",
+      insumoUnidade: "kg",
+      insumoEstoqueItemId: 42,
+    });
+    expect(r.ok).toBe(true);
+  });
 });
