@@ -56,6 +56,18 @@ export {
 } from "./operacao-apontamento-rules";
 
 export {
+  firstApontamentoErrorMessage,
+  mapApontamentoServerError,
+  parseApontamentoDateTimeLocal,
+  toApontamentoDateTimeLocalValue,
+  validateApontamentoForm,
+  type ApontamentoFieldErrors,
+  type ApontamentoFieldKey,
+  type ApontamentoFormFields,
+} from "./apontamento-form";
+
+
+export {
   OPERACAO_ORIGEM_LABELS,
   OPERACAO_STATUS_LABELS,
   OPERACAO_STATUS_VALUES,

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState, type RefObject } from "react";
 import {
   View,
   Text,
@@ -21,8 +21,13 @@ import {
   filterOperacaoTransitionActionsByPermission,
   isApontamentoReadOnlyStatus,
   listOperacaoTransitionActions,
+  mapApontamentoServerError,
   operacaoTransitionRequiresMotivo,
   labelTipoOperacao,
+  toApontamentoDateTimeLocalValue,
+  validateApontamentoForm,
+  type ApontamentoFieldErrors,
+  type ApontamentoFieldKey,
   type OperacaoListItem,
   type OperacaoAgricolaStatus,
 } from "@/lib/operacoes";
@@ -58,9 +63,13 @@ function formatDt(value: Date | string | null | undefined): string {
   return d.toLocaleString("pt-BR");
 }
 
-function toLocalInputValue(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+function FieldError({ message, color }: { message?: string; color: string }) {
+  if (!message) return null;
+  return (
+    <Text style={{ fontSize: 12, color, marginBottom: 8, marginTop: -4 }} accessibilityLiveRegion="polite">
+      {message}
+    </Text>
+  );
 }
 
 export function OperacaoAgricolaDetailModal({
@@ -83,9 +92,10 @@ export function OperacaoAgricolaDetailModal({
   const [showApontForm, setShowApontForm] = useState(false);
   const [editingApontId, setEditingApontId] = useState<number | null>(null);
   const [editingRevision, setEditingRevision] = useState(0);
-  const [inicioReal, setInicioReal] = useState(toLocalInputValue(new Date()));
+  const [inicioReal, setInicioReal] = useState(toApontamentoDateTimeLocalValue(new Date()));
   const [fimReal, setFimReal] = useState("");
   const [areaExecutada, setAreaExecutada] = useState("");
+  const [areaUnidade, setAreaUnidade] = useState("ha");
   const [equipeTexto, setEquipeTexto] = useState("");
   const [implementoTexto, setImplementoTexto] = useState("");
   const [condicoes, setCondicoes] = useState("");
@@ -107,7 +117,16 @@ export function OperacaoAgricolaDetailModal({
   const [evidenciaNome, setEvidenciaNome] = useState("");
   const [evidenciaUrl, setEvidenciaUrl] = useState("");
   const [savingApont, setSavingApont] = useState(false);
+  const [apontFieldErrors, setApontFieldErrors] = useState<ApontamentoFieldErrors>({});
+  const [apontBanner, setApontBanner] = useState<{
+    kind: "error" | "success";
+    text: string;
+  } | null>(null);
   const apontMutationId = useRef<string | null>(null);
+  const inicioInputRef = useRef<TextInput>(null);
+  const fimInputRef = useRef<TextInput>(null);
+  const areaInputRef = useRef<TextInput>(null);
+  const insumoQtdRef = useRef<TextInput>(null);
 
   const operacaoQ = trpc.coreData.operacoes.get.useQuery(
     { id: operacao.id },
@@ -200,9 +219,10 @@ export function OperacaoAgricolaDetailModal({
     setShowApontForm(false);
     setEditingApontId(null);
     setEditingRevision(0);
-    setInicioReal(toLocalInputValue(new Date()));
+    setInicioReal(toApontamentoDateTimeLocalValue(new Date()));
     setFimReal("");
     setAreaExecutada("");
+    setAreaUnidade("ha");
     setEquipeTexto("");
     setImplementoTexto("");
     setCondicoes("");
@@ -215,21 +235,38 @@ export function OperacaoAgricolaDetailModal({
     setInsumosExtras([]);
     setEvidenciaNome("");
     setEvidenciaUrl("");
+    setApontFieldErrors({});
+    setApontBanner(null);
     apontMutationId.current = null;
   };
 
   const openCreateForm = () => {
     resetApontForm();
     setShowApontForm(true);
-    setInicioReal(toLocalInputValue(new Date()));
+    setInicioReal(toApontamentoDateTimeLocalValue(new Date()));
+    setApontBanner(null);
+  };
+
+  const focusFirstError = (key: ApontamentoFieldKey) => {
+    const map: Partial<Record<ApontamentoFieldKey, RefObject<TextInput | null>>> = {
+      inicioReal: inicioInputRef,
+      fimReal: fimInputRef,
+      areaExecutada: areaInputRef,
+      areaUnidade: areaInputRef,
+      insumoQtd: insumoQtdRef,
+      insumoUnidade: insumoQtdRef,
+      insumoDesc: insumoQtdRef,
+    };
+    map[key]?.current?.focus?.();
   };
 
   const openEditForm = (a: NonNullable<typeof apontamentosQ.data>[number]) => {
     setEditingApontId(a.id);
     setEditingRevision(a.revision ?? 0);
-    setInicioReal(toLocalInputValue(new Date(a.inicioReal)));
-    setFimReal(a.fimReal ? toLocalInputValue(new Date(a.fimReal)) : "");
+    setInicioReal(toApontamentoDateTimeLocalValue(new Date(a.inicioReal)));
+    setFimReal(a.fimReal ? toApontamentoDateTimeLocalValue(new Date(a.fimReal)) : "");
     setAreaExecutada(a.areaExecutada != null ? String(a.areaExecutada) : "");
+    setAreaUnidade(a.areaUnidade ?? "ha");
     setEquipeTexto(a.equipeTexto ?? "");
     setImplementoTexto(a.implementoTexto ?? "");
     setCondicoes(a.condicoesObservadas ?? "");
@@ -248,6 +285,8 @@ export function OperacaoAgricolaDetailModal({
         unidade: i.unidade,
       })),
     );
+    setApontFieldErrors({});
+    setApontBanner(null);
     setShowApontForm(true);
     apontMutationId.current = null;
   };
@@ -257,54 +296,62 @@ export function OperacaoAgricolaDetailModal({
     await utils.coreData.operacoes.planejadoRealizado.invalidate({ operacaoId: operacao.id });
   };
 
+  const clearFieldError = (key: ApontamentoFieldKey) => {
+    setApontFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
   const saveApontamento = async () => {
-    if (!inicioReal.trim()) {
-      Alert.alert("Atenção", "Informe o início real da execução.");
-      return;
-    }
-    const inicio = new Date(inicioReal);
-    if (Number.isNaN(inicio.getTime())) {
-      Alert.alert("Atenção", "Início real inválido.");
-      return;
-    }
-    const fim = fimReal.trim() ? new Date(fimReal) : null;
-    if (fim && Number.isNaN(fim.getTime())) {
-      Alert.alert("Atenção", "Fim real inválido.");
-      return;
-    }
-    if (fim && inicio.getTime() > fim.getTime()) {
-      Alert.alert("Atenção", "O início deve ser anterior ou igual ao fim.");
+    if (savingApont) return;
+
+    setApontBanner(null);
+    const parsed = validateApontamentoForm({
+      inicioReal,
+      fimReal,
+      areaExecutada,
+      areaUnidade,
+      insumoDesc,
+      insumoQtd,
+      insumoUnidade,
+    });
+
+    if (!parsed.ok) {
+      setApontFieldErrors(parsed.errors);
+      setApontBanner({
+        kind: "error",
+        text: parsed.errors[parsed.firstErrorKey] ?? "Revise os campos destacados.",
+      });
+      focusFirstError(parsed.firstErrorKey);
       return;
     }
 
-    const areaNum = areaExecutada.trim() ? Number(areaExecutada.replace(",", ".")) : null;
-    if (areaNum != null && (Number.isNaN(areaNum) || areaNum < 0)) {
-      Alert.alert("Atenção", "Área executada inválida.");
-      return;
-    }
+    setApontFieldErrors({});
 
-    const qtdParsed = insumoQtd.trim() ? Number(insumoQtd.replace(",", ".")) : null;
-    // Campos visíveis definem se a 1ª linha existe; estoqueItemId é preservado junto da qtd carregada.
-    const hasFirstInsumo = Boolean(insumoDesc.trim() || insumoQtd.trim());
-    const firstInsumo = hasFirstInsumo
-      ? {
-          estoqueItemId: insumoEstoqueItemId,
-          descricao: insumoDesc.trim() || null,
-          quantidade: qtdParsed != null && !Number.isNaN(qtdParsed) ? qtdParsed : Number.NaN,
-          unidade: insumoUnidade.trim() || "kg",
-        }
-      : null;
-    if (firstInsumo && (!(firstInsumo.quantidade > 0) || Number.isNaN(firstInsumo.quantidade))) {
-      Alert.alert("Atenção", "Quantidade de insumo deve ser maior que zero.");
-      return;
-    }
-
-    // Edição: sempre envia coleção completa (vazio = limpar; extras + estoqueItemId preservados).
-    // Criação: só envia se houver insumos.
-    const insumosForEdit = firstInsumo
-      ? [firstInsumo, ...insumosExtras]
+    const insumosForEdit = parsed.insumos
+      ? [
+          {
+            estoqueItemId: insumoEstoqueItemId,
+            descricao: parsed.insumos[0]!.descricao,
+            quantidade: parsed.insumos[0]!.quantidade,
+            unidade: parsed.insumos[0]!.unidade,
+          },
+          ...insumosExtras,
+        ]
       : [...insumosExtras];
-    const insumosForCreate = firstInsumo ? [firstInsumo] : undefined;
+    const insumosForCreate = parsed.insumos
+      ? [
+          {
+            estoqueItemId: insumoEstoqueItemId,
+            descricao: parsed.insumos[0]!.descricao,
+            quantidade: parsed.insumos[0]!.quantidade,
+            unidade: parsed.insumos[0]!.unidade,
+          },
+        ]
+      : undefined;
     const evidencias =
       evidenciaNome.trim() && evidenciaUrl.trim()
         ? [{ nome: evidenciaNome.trim(), url: evidenciaUrl.trim() }]
@@ -316,10 +363,10 @@ export function OperacaoAgricolaDetailModal({
         await updateApontMut.mutateAsync({
           apontamentoId: editingApontId,
           expectedRevision: editingRevision,
-          inicioReal: inicio.toISOString(),
-          fimReal: fim ? fim.toISOString() : null,
-          areaExecutada: areaNum,
-          areaUnidade: "ha",
+          inicioReal: parsed.inicioReal.toISOString(),
+          fimReal: parsed.fimReal ? parsed.fimReal.toISOString() : null,
+          areaExecutada: parsed.areaExecutada,
+          areaUnidade: parsed.areaUnidade,
           equipeTexto: equipeTexto.trim() || null,
           implementoTexto: implementoTexto.trim() || null,
           condicoesObservadas: condicoes.trim() || null,
@@ -333,10 +380,10 @@ export function OperacaoAgricolaDetailModal({
         }
         await createApontMut.mutateAsync({
           operacaoId: operacao.id,
-          inicioReal: inicio.toISOString(),
-          fimReal: fim ? fim.toISOString() : null,
-          areaExecutada: areaNum,
-          areaUnidade: "ha",
+          inicioReal: parsed.inicioReal.toISOString(),
+          fimReal: parsed.fimReal ? parsed.fimReal.toISOString() : null,
+          areaExecutada: parsed.areaExecutada,
+          areaUnidade: parsed.areaUnidade,
           equipeTexto: equipeTexto.trim() || null,
           implementoTexto: implementoTexto.trim() || null,
           condicoesObservadas: condicoes.trim() || null,
@@ -348,11 +395,22 @@ export function OperacaoAgricolaDetailModal({
         });
       }
       await refreshApontamentos();
-      resetApontForm();
+      setApontBanner({ kind: "success", text: "Apontamento salvo com sucesso." });
+      // Fecha o formulário após sucesso, mantendo o modal da operação aberto.
+      setShowApontForm(false);
+      setEditingApontId(null);
+      setEditingRevision(0);
+      setApontFieldErrors({});
+      apontMutationId.current = null;
     } catch (e: unknown) {
-      // Mantém clientMutationId para retry idempotente (não gerar duplicata).
-      const msg = e instanceof Error ? e.message : "Não foi possível salvar o apontamento.";
-      Alert.alert("Erro", msg);
+      // Mantém clientMutationId + dados digitados para retry idempotente.
+      const mapped = mapApontamentoServerError(e);
+      console.error("[apontamento] save failed:", mapped.technicalLog, e);
+      setApontBanner({ kind: "error", text: mapped.userMessage });
+      if (mapped.field && mapped.field !== "_form") {
+        setApontFieldErrors({ [mapped.field]: mapped.userMessage });
+        focusFirstError(mapped.field);
+      }
     } finally {
       setSavingApont(false);
     }
@@ -557,38 +615,141 @@ export function OperacaoAgricolaDetailModal({
               </TouchableOpacity>
             ) : null}
 
+            {apontBanner && !showApontForm ? (
+              <View
+                style={[
+                  styles.banner,
+                  {
+                    borderColor: apontBanner.kind === "success" ? "#2E7D32" : "#C62828",
+                    backgroundColor: apontBanner.kind === "success" ? "#E8F5E9" : "#FFEBEE",
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    color: apontBanner.kind === "success" ? "#1B5E20" : "#B71C1C",
+                    fontSize: 13,
+                    fontWeight: "600",
+                  }}
+                >
+                  {apontBanner.text}
+                </Text>
+              </View>
+            ) : null}
+
             {showApontForm ? (
               <View style={{ marginBottom: 16 }}>
                 <Text style={{ fontSize: 12, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>
                   {editingApontId ? "Editar apontamento" : "Novo apontamento"}
                 </Text>
+                {apontBanner ? (
+                  <View
+                    style={[
+                      styles.banner,
+                      {
+                        borderColor: apontBanner.kind === "success" ? "#2E7D32" : "#C62828",
+                        backgroundColor: apontBanner.kind === "success" ? "#E8F5E9" : "#FFEBEE",
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        color: apontBanner.kind === "success" ? "#1B5E20" : "#B71C1C",
+                        fontSize: 13,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {apontBanner.text}
+                    </Text>
+                  </View>
+                ) : null}
                 <Text style={styles.fieldLabel}>Início real *</Text>
                 <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.foreground, minHeight: 44 }]}
+                  ref={inicioInputRef}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: apontFieldErrors.inicioReal ? "#C62828" : colors.border,
+                      color: colors.foreground,
+                      minHeight: 44,
+                    },
+                  ]}
                   value={inicioReal}
-                  onChangeText={setInicioReal}
+                  onChangeText={(t) => {
+                    setInicioReal(t);
+                    clearFieldError("inicioReal");
+                  }}
                   placeholder="AAAA-MM-DDTHH:mm"
                   placeholderTextColor={colors.muted}
                   autoCapitalize="none"
+                  {...(Platform.OS === "web" ? ({ type: "datetime-local" } as object) : {})}
                 />
+                <FieldError message={apontFieldErrors.inicioReal} color="#C62828" />
                 <Text style={styles.fieldLabel}>Fim real</Text>
                 <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.foreground, minHeight: 44 }]}
+                  ref={fimInputRef}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: apontFieldErrors.fimReal ? "#C62828" : colors.border,
+                      color: colors.foreground,
+                      minHeight: 44,
+                    },
+                  ]}
                   value={fimReal}
-                  onChangeText={setFimReal}
+                  onChangeText={(t) => {
+                    setFimReal(t);
+                    clearFieldError("fimReal");
+                  }}
                   placeholder="AAAA-MM-DDTHH:mm"
                   placeholderTextColor={colors.muted}
                   autoCapitalize="none"
+                  {...(Platform.OS === "web" ? ({ type: "datetime-local" } as object) : {})}
                 />
-                <Text style={styles.fieldLabel}>Área executada (ha)</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.foreground, minHeight: 44 }]}
-                  value={areaExecutada}
-                  onChangeText={setAreaExecutada}
-                  keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
-                  placeholder="0"
-                  placeholderTextColor={colors.muted}
-                />
+                <FieldError message={apontFieldErrors.fimReal} color="#C62828" />
+                <Text style={styles.fieldLabel}>Área executada</Text>
+                <View style={{ flexDirection: "row", gap: 8 }}>
+                  <TextInput
+                    ref={areaInputRef}
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: apontFieldErrors.areaExecutada ? "#C62828" : colors.border,
+                        color: colors.foreground,
+                        minHeight: 44,
+                        flex: 1,
+                      },
+                    ]}
+                    value={areaExecutada}
+                    onChangeText={(t) => {
+                      setAreaExecutada(t);
+                      clearFieldError("areaExecutada");
+                    }}
+                    keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
+                    placeholder="0"
+                    placeholderTextColor={colors.muted}
+                  />
+                  <TextInput
+                    style={[
+                      styles.input,
+                      {
+                        borderColor: apontFieldErrors.areaUnidade ? "#C62828" : colors.border,
+                        color: colors.foreground,
+                        minHeight: 44,
+                        width: 72,
+                      },
+                    ]}
+                    value={areaUnidade}
+                    onChangeText={(t) => {
+                      setAreaUnidade(t);
+                      clearFieldError("areaUnidade");
+                    }}
+                    placeholder="ha"
+                    placeholderTextColor={colors.muted}
+                  />
+                </View>
+                <FieldError message={apontFieldErrors.areaExecutada} color="#C62828" />
+                <FieldError message={apontFieldErrors.areaUnidade} color="#C62828" />
                 <Text style={styles.fieldLabel}>Equipe / operador</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.foreground, minHeight: 44 }]}
@@ -623,20 +784,40 @@ export function OperacaoAgricolaDetailModal({
                 />
                 <Text style={styles.fieldLabel}>Insumo realizado (sem baixar estoque)</Text>
                 <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.foreground, minHeight: 44 }]}
+                  style={[
+                    styles.input,
+                    {
+                      borderColor: apontFieldErrors.insumoDesc ? "#C62828" : colors.border,
+                      color: colors.foreground,
+                      minHeight: 44,
+                    },
+                  ]}
                   value={insumoDesc}
-                  onChangeText={setInsumoDesc}
+                  onChangeText={(t) => {
+                    setInsumoDesc(t);
+                    clearFieldError("insumoDesc");
+                  }}
                   placeholder="Produto"
                   placeholderTextColor={colors.muted}
                 />
+                <FieldError message={apontFieldErrors.insumoDesc} color="#C62828" />
                 <View style={{ flexDirection: "row", gap: 8 }}>
                   <TextInput
+                    ref={insumoQtdRef}
                     style={[
                       styles.input,
-                      { borderColor: colors.border, color: colors.foreground, minHeight: 44, flex: 1 },
+                      {
+                        borderColor: apontFieldErrors.insumoQtd ? "#C62828" : colors.border,
+                        color: colors.foreground,
+                        minHeight: 44,
+                        flex: 1,
+                      },
                     ]}
                     value={insumoQtd}
-                    onChangeText={setInsumoQtd}
+                    onChangeText={(t) => {
+                      setInsumoQtd(t);
+                      clearFieldError("insumoQtd");
+                    }}
                     keyboardType={Platform.OS === "ios" ? "decimal-pad" : "numeric"}
                     placeholder="Qtd"
                     placeholderTextColor={colors.muted}
@@ -644,14 +825,24 @@ export function OperacaoAgricolaDetailModal({
                   <TextInput
                     style={[
                       styles.input,
-                      { borderColor: colors.border, color: colors.foreground, minHeight: 44, width: 72 },
+                      {
+                        borderColor: apontFieldErrors.insumoUnidade ? "#C62828" : colors.border,
+                        color: colors.foreground,
+                        minHeight: 44,
+                        width: 72,
+                      },
                     ]}
                     value={insumoUnidade}
-                    onChangeText={setInsumoUnidade}
+                    onChangeText={(t) => {
+                      setInsumoUnidade(t);
+                      clearFieldError("insumoUnidade");
+                    }}
                     placeholder="un"
                     placeholderTextColor={colors.muted}
                   />
                 </View>
+                <FieldError message={apontFieldErrors.insumoQtd} color="#C62828" />
+                <FieldError message={apontFieldErrors.insumoUnidade} color="#C62828" />
                 {!editingApontId ? (
                   <>
                     <Text style={styles.fieldLabel}>Evidência (link)</Text>
@@ -691,12 +882,14 @@ export function OperacaoAgricolaDetailModal({
                   <TouchableOpacity
                     onPress={() => void saveApontamento()}
                     disabled={savingApont}
+                    accessibilityState={{ busy: savingApont, disabled: savingApont }}
                     style={{
                       backgroundColor: colors.primary,
                       borderRadius: 10,
                       padding: 12,
                       flex: 1,
                       justifyContent: "center",
+                      opacity: savingApont ? 0.7 : 1,
                     }}
                   >
                     {savingApont ? (
@@ -808,5 +1001,11 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 12,
+  },
+  banner: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
   },
 });

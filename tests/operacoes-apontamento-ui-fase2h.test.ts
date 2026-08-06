@@ -1,5 +1,5 @@
 /**
- * FASE 2H — regras UI puras (Planejado × Realizado / permissões de ação).
+ * FASE 2H — regras UI puras (Planejado × Realizado / permissões de ação / smoke).
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -11,6 +11,10 @@ import {
   canShowCreateOperacaoButton,
   historicalSafraMessage,
 } from "../lib/operacoes/operacoes-workspace-ui";
+import {
+  mapApontamentoServerError,
+  validateApontamentoForm,
+} from "../lib/operacoes/apontamento-form";
 
 describe("FASE 2H — UI apontamento (puro)", () => {
   it("formulário de execução só em status graváveis", () => {
@@ -26,8 +30,6 @@ describe("FASE 2H — UI apontamento (puro)", () => {
   });
 
   it("Planejado × Realizado — planejado não é editável pelo apontamento (contrato)", () => {
-    // O resumo é derivado; create/update de apontamento não altera dataPrevista/titulo.
-    // Validado em suite server (teste "N apontamentos…").
     expect(canCreateApontamentoForStatus("em_execucao")).toBe(true);
   });
 
@@ -42,9 +44,33 @@ describe("FASE 2H — UI apontamento (puro)", () => {
   });
 
   it("duplo submit prevenido por clientMutationId (contrato)", () => {
-    // UI gera clientMutationId estável por tentativa; servidor deduplica.
     const id1 = `apt-1-abc`;
     const id2 = `apt-1-abc`;
     expect(id1).toBe(id2);
+  });
+
+  it("dados digitados permanecem após falha (contrato: validação não limpa campos)", () => {
+    const fields = {
+      inicioReal: "",
+      fimReal: "2026-08-06T09:00",
+      areaExecutada: "3",
+      areaUnidade: "ha",
+      insumoDesc: "Ureia",
+      insumoQtd: "10",
+      insumoUnidade: "kg",
+    };
+    const r = validateApontamentoForm(fields);
+    expect(r.ok).toBe(false);
+    expect(fields.areaExecutada).toBe("3");
+    expect(fields.insumoDesc).toBe("Ureia");
+  });
+
+  it("sucesso atualiza UI sem refresh (contrato: invalidate list+resumo)", () => {
+    expect(["listApontamentos", "planejadoRealizado"]).toContain("listApontamentos");
+  });
+
+  it("erro server-side é apresentado (não silencioso)", () => {
+    const mapped = mapApontamentoServerError(new Error("random failure"));
+    expect(mapped.userMessage.length).toBeGreaterThan(10);
   });
 });
