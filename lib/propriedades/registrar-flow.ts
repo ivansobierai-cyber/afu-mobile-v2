@@ -28,11 +28,11 @@ export type PropertyReturnContext = {
 export function resolveRegistrarTarget(action: RegistrarAction): RegistrarTarget {
   switch (action) {
     case "tarefa":
-      return { tab: "operacoes", openCreate: true };
+      return { tab: "tarefas", openCreate: true };
     case "operacao":
       return { tab: "operacoes", openCreate: true };
     case "ocorrencia":
-      return { tab: "mais", maisSection: "monitoramento", openCreate: true };
+      return { tab: "monitoramento", openCreate: true };
     case "cultivo":
       return { tab: "cultivos", openCreate: true };
     case "talhao":

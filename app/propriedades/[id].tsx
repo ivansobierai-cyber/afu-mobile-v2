@@ -31,17 +31,22 @@ import {
   type WorkspaceSafra,
 } from "@/lib/propriedades/property-workspace";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
-import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
+import { PropriedadeOperacoesAgricolasPanel } from "@/components/propriedade-operacoes-agricolas-panel";
+import { PropriedadeTarefasPanel } from "@/components/propriedade-tarefas-panel";
+import { PropertyWorkspaceNav } from "@/components/property-workspace-nav";
+import {
+  PropriedadeConfiguracoesWorkspacePanel,
+  PropriedadeDocumentosWorkspacePanel,
+  PropriedadeRecursosWorkspacePanel,
+} from "@/components/propriedade-workspace-panels";
 import { PropriedadePanelMenus } from "@/components/propriedade-panel-menus";
 import { PropriedadeCultivoCreateModal } from "@/components/propriedade-cultivo-create-modal";
 import { ConfirmNameModal } from "@/components/confirm-name-modal";
 import {
   PropriedadeAlertasFeed,
   PropriedadeMonitoramentoPanel,
-  PropriedadeEstoquePanel,
   PropriedadeCustosPanel,
   PropriedadeMetricasPanel,
-  PropriedadeMaquinasPanel,
 } from "@/components/propriedade-expansao-panels";
 import {
   extractPolygonRings,
@@ -60,8 +65,17 @@ import {
   resolveRegistrarTarget,
   type RegistrarAction,
 } from "@/lib/propriedades/registrar-flow";
-import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { trpc } from "@/lib/trpc";
+import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
+import {
+  buildPropertyTabParams,
+  moduleLabel,
+  MOBILE_MORE_MODULES,
+  normalizePropertyTabParam,
+  resolveMobilePrimaryHighlight,
+  safraContextLabel,
+  MOBILE_MORE_MENU_ITEMS,
+} from "@/lib/propriedades/property-navigation";
 
 const STATUS_COLORS: Record<string, string> = {
   em_andamento: "#38A169",
@@ -88,7 +102,6 @@ const TIPO_LABELS: Record<string, string> = {
   outro: "Outro",
 };
 
-type MaisSection = "menu" | "monitoramento" | "estoque" | "custos" | "indicadores" | "maquinas";
 type VertexDraft = { latitude: string; longitude: string };
 type VertexEditorState = {
   terrenoId: number | null;
@@ -101,14 +114,7 @@ type PolygonDrawState = {
   center: LatLng;
 };
 
-const MOBILE_TABS: { id: PanelTab; label: string; icon: string }[] = [
-  { id: "visao", label: "Visão", icon: "house.fill" },
-  { id: "mapa", label: "Mapa", icon: "map.fill" },
-  { id: "operacoes", label: "Operações", icon: "checkmark.circle.fill" },
-  { id: "talhoes", label: "Talhões", icon: "square.grid.2x2.fill" },
-  { id: "cultivos", label: "Cultivos", icon: "leaf.fill" },
-  { id: "mais", label: "Mais", icon: "ellipsis" },
-];
+const MOBILE_MORE_SET = new Set<string>(MOBILE_MORE_MODULES);
 
 function centroidFromRing(ring: LatLng[]): LatLng | null {
   const points =
@@ -125,10 +131,11 @@ function centroidFromRing(ring: LatLng[]): LatLng | null {
 }
 
 export default function PropriedadeDetailScreen() {
-  const { id, tab: tabParam, safraId: safraIdParam } = useLocalSearchParams<{
+  const { id, tab: tabParam, safraId: safraIdParam, section: sectionParam } = useLocalSearchParams<{
     id: string;
     tab?: string;
     safraId?: string;
+    section?: string;
   }>();
   const propId = parseInt(id ?? "0", 10);
   const urlSafraId = safraIdParam ? parseInt(safraIdParam, 10) : NaN;
@@ -138,9 +145,8 @@ export default function PropriedadeDetailScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
 
-  const initialTab = (MOBILE_TABS.some((t) => t.id === tabParam) ? tabParam : "visao") as PanelTab;
+  const initialTab = normalizePropertyTabParam(tabParam, sectionParam);
   const [tab, setTab] = useState<PanelTab>(initialTab);
-  const [maisSection, setMaisSection] = useState<MaisSection>("menu");
   const [menu, setMenu] = useState<"safra" | "registrar" | "admin" | null>(null);
   const [openTarefaNonce, setOpenTarefaNonce] = useState(0);
   const [openOperacaoNonce, setOpenOperacaoNonce] = useState(0);
@@ -155,12 +161,13 @@ export default function PropriedadeDetailScreen() {
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
 
-  // Deep link / retorno preserva aba (?tab=)
   useEffect(() => {
-    if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam) && tabParam !== tab) {
-      setTab(tabParam as PanelTab);
-    }
-  }, [tabParam]);
+    const next = normalizePropertyTabParam(tabParam, sectionParam);
+    if (next !== tab) setTab(next);
+  }, [tabParam, sectionParam]);
+
+  const showMobileMoreMenu = !isWide && tab === "mais";
+  const showMobileMoreModule = !isWide && tab !== "mais" && MOBILE_MORE_SET.has(tab);
 
   const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const orgScope = sessionProp?.activeOrganizationId ?? undefined;
@@ -296,8 +303,7 @@ export default function PropriedadeDetailScreen() {
   const selectTab = useCallback(
     (next: PanelTab) => {
       setTab(next);
-      if (next !== "mais") setMaisSection("menu");
-      const params: Record<string, string> = { tab: next };
+      const params: Record<string, string> = { ...buildPropertyTabParams(next) };
       if (activeSafraId != null) params.safraId = String(activeSafraId);
       router.setParams(params as any);
     },
@@ -724,10 +730,13 @@ export default function PropriedadeDetailScreen() {
       return;
     }
     if (target.tab) selectTab(target.tab);
-    if (target.maisSection) setMaisSection(target.maisSection);
+    if (action === "ocorrencia") {
+      selectTab("monitoramento");
+      setOpenOcorrenciaNonce((n) => n + 1);
+      return;
+    }
     if (action === "tarefa") setOpenTarefaNonce((n) => n + 1);
     else if (action === "operacao") setOpenOperacaoNonce((n) => n + 1);
-    else if (action === "ocorrencia") setOpenOcorrenciaNonce((n) => n + 1);
     else if (action === "cultivo") setCultivoModalOpen(true);
   };
 
@@ -930,6 +939,18 @@ export default function PropriedadeDetailScreen() {
             <Text style={{ fontSize: 13, color: "rgba(255,255,255,0.85)" }} numberOfLines={1}>
               {localizacao || "Localização não informada"}
             </Text>
+            <Text
+              style={{ fontSize: 12, color: "rgba(255,255,255,0.92)", marginTop: 4, fontWeight: "600" }}
+              accessibilityRole="text"
+            >
+              {safraContextLabel({ safraNome: safraLabel, isHistorical })}
+            </Text>
+            <Text
+              style={{ fontSize: 15, color: "#FFFFFF", marginTop: 2, fontWeight: "800" }}
+              accessibilityRole="header"
+            >
+              {moduleLabel(tab)}
+            </Text>
           </View>
           <TouchableOpacity
             onPress={() => {
@@ -973,13 +994,11 @@ export default function PropriedadeDetailScreen() {
           <TouchableOpacity
             style={styles.chip}
             accessibilityRole="button"
-            accessibilityLabel={`Safra ${safraLabel}. Toque para alterar`}
+            accessibilityLabel={`Alterar safra: ${safraLabel}`}
             onPress={() => setMenu("safra")}
           >
             <Text style={{ color: "#FFF", fontSize: 11, fontWeight: "700" }}>
-              {safraLabel}
-              {isHistorical ? " · Histórico" : periodFilterActive ? " · Filtro fin." : ""}
-              {" ▾"}
+              {isHistorical ? "Safra histórica" : "Safra atual"} ▾
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -1061,45 +1080,42 @@ export default function PropriedadeDetailScreen() {
         ) : null}
       </View>
 
-      {/* Abas */}
-      <ScrollView horizontal={!isWide ? false : true} showsHorizontalScrollIndicator={false} style={styles.tabBar}>
-        <View style={{ flexDirection: "row", width: isWide ? undefined : "100%" }}>
-          {MOBILE_TABS.map((item) => {
-            const active = tab === item.id;
-            return (
+      {/* Navegação por módulo */}
+      <View style={{ flex: 1, flexDirection: isWide ? "row" : "column" }}>
+        <PropertyWorkspaceNav
+          isWide={isWide}
+          activeTab={tab}
+          onSelectTab={selectTab}
+          showMobileMoreMenu={showMobileMoreMenu}
+          onMobileMoreBack={showMobileMoreModule ? () => selectTab("mais") : undefined}
+        />
+
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {showMobileMoreMenu ? (
+          <>
+            {MOBILE_MORE_MENU_ITEMS.map((item) => (
               <TouchableOpacity
                 key={item.id}
-                style={[
-                  styles.tabBtn,
-                  active && { borderBottomWidth: 2, borderBottomColor: colors.primary },
-                ]}
                 onPress={() => selectTab(item.id)}
-                accessibilityRole="tab"
-                accessibilityState={{ selected: active }}
-                accessibilityLabel={item.label}
+                accessibilityRole="button"
+                accessibilityLabel={item.title}
+                style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
               >
-                <IconSymbol
-                  name={item.icon as "house.fill"}
-                  size={18}
-                  color={active ? colors.primary : colors.muted}
-                />
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: active ? "700" : "500",
-                    color: active ? colors.primary : colors.muted,
-                  }}
-                  numberOfLines={1}
-                >
-                  {item.label}
-                </Text>
+                <IconSymbol name={item.icon as "eye.fill"} size={20} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>{item.title}</Text>
+                  <Text style={{ fontSize: 12, color: colors.muted }}>{item.subtitle}</Text>
+                </View>
+                <IconSymbol name="chevron.right" size={16} color={colors.muted} />
               </TouchableOpacity>
-            );
-          })}
-        </View>
-      </ScrollView>
-
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }} showsVerticalScrollIndicator={false}>
+            ))}
+          </>
+        ) : (
+          <>
         {tab === "visao" && (
           <>
             <View style={{ flexDirection: "row", gap: 10, marginBottom: 12 }}>
@@ -1170,7 +1186,7 @@ export default function PropriedadeDetailScreen() {
                 {propriedade.sistemaIrrigacao ? ` · ${propriedade.sistemaIrrigacao}` : ""}
               </Text>
               <TouchableOpacity
-                onPress={() => selectTab("mais")}
+                onPress={() => selectTab("configuracoes")}
                 accessibilityRole="button"
                 accessibilityLabel="Ver configurações e dados completos"
                 style={{ marginTop: 10 }}
@@ -1221,7 +1237,7 @@ export default function PropriedadeDetailScreen() {
         )}
 
         {tab === "operacoes" && (
-          <PropriedadeOperacoesPanel
+          <PropriedadeOperacoesAgricolasPanel
             propriedadeId={propriedade.id}
             terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
             cultivos={cultivos.map((c) => ({
@@ -1233,8 +1249,62 @@ export default function PropriedadeDetailScreen() {
             readOnly={isHistorical}
             canWriteOperations={canWriteOperations}
             canApproveOperations={canApproveOperations}
-            openCreateTarefaNonce={openTarefaNonce}
-            openCreateOperacaoNonce={openOperacaoNonce}
+            openCreateNonce={openOperacaoNonce}
+          />
+        )}
+
+        {tab === "tarefas" && (
+          <PropriedadeTarefasPanel
+            propriedadeId={propriedade.id}
+            terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+            safraId={activeSafraId ?? undefined}
+            readOnly={isHistorical}
+            openCreateNonce={openTarefaNonce}
+          />
+        )}
+
+        {tab === "monitoramento" && (
+          <PropriedadeMonitoramentoPanel
+            propriedadeId={propriedade.id}
+            terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
+            safraId={activeSafraId ?? undefined}
+            readOnly={isHistorical}
+            openCreateNonce={openOcorrenciaNonce}
+          />
+        )}
+
+        {tab === "custos" && (
+          <>
+            <PropriedadeCustosPanel
+              propriedadeId={propriedade.id}
+              safraLabel={safraLabel}
+              safraId={activeSafraId ?? undefined}
+            />
+            <View style={{ marginTop: 16 }}>
+              <PropriedadeMetricasPanel
+                propriedadeId={propriedade.id}
+                nomeSafra={safraLabel}
+                safraId={activeSafraId ?? undefined}
+              />
+            </View>
+          </>
+        )}
+
+        {tab === "recursos" && (
+          <PropriedadeRecursosWorkspacePanel
+            propriedadeId={propriedade.id}
+            readOnly={isHistorical}
+          />
+        )}
+
+        {tab === "documentos" && <PropriedadeDocumentosWorkspacePanel />}
+
+        {tab === "configuracoes" && (
+          <PropriedadeConfiguracoesWorkspacePanel
+            propriedade={propriedade}
+            localizacao={localizacao}
+            activeSafraId={activeSafraId}
+            tabForReturn="configuracoes"
           />
         )}
 
@@ -1725,180 +1795,18 @@ export default function PropriedadeDetailScreen() {
           </>
         )}
 
-        {tab === "mais" && (
-          <>
-            {maisSection !== "menu" ? (
-              <TouchableOpacity
-                onPress={() => setMaisSection("menu")}
-                accessibilityRole="button"
-                accessibilityLabel="Voltar ao menu Mais"
-                style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 12, minHeight: 44 }}
-              >
-                <IconSymbol name="chevron.left" size={18} color={colors.primary} />
-                <Text style={{ color: colors.primary, fontWeight: "700" }}>Mais</Text>
-              </TouchableOpacity>
-            ) : null}
-
-            {maisSection === "menu" && (
-              <>
-                {(
-                  [
-                    {
-                      id: "monitoramento" as const,
-                      title: "Monitoramento",
-                      subtitle: "Ocorrências → diagnóstico → tarefa",
-                      icon: "eye.fill" as const,
-                    },
-                    {
-                      id: "estoque" as const,
-                      title: "Recursos e estoque",
-                      subtitle: "Insumos agrícolas da fazenda",
-                      icon: "tray" as const,
-                    },
-                    {
-                      id: "maquinas" as const,
-                      title: "Máquinas e equipamentos",
-                      subtitle: "Tratores, implementos e status operacional",
-                      icon: "tractor.fill" as const,
-                    },
-                    {
-                      id: "custos" as const,
-                      title: "Custos e resultados",
-                      subtitle: "Orçamento da safra e lançamentos",
-                      icon: "chart.bar.fill" as const,
-                    },
-                    {
-                      id: "indicadores" as const,
-                      title: "Indicadores",
-                      subtitle: "Métricas com fórmula e fonte",
-                      icon: "chart.line.uptrend.xyaxis" as const,
-                    },
-                  ] as const
-                ).map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
-                    onPress={() => setMaisSection(item.id)}
-                    accessibilityRole="button"
-                    accessibilityLabel={item.title}
-                  >
-                    <IconSymbol name={item.icon as "eye.fill"} size={20} color={colors.primary} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
-                        {item.title}
-                      </Text>
-                      <Text style={{ fontSize: 12, color: colors.muted }}>{item.subtitle}</Text>
-                    </View>
-                    <IconSymbol name="chevron.right" size={16} color={colors.muted} />
-                  </TouchableOpacity>
-                ))}
-
-                <View style={styles.infoCard}>
-                  <Text style={styles.sectionTitle}>Configurações e cadastro</Text>
-                  {[
-                    { label: "Tipo de Produção", value: TIPO_LABELS[propriedade.tipoProducao ?? "outro"] ?? "—" },
-                    { label: "Tipo de Solo", value: propriedade.tipoSolo || "—" },
-                    { label: "Irrigação", value: propriedade.sistemaIrrigacao || "—" },
-                    { label: "Fonte de água", value: propriedade.fonteAgua || "—" },
-                    { label: "Localização", value: localizacao || "—" },
-                    {
-                      label: "Cadastrado em",
-                      value: propriedade.createdAt
-                        ? new Date(propriedade.createdAt).toLocaleDateString("pt-BR")
-                        : "—",
-                    },
-                  ].map((item, idx, arr) => (
-                    <View
-                      key={item.label}
-                      style={{
-                        flexDirection: "row",
-                        justifyContent: "space-between",
-                        paddingVertical: 10,
-                        borderBottomWidth: idx < arr.length - 1 ? 1 : 0,
-                        borderBottomColor: colors.border,
-                        gap: 12,
-                      }}
-                    >
-                      <Text style={{ fontSize: 14, color: colors.muted }}>{item.label}</Text>
-                      <Text
-                        style={{
-                          fontSize: 14,
-                          color: colors.foreground,
-                          fontWeight: "600",
-                          textTransform: "capitalize",
-                          flexShrink: 1,
-                          textAlign: "right",
-                        }}
-                      >
-                        {item.value}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.infoCard, { flexDirection: "row", alignItems: "center", gap: 12 }]}
-                  onPress={() =>
-                    router.push(
-                      buildPropertyEditHref({
-                        propriedadeId: propriedade.id,
-                        tab: "mais",
-                        safraId: activeSafraId,
-                      }) as any,
-                    )
-                  }
-                  accessibilityRole="button"
-                  accessibilityLabel="Editar propriedade na lista"
-                >
-                  <IconSymbol name="pencil" size={20} color={colors.primary} />
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground }}>
-                      Editar cadastro
-                    </Text>
-                    <Text style={{ fontSize: 12, color: colors.muted }}>
-                      Nome, GPS, área e dados técnicos
-                    </Text>
-                  </View>
-                  <IconSymbol name="chevron.right" size={16} color={colors.muted} />
-                </TouchableOpacity>
-              </>
-            )}
-
-            {maisSection === "monitoramento" && (
-              <PropriedadeMonitoramentoPanel
-                propriedadeId={propriedade.id}
-                terrenos={terrenos.map((t) => ({ id: t.id, nome: t.nome }))}
-                safraId={activeSafraId ?? undefined}
-                readOnly={isHistorical}
-                openCreateNonce={openOcorrenciaNonce}
-              />
-            )}
-            {maisSection === "estoque" && (
-              <PropriedadeEstoquePanel propriedadeId={propriedade.id} />
-            )}
-            {maisSection === "maquinas" && (
-              <PropriedadeMaquinasPanel
-                propriedadeId={propriedade.id}
-                readOnly={isHistorical}
-              />
-            )}
-            {maisSection === "custos" && (
-              <PropriedadeCustosPanel
-                propriedadeId={propriedade.id}
-                safraLabel={safraLabel}
-                safraId={activeSafraId ?? undefined}
-              />
-            )}
-            {maisSection === "indicadores" && (
-              <PropriedadeMetricasPanel
-                propriedadeId={propriedade.id}
-                nomeSafra={safraLabel}
-                safraId={activeSafraId ?? undefined}
-              />
-            )}
+        {tab === "mais" && isWide ? (
+          <ScreenState
+            status="empty"
+            compact
+            title="Selecione um módulo"
+            message="Use o menu lateral para abrir Talhões, Cultivos, Monitoramento e demais seções."
+          />
+        ) : null}
           </>
         )}
       </ScrollView>
+      </View>
       <Modal
         visible={polygonDraw != null}
         animationType="slide"

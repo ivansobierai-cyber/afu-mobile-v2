@@ -11,17 +11,16 @@ import {
 } from "@/lib/propriedades/registrar-flow";
 
 describe("registrar-flow (Etapa 6)", () => {
-  it("abre formulário de tarefa na aba operações", () => {
+  it("abre formulário de tarefa na aba tarefas", () => {
     expect(resolveRegistrarTarget("tarefa")).toEqual({
-      tab: "operacoes",
+      tab: "tarefas",
       openCreate: true,
     });
   });
 
-  it("abre formulário de ocorrência em Mais → monitoramento", () => {
+  it("abre formulário de ocorrência em monitoramento", () => {
     expect(resolveRegistrarTarget("ocorrencia")).toEqual({
-      tab: "mais",
-      maisSection: "monitoramento",
+      tab: "monitoramento",
       openCreate: true,
     });
   });
