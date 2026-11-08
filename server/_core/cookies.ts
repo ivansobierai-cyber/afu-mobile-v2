@@ -66,10 +66,11 @@ export function getSessionCookieOptions(
 /** Remove cookie de sessão com variações de path/domain (dev local + produção). */
 export function clearSessionCookie(res: Response, req: Request): void {
   const opts = getSessionCookieOptions(req);
-  res.clearCookie(COOKIE_NAME, { ...opts, maxAge: -1 });
-  res.clearCookie(COOKIE_NAME, { path: "/", httpOnly: true, maxAge: -1 });
-  res.clearCookie(COOKIE_NAME, { path: "/", maxAge: -1 });
+  // Express 5: não passar maxAge/expires em clearCookie (4 variantes cobrem path/domain legados).
+  res.clearCookie(COOKIE_NAME, { ...opts });
+  res.clearCookie(COOKIE_NAME, { path: "/", httpOnly: true });
+  res.clearCookie(COOKIE_NAME, { path: "/" });
   if (opts.domain) {
-    res.clearCookie(COOKIE_NAME, { path: "/", domain: opts.domain, maxAge: -1 });
+    res.clearCookie(COOKIE_NAME, { path: "/", domain: opts.domain });
   }
 }
