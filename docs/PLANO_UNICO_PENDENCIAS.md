@@ -48,7 +48,7 @@
 
 ## PRs
 
-Nenhum PR aberto. #31 mergeado; histórico #18–#30.
+Aberto: [#45](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/45) — site canônico `afuagro.tech` + materiais didáticos. Histórico #18–#31 mergeado.
 
 ---
 
