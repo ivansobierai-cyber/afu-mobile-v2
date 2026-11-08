@@ -1,7 +1,7 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-08-02  
-**Base:** `main` — Railway/Vercel  
+**Atualizado:** 2026-11-08  
+**Base:** `main` — site canônico `https://afuagro.tech`, API `https://api.afuagro.tech` (rewrite Vercel → Railway)  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
 ---
@@ -26,6 +26,7 @@
 | Smoke API anexos Eventos | `npm run smoke:eventos-anexos`, `docs/evidencias/smoke-eventos-anexos-latest.json` |
 | Storage R2/S3 + health/probe (sem Manus) | PR [#31](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/31), `docs/RAILWAY_STORAGE_EVENTOS.md`, `npm run probe:storage` |
 | R2 produção + smoke anexos (upload/download) | `railway-storage-probe-latest.json`, `smoke-eventos-anexos-latest.json` (**AVANCAR**, 2026-08-02) |
+| Site canônico afuagro.tech | `docs/evidencias/smoke-mvp-site-afuagro-latest.json` — login, painel, CRUD, laudos, logout. `www` e `app` redirecionam para o apex. |
 
 ---
 
@@ -40,6 +41,8 @@
 
 - ~~Cultivos offline/a11y lista + detalhe~~ — `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx`.
 - ~~Assistente Eventos LLM opcional~~ — `sugestoesIA` + Forge.
+- Diagnóstico IA no site: `diagnostico.analisar` responde `OPENAI_API_KEY is not configured` porque `BUILT_IN_FORGE_API_KEY` não está no Railway (`forgeConfigured: false`). Sem essa chave o laudo não fecha.
+- Fora do MVP do site, de propósito: Play Store, PIX real, piloto com produtores (etapa 29).
 
 ---
 
@@ -51,5 +54,6 @@ Nenhum PR aberto. #31 mergeado; histórico #18–#30.
 
 ## Próximo passo sugerido
 
-1. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
-2. Lint por módulo ao editar arquivos.
+1. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech`.
+2. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
+3. Lint por módulo ao editar arquivos.

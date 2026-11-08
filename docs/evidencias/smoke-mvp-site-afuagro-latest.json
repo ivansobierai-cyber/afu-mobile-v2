@@ -1,0 +1,23 @@
+{
+  "suite": "mvp-site-afuagro",
+  "date": "2026-11-08T01:29:45Z",
+  "commit": "970fda9c3217758038fc7fa540107979537e528b",
+  "site": "https://afuagro.tech",
+  "api": "https://api.afuagro.tech",
+  "decision": "AVANCAR_COM_BLOQUEIO_LLM",
+  "results": {
+    "wwwRedirect": "PASS HTTP 308 https://www.afuagro.tech -> https://afuagro.tech/",
+    "appRedirect": "PASS HTTP 308 https://app.afuagro.tech -> https://afuagro.tech/",
+    "health": "PASS storageReady true, forgeConfigured false",
+    "procedure2H": "PASS coreData.operacoes.createApontamento 401 (nao NOT_FOUND) em api.afuagro.tech",
+    "login": "PASS demo@afuagro.com.br",
+    "dashboard": "PASS propriedades 6, culturas 3, diagnosticos 0, eventos 10",
+    "propriedadeCreate": "PASS id 9 nome MVP site smoke (Uberlandia, GPS)",
+    "terrenoCreate": "PASS id 18 area 5",
+    "cultivoCreate": "PASS id 16 Soja areaPlantada 4",
+    "relatoriosList": "PASS HTTP 200 lista vazia",
+    "logout": "PASS",
+    "ui": "PASS welcome, demo login, painel, propriedades, tela diagnostico, laudos, logout, redirect www",
+    "diagnosticoAnalisar": "FAIL POST devolve OPENAI_API_KEY is not configured (assertApiKey quando BUILT_IN_FORGE_API_KEY esta vazio). Nenhum laudo gerado."
+  }
+}
