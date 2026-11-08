@@ -48,7 +48,7 @@
 
 ## PRs
 
-Nenhum PR aberto. #31 mergeado; histórico #18–#30.
+#45 mergeado (site canônico `afuagro.tech` + materiais didáticos). Histórico #18–#45.
 
 ---
 
