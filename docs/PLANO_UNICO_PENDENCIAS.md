@@ -36,7 +36,7 @@
 
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
 - Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após deploy.
-- ~~Login demo na web de produção~~ — botões demo removidos de `app/auth/login.tsx`; `build-web-preview` defaulta `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0`.
+- ~~Login demo na web de produção~~ — botões demo removidos de `app/auth/login.tsx`; `build-web-preview` defaulta `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0`. **Confirmado em `https://afuagro.tech/auth/login`** (deploy produção `dpl_5H23ZSN9sRKb8mfUY4JjpaDqBXve` a partir de `cursor/login-sem-demo-b9c5`): só Entrar / Criar conta / OAuth.
 
 ### P4 — Produto (backlog consciente)
 
@@ -49,13 +49,15 @@
 
 ## PRs
 
-Nenhum PR aberto. #31 mergeado; histórico #18–#30.
+- [#47](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/47) `cursor/login-sem-demo-b9c5` — **aberto**, CI verde, aprovado; já implantado em produção Vercel (ainda precisa **merge em `main`** para o próximo deploy de `main` não regredir).
+- [#46](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/46) `cursor/smoke-revalidacao-mvp-b9c5` — **aberto** (docs smoke).
+- [#44](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/44) — aberto (cookie Express).
 
 ---
 
 ## Próximo passo sugerido
 
-1. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech`.
-2. Após merge do PR de login sem demo: confirmar em `https://afuagro.tech/auth/login` que não há botões Demo Admin/Produtor/Comprador.
+1. **Mergear #47** em `main` para alinhar o Git com o site (produção já sem botões demo).
+2. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech`.
 3. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
 4. Lint por módulo ao editar arquivos.
