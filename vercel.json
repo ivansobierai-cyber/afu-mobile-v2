@@ -4,6 +4,20 @@
   "outputDirectory": "dist",
   "framework": null,
   "installCommand": "npm ci",
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "www.afuagro.tech" }],
+      "destination": "https://afuagro.tech/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "app.afuagro.tech" }],
+      "destination": "https://afuagro.tech/$1",
+      "permanent": true
+    }
+  ],
   "headers": [
     {
       "source": "/assets/(.*\\.ttf)",
@@ -15,6 +29,11 @@
     }
   ],
   "rewrites": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "api.afuagro.tech" }],
+      "destination": "https://afu-mobile-v2-production.up.railway.app/$1"
+    },
     {
       "source": "/((?!_expo|assets|.*\\..*).*)",
       "destination": "/index.html"

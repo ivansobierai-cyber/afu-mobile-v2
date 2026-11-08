@@ -21,6 +21,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { trpc } from "@/lib/trpc";
+import { aulaDoMaterial, linkPublicavel } from "@/lib/materiais-aulas";
 
 type TipoFiltro = "todos" | "video" | "audio" | "apostila" | "guia" | "checklist" | "infografico";
 
@@ -89,6 +90,10 @@ export default function MateriaisScreen() {
     const nivelCfg = NIVEL_CONFIG[detalhe.nivel] ?? NIVEL_CONFIG.iniciante;
     const publicoCfg = PUBLICO_CONFIG[detalhe.publicoAlvo] ?? PUBLICO_CONFIG.todos;
 
+    const videoUrl = linkPublicavel(detalhe.videoUrl);
+    const arquivoUrl = linkPublicavel(detalhe.arquivoUrl);
+    const aula = aulaDoMaterial(detalhe.titulo);
+
     const abrirLink = (url: string) => {
       Linking.openURL(url).catch(() => Alert.alert("Erro", "Não foi possível abrir o link."));
     };
@@ -137,22 +142,41 @@ export default function MateriaisScreen() {
             </View>
           )}
 
-          {/* Links */}
-          {(detalhe.videoUrl || detalhe.arquivoUrl) && (
+          {aula && (
+            <View style={styles.card}>
+              <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "700", textTransform: "uppercase", marginBottom: 12 }}>
+                Conteúdo da aula
+              </Text>
+              {aula.secoes.map((secao) => (
+                <View key={secao.titulo} style={{ marginBottom: 14 }}>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, marginBottom: 6 }}>
+                    {secao.titulo}
+                  </Text>
+                  {secao.itens.map((item) => (
+                    <Text key={item} style={{ fontSize: 14, color: colors.foreground, lineHeight: 22, marginBottom: 4 }}>
+                      • {item}
+                    </Text>
+                  ))}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {(videoUrl || arquivoUrl) && (
             <View style={styles.card}>
               <Text style={{ fontSize: 12, color: colors.muted, fontWeight: "700", textTransform: "uppercase", marginBottom: 12 }}>Acessar Conteúdo</Text>
-              {detalhe.videoUrl && (
+              {videoUrl && (
                 <TouchableOpacity
-                  onPress={() => abrirLink(detalhe.videoUrl)}
+                  onPress={() => abrirLink(videoUrl)}
                   style={{ backgroundColor: "#EF4444", borderRadius: 10, padding: 14, flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 8 }}
                 >
                   <IconSymbol name="photo.fill" size={20} color="#fff" />
                   <Text style={{ color: "#fff", fontWeight: "700", fontSize: 14 }}>Assistir Vídeo</Text>
                 </TouchableOpacity>
               )}
-              {detalhe.arquivoUrl && (
+              {arquivoUrl && (
                 <TouchableOpacity
-                  onPress={() => abrirLink(detalhe.arquivoUrl)}
+                  onPress={() => abrirLink(arquivoUrl)}
                   style={{ backgroundColor: "#2563EB", borderRadius: 10, padding: 14, flexDirection: "row", alignItems: "center", gap: 10 }}
                 >
                   <IconSymbol name="doc.text.fill" size={20} color="#fff" />
@@ -162,12 +186,11 @@ export default function MateriaisScreen() {
             </View>
           )}
 
-          {/* Sem links */}
-          {!detalhe.videoUrl && !detalhe.arquivoUrl && (
+          {!videoUrl && !arquivoUrl && !aula && (
             <View style={[styles.card, { alignItems: "center", padding: 24 }]}>
               <Text style={{ fontSize: 32 }}>📋</Text>
               <Text style={{ color: colors.muted, marginTop: 8, textAlign: "center", fontSize: 13 }}>
-                O link de acesso para este material ainda não foi cadastrado.{"\n"}Entre em contato com o suporte.
+                Este material ainda não tem aula nem arquivo publicado.{"\n"}O administrador pode cadastrar o conteúdo.
               </Text>
             </View>
           )}
@@ -230,7 +253,11 @@ export default function MateriaisScreen() {
           renderItem={({ item }) => {
             const cfg = TIPO_CONFIG[item.tipoMaterial as TipoFiltro] ?? TIPO_CONFIG.todos;
             const nivelCfg = NIVEL_CONFIG[item.nivel ?? "iniciante"] ?? NIVEL_CONFIG.iniciante;
-            const temLink = !!(item.videoUrl || item.arquivoUrl);
+            const temConteudo = !!(
+              linkPublicavel(item.videoUrl) ||
+              linkPublicavel(item.arquivoUrl) ||
+              aulaDoMaterial(item.titulo)
+            );
             return (
               <TouchableOpacity style={styles.card} onPress={() => setDetalhe(item)}>
                 <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
@@ -247,7 +274,7 @@ export default function MateriaisScreen() {
                       <View style={{ backgroundColor: nivelCfg.color + "20", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
                         <Text style={{ fontSize: 11, fontWeight: "700", color: nivelCfg.color }}>{nivelCfg.label}</Text>
                       </View>
-                      {temLink && (
+                      {temConteudo && (
                         <View style={{ backgroundColor: "#D1FAE5", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>✓ Disponível</Text>
                         </View>

@@ -9,7 +9,7 @@ process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN = process.env.EXPO_PUBLIC_SHOW_DEMO_LOGI
 
 if (!process.env.EXPO_PUBLIC_API_BASE_URL?.trim()) {
   process.env.EXPO_PUBLIC_API_BASE_URL =
-    "https://afu-mobile-v2-production.up.railway.app";
+    "https://api.afuagro.tech";
 }
 
 console.log(
