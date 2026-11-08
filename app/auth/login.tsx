@@ -9,7 +9,6 @@ import { useAuthAPI } from '@/hooks/use-auth-api';
 import { useSession } from '@/hooks/use-session';
 import { useColors } from '@/hooks/use-colors';
 import { startOAuthLogin } from '@/constants/oauth';
-import { isDemoLoginEnabled } from '@/shared/dev-auth';
 
 const FORM_MAX_WIDTH = 520;
 
@@ -55,19 +54,6 @@ export default function LoginScreen() {
 
     clearError();
     const result = await loginAPI({ email, password });
-
-    if (result.success) {
-      router.replace('/(tabs)');
-    } else if (result.error) {
-      setErrors({ email: result.error.message });
-    }
-  };
-
-  const handleQuickLogin = async (nextEmail: string, nextPassword: string) => {
-    clearError();
-    setEmail(nextEmail);
-    setPassword(nextPassword);
-    const result = await loginAPI({ email: nextEmail, password: nextPassword });
 
     if (result.success) {
       router.replace('/(tabs)');
@@ -159,39 +145,11 @@ export default function LoginScreen() {
                   variant="outline"
                 />
 
-                {isDemoLoginEnabled() && (
-                <View style={{ gap: 10 }}>
-                  <RNText style={{ color: colors.muted, fontSize: 12, textAlign: 'center' }}>
-                    Acesso rápido para teste (somente desenvolvimento)
-                  </RNText>
-                  <AuthButton
-                    label="Entrar com Demo Admin"
-                    onPress={() => handleQuickLogin('admin@afuagro.com.br', 'Demo@1234')}
-                    disabled={apiLoading}
-                    variant="outline"
-                  />
-                  <AuthButton
-                    label="Entrar com Demo Produtor"
-                    onPress={() => handleQuickLogin('demo@afuagro.com.br', 'Demo@1234')}
-                    disabled={apiLoading}
-                    variant="outline"
-                  />
-                  <AuthButton
-                    label="Entrar com Demo Comprador"
-                    onPress={() => handleQuickLogin('comprador@afuagro.com.br', 'Demo@1234')}
-                    disabled={apiLoading}
-                    variant="outline"
-                  />
-                </View>
-                )}
-
-                {isDemoLoginEnabled() && (
                 <View style={{ flexDirection: 'row', alignItems: 'center', marginVertical: 8 }}>
                   <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                   <RNText style={{ marginHorizontal: 12, color: colors.muted, fontSize: 13 }}>OU</RNText>
                   <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
                 </View>
-                )}
 
                 <AuthButton
                   label="Entrar com OAuth"

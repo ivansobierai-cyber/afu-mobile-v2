@@ -36,12 +36,13 @@
 
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
 - Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após deploy.
+- ~~Login demo na web de produção~~ — botões demo removidos de `app/auth/login.tsx`; `build-web-preview` defaulta `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0`.
 
 ### P4 — Produto (backlog consciente)
 
 - ~~Cultivos offline/a11y lista + detalhe~~ — `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx`.
 - ~~Assistente Eventos LLM opcional~~ — `sugestoesIA` + Forge.
-- Diagnóstico IA no site: `diagnostico.analisar` responde `OPENAI_API_KEY is not configured` porque `BUILT_IN_FORGE_API_KEY` não está no Railway (`forgeConfigured: false`). Sem essa chave o laudo não fecha.
+- Diagnóstico IA no site: `diagnostico.analisar` responde `OPENAI_API_KEY is not configured` porque `BUILT_IN_FORGE_API_KEY` não está no Railway (`forgeConfigured: false`). Sem essa chave o laudo não fecha (**bloqueado até configurar o secret no Railway — não inventar chave**).
 - Fora do MVP do site, de propósito: Play Store, PIX real, piloto com produtores (etapa 29).
 
 ---
@@ -55,5 +56,6 @@ Nenhum PR aberto. #31 mergeado; histórico #18–#30.
 ## Próximo passo sugerido
 
 1. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech`.
-2. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
-3. Lint por módulo ao editar arquivos.
+2. Após merge do PR de login sem demo: confirmar em `https://afuagro.tech/auth/login` que não há botões Demo Admin/Produtor/Comprador.
+3. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
+4. Lint por módulo ao editar arquivos.
