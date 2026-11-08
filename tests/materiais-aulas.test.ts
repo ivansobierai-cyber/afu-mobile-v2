@@ -22,4 +22,14 @@ describe("aulas dos materiais didáticos", () => {
       "https://cdn.afuagro.tech/aulas/mip-soja.pdf",
     );
   });
+
+  it("marca disponível só com aula ou link real", () => {
+    const disponivel = (titulo: string, videoUrl?: string | null, arquivoUrl?: string | null) =>
+      !!(linkPublicavel(videoUrl) || linkPublicavel(arquivoUrl) || aulaDoMaterial(titulo));
+
+    expect(disponivel("Guia de Manejo Integrado de Pragas na Soja")).toBe(true);
+    expect(disponivel("Irrigação por Gotejamento na Prática", "https://example.com/x")).toBe(true);
+    expect(disponivel("Sem aula", "https://example.com/x")).toBe(false);
+    expect(disponivel("Sem aula", "https://cdn.afuagro.tech/a.pdf")).toBe(true);
+  });
 });

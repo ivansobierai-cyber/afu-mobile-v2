@@ -253,7 +253,11 @@ export default function MateriaisScreen() {
           renderItem={({ item }) => {
             const cfg = TIPO_CONFIG[item.tipoMaterial as TipoFiltro] ?? TIPO_CONFIG.todos;
             const nivelCfg = NIVEL_CONFIG[item.nivel ?? "iniciante"] ?? NIVEL_CONFIG.iniciante;
-            const temLink = !!(item.videoUrl || item.arquivoUrl);
+            const temConteudo = !!(
+              linkPublicavel(item.videoUrl) ||
+              linkPublicavel(item.arquivoUrl) ||
+              aulaDoMaterial(item.titulo)
+            );
             return (
               <TouchableOpacity style={styles.card} onPress={() => setDetalhe(item)}>
                 <View style={{ flexDirection: "row", gap: 12, alignItems: "flex-start" }}>
@@ -270,7 +274,7 @@ export default function MateriaisScreen() {
                       <View style={{ backgroundColor: nivelCfg.color + "20", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
                         <Text style={{ fontSize: 11, fontWeight: "700", color: nivelCfg.color }}>{nivelCfg.label}</Text>
                       </View>
-                      {temLink && (
+                      {temConteudo && (
                         <View style={{ backgroundColor: "#D1FAE5", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 }}>
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#16A34A" }}>✓ Disponível</Text>
                         </View>

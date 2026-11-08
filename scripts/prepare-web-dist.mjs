@@ -1,4 +1,4 @@
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -10,26 +10,25 @@ if (!existsSync(dist)) {
   process.exit(1);
 }
 
-writeFileSync(
-  join(dist, "vercel.json"),
-  JSON.stringify(
-    {
-      rewrites: [
-        {
-          source: "/((?!_expo|assets|.*\\..*).*)",
-          destination: "/index.html",
-        },
-      ],
-      headers: [
-        {
-          source: "/assets/(.*\\.ttf)",
-          headers: [{ key: "Content-Type", value: "font/ttf" }],
-        },
-      ],
-    },
-    null,
-    2,
-  ),
-);
+const rootConfig = JSON.parse(readFileSync(join(root, "vercel.json"), "utf8"));
 
-console.log("Prepared dist/ for static deploy (vercel.json)");
+/** Config estático para `vercel deploy dist` — inclui redirects/rewrites do apex. */
+const distConfig = {
+  redirects: rootConfig.redirects ?? [],
+  headers: rootConfig.headers ?? [
+    {
+      source: "/assets/(.*\\.ttf)",
+      headers: [{ key: "Content-Type", value: "font/ttf" }],
+    },
+  ],
+  rewrites: rootConfig.rewrites ?? [
+    {
+      source: "/((?!_expo|assets|.*\\..*).*)",
+      destination: "/index.html",
+    },
+  ],
+};
+
+writeFileSync(join(dist, "vercel.json"), JSON.stringify(distConfig, null, 2) + "\n");
+
+console.log("Prepared dist/ for static deploy (vercel.json com redirects/rewrites do apex)");
