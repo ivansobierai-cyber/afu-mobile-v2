@@ -44,7 +44,7 @@ export default function InfraestruturaScreen() {
               <Text style={{ color: "#1B5E20" }} className="text-sm font-bold mb-3">✅ MVP staging (jul/2026)</Text>
               {[
                 { k: "API", v: "Railway — Express + tRPC · /api/health" },
-                { k: "Web", v: "Vercel — Expo export (afu-mobile-web.vercel.app)" },
+                { k: "Web", v: "Vercel — Expo export (afuagro.tech)" },
                 { k: "Banco", v: "MySQL 8 · Drizzle ORM · drizzle/schema.ts" },
                 { k: "Mobile", v: "EAS preview APK · mesmo codebase Expo" },
                 { k: "CI", v: "GitHub Actions — check + build web" },

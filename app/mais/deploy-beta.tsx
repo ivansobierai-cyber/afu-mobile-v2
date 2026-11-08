@@ -407,8 +407,8 @@ export default function DeployBetaScreen() {
               onToggle={toggle}
             >
               {[
-                { dominio: "afu-mobile-v2-production.up.railway.app", desc: "API Express/tRPC — /api/health", cor: "#81C784" },
-                { dominio: "afu-mobile-web.vercel.app", desc: "Portal web — Expo export", cor: "#FFB74D" },
+                { dominio: "api.afuagro.tech", desc: "API Express/tRPC — /api/health", cor: "#81C784" },
+                { dominio: "afuagro.tech", desc: "Portal web — Expo export", cor: "#FFB74D" },
                 { dominio: "localhost:3000 + :8081", desc: "DEV local — API + Metro web", cor: "#64B5F6" },
               ].map((d) => (
                 <View key={d.dominio} style={{ borderLeftWidth: 4, borderLeftColor: d.cor, backgroundColor: d.cor + "10" }} className="rounded-r-xl px-3 py-2 mb-1.5">
