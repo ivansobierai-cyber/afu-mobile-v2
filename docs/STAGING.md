@@ -4,7 +4,7 @@ Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](
 
 ## Status atual
 
-- **Web (Vercel):** https://afuagro.tech — build `npm run build:web:preview` (API `https://api.afuagro.tech` + login demo). `www` e `app` redirecionam para o apex.
+- **Web (Vercel):** https://afuagro.tech — build `npm run build:web:preview` (API `https://api.afuagro.tech`; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex.
 - **APK staging:** profile `preview` no EAS → `https://afu-mobile-v2-production.up.railway.app`
 - **API:** `GET /api/health` em `https://api.afuagro.tech/api/health`. O hostname está no projeto Vercel `afu-mobile-web` e o `vercel.json` reescreve para `https://afu-mobile-v2-production.up.railway.app` (o token Railway deste ambiente não autoriza domínio customizado no serviço).
 
@@ -22,9 +22,9 @@ O deploy web usa `vercel.json` na raiz:
 
 Projeto canônico: **afu-mobile-web** → https://afuagro.tech
 
-Variáveis no build preview:
+Variáveis no build web:
 
-- `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1` (definida em `scripts/build-web-preview.mjs` se ausente).
+- `EXPO_PUBLIC_SHOW_DEMO_LOGIN` — padrão **`0`** em `scripts/build-web-preview.mjs` (produção/preview sem botões demo). Só use `1` em builds locais de teste explícitos.
 - `EXPO_PUBLIC_API_BASE_URL` — **usa o valor do ambiente Vercel** quando definido (recomendado em **Preview** por PR); caso contrário, fallback `https://api.afuagro.tech`.
 
 **FASE 2H:** o preview web só chama procedures que existem na API Railway em execução. Se o smoke retornar `No procedure found on path "coreData.operacoes.createApontamento"`, o frontend está correto mas a API em produção ainda não foi implantada com o branch `feat/fase-2h-apontamento-real-execucao`. Rode `npm run probe:trpc:procedure` e faça **Redeploy** no Railway a partir desse commit antes do smoke.
@@ -80,7 +80,7 @@ O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_
 
 1. Instale o APK pelo link do EAS
 2. Use **4G ou Wi‑Fi qualquer** (não precisa estar na mesma rede do PC)
-3. Login demo → marketplace → pedido
+3. Login com conta de teste (seed local) → marketplace → pedido
 
 ## Profiles EAS
 

@@ -20,7 +20,11 @@ export function isAuthDisabled(): boolean {
   return explicit === true;
 }
 
-/** Botões de login demo — visíveis em dev ou com EXPO_PUBLIC_SHOW_DEMO_LOGIN=1 (ex.: profile apk). */
+/**
+ * Login demo (acesso rápido) — só em __DEV__ local ou com flag explícita.
+ * Builds web/prod (`expo export`) devem manter EXPO_PUBLIC_SHOW_DEMO_LOGIN=0.
+ * Nunca habilitar em afuagro.tech / produção.
+ */
 export function isDemoLoginEnabled(): boolean {
   const explicit = readEnvFlag(process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN);
   if (explicit !== null) return explicit;

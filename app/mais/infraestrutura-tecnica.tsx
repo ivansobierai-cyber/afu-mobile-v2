@@ -123,8 +123,8 @@ export default function InfraestruturaScreen() {
           <View className="gap-4">
             {[
               { env: "DEV", cor: "#1565C0", desc: "Ambiente local do desenvolvedor", items: ["MySQL nativo ou Docker", "npm run dev (API + Metro)", "Hot reload ativo", "Logs verbosos", "Sem rate limiting"] },
-              { env: "STAGING", cor: "#E65100", desc: "Homologação (pré-produção)", items: ["Railway — API staging", "Vercel — web staging", "MySQL Railway", "CI/CD GitHub Actions", "Login demo habilitado"] },
-              { env: "PROD", cor: "#1B5E20", desc: "Ambiente de produção", items: ["Railway (API escalável)", "Vercel (CDN web)", "MySQL gerenciado", "EAS (mobile stores)", "SLA 99,9%"] },
+              { env: "STAGING", cor: "#E65100", desc: "Homologação (pré-produção)", items: ["Railway — API staging", "Vercel — web staging", "MySQL Railway", "CI/CD GitHub Actions", "Login só e-mail/senha (sem botões demo)"] },
+              { env: "PROD", cor: "#1B5E20", desc: "Ambiente de produção", items: ["Railway (API escalável)", "Vercel (CDN web)", "MySQL gerenciado", "Login usuários reais (sem demo)", "SLA 99,9%"] },
             ].map((e) => (
               <View key={e.env} style={{ backgroundColor: e.cor + "12", borderWidth: 1, borderColor: e.cor + "30" }} className="rounded-xl p-4">
                 <View className="flex-row items-center gap-2 mb-2">

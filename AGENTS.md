@@ -27,11 +27,12 @@ backend details. Notes below are the non-obvious, environment-specific bits for 
   (optionally `npm run seed:marketplace`, `npm run seed:comprador`, and
   `npm run seed:banco-expansao` for etapas 30–46). Seeds are idempotent.
   Migration history notes: see `drizzle/README.md` (do not rename applied tags).
-- **Demo logins** (web at http://localhost:8081): `demo@afuagro.com.br` / `Demo@1234` (producer)
-  and `comprador@afuagro.com.br` / `Demo@1234` (marketplace buyer). The login screen also has
-  "Entrar com Demo Produtor/Comprador" quick-access buttons.
-  Auth is email/password (JWT), not OAuth. The `OAUTH_SERVER_URL is not configured` log on
-  server start is expected and harmless for local dev.
+- **Seed accounts** (after `npm run seed`; for API/smoke only — the login UI has no demo
+  quick-access buttons): `demo@afuagro.com.br` / `Demo@1234` (producer) and
+  `comprador@afuagro.com.br` / `Demo@1234` (marketplace buyer). Type credentials manually.
+  Auth is email/password (JWT); OAuth button remains but needs `OAUTH_SERVER_URL`. The
+  `OAUTH_SERVER_URL is not configured` log on server start is expected and harmless for local
+  dev. Never set `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1` on Vercel production.
 - **Restart Metro after installing new npm dependencies.** A running `npm run dev:metro` does
   not pick up packages added by `npm install` (module resolution errors persist); stop and
   rerun `npm run dev` after dependency changes.

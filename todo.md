@@ -510,5 +510,5 @@ npm run db:push
 - [ ] Domínio CNAME `api-staging.afuagro.com.br`
 - [ ] Credenciais prod: FCM (Expo), SendGrid, OAuth (opcional)
 - [ ] Build `eas:android:prod` + Play Store (track internal → beta → production)
-- [ ] Remover/ocultar login demo em build `production` (já condicional via `isDemoLoginEnabled`)
+- [x] Remover login demo da UI web (`app/auth/login.tsx`) + default `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0` no build web
 - [ ] Corrigir 2 suites de teste com falha de import
