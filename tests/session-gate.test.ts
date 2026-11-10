@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { SESSION_VERIFY_TIMEOUT_MS } from "@/hooks/use-session";
+import { isDemoLoginEnabled } from "@/shared/dev-auth";
 
 /**
  * Etapa 1 aceite — contrato de sessão:
@@ -34,19 +37,22 @@ describe("session gate contract (Etapa 1)", () => {
     expect(showProtected).toBe(false);
   });
 
-  it("demo login off em produção sem flag explícita", async () => {
+  it("demo login off com flag explícita 0", () => {
     const prev = process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN;
-    delete process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN;
-    // Em Vitest __DEV__ pode ser true — o contrato de produção é a flag explícita
-    const { isDemoLoginEnabled } = await import("@/shared/dev-auth");
-    if (typeof __DEV__ !== "undefined" && __DEV__) {
-      expect(isDemoLoginEnabled()).toBe(true);
-    }
     process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN = "0";
-    // re-import won't re-evaluate — test pure logic:
-    const explicitOff = process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN === "0";
-    expect(explicitOff).toBe(true);
+    expect(isDemoLoginEnabled()).toBe(false);
     if (prev === undefined) delete process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN;
     else process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN = prev;
+  });
+
+  it("login screen não referencia botões demo", () => {
+    const source = readFileSync(
+      resolve(__dirname, "../app/auth/login.tsx"),
+      "utf8",
+    );
+    expect(source).not.toMatch(/Entrar com Demo/);
+    expect(source).not.toMatch(/handleQuickLogin/);
+    expect(source).not.toMatch(/isDemoLoginEnabled/);
+    expect(source).not.toMatch(/Demo@1234/);
   });
 });

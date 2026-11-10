@@ -163,7 +163,7 @@ export default function TestesCampoScreen() {
               Validação técnica antes da etapa 29 — campo com produtores reais
             </Text>
             {[
-              { item: "Login demo staging (web + API Railway)", ok: true },
+              { item: "Login usuários reais (web + API Railway)", ok: true },
               { item: "CRUD propriedades, cultivos e terrenos", ok: true },
               { item: "Diagnóstico IA — foto → laudo", ok: true },
               { item: "Mapa GPS com tiles OSM (web)", ok: true },

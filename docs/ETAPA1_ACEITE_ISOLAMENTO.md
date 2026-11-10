@@ -42,7 +42,7 @@ npx vitest run tests/cross-tenant-attack.test.ts tests/storage-proxy.test.ts
 | `autocomplete="email"` e `current-password` | OK | Login + remoção de bloqueio de autofill |
 | `h1` em “AFU Agro” e “Bem-vindo de volta” | OK | Welcome + `AuthCard` header/h1 |
 | Formulário login 480–560px | OK | `maxWidth: 520` em `app/auth/login.tsx` |
-| Ocultar demos em produção | OK | `isDemoLoginEnabled()` + `EXPO_PUBLIC_SHOW_DEMO_LOGIN` (doc em `.env.example`) |
+| Ocultar demos em produção | OK | Botões demo removidos de `app/auth/login.tsx`; web default `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0` (`build-web-preview`); confirmado em afuagro.tech |
 | Desmontar protegidos se desautenticado | OK | `ProtectedStack` + `RouteGuard` → `null` |
 | Testes automatizados A×B | OK | Suite Etapa 10 / cross-tenant |
 

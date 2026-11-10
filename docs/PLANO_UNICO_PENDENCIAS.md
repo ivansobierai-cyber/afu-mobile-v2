@@ -1,6 +1,6 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-11-08  
+**Atualizado:** 2026-11-10  
 **Base:** `main` — site canônico `https://afuagro.tech`, API `https://api.afuagro.tech` (rewrite Vercel → Railway)  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
@@ -27,6 +27,7 @@
 | Storage R2/S3 + health/probe (sem Manus) | PR [#31](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/31), `docs/RAILWAY_STORAGE_EVENTOS.md`, `npm run probe:storage` |
 | R2 produção + smoke anexos (upload/download) | `railway-storage-probe-latest.json`, `smoke-eventos-anexos-latest.json` (**AVANCAR**, 2026-08-02) |
 | Site canônico afuagro.tech | `docs/evidencias/smoke-mvp-site-afuagro-latest.json` — login, painel, CRUD, laudos, logout. `www` e `app` redirecionam para o apex. |
+| Login sem demo na web | PR [#47](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/47) — botões demo removidos; `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0` no build. |
 
 ---
 
@@ -41,14 +42,16 @@
 
 - ~~Cultivos offline/a11y lista + detalhe~~ — `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx`.
 - ~~Assistente Eventos LLM opcional~~ — `sugestoesIA` + Forge.
-- Diagnóstico IA no site: `diagnostico.analisar` responde `OPENAI_API_KEY is not configured` porque `BUILT_IN_FORGE_API_KEY` não está no Railway (`forgeConfigured: false`). Sem essa chave o laudo não fecha.
+- Diagnóstico IA no site: `diagnostico.analisar` responde `OPENAI_API_KEY is not configured` porque `BUILT_IN_FORGE_API_KEY` não está no Railway (`forgeConfigured: false`). Sem essa chave o laudo não fecha (**bloqueado até configurar o secret no Railway — não inventar chave**).
 - Fora do MVP do site, de propósito: Play Store, PIX real, piloto com produtores (etapa 29).
 
 ---
 
 ## PRs
 
-#45 mergeado (site canônico `afuagro.tech` + materiais didáticos). Histórico #18–#45.
+- #45 e #47 mergeados (site canônico + login sem demo).
+- [#46](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/46) — revalidação do smoke (este PR).
+- [#44](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/44) — aberto (cookie Express).
 
 ---
 
