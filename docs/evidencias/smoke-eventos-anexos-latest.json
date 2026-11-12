@@ -1,7 +1,7 @@
 {
   "suite": "smoke-eventos-anexos",
-  "at": "2026-08-02T22:09:54.468Z",
-  "api": "https://afu-mobile-v2-production.up.railway.app",
+  "at": "2026-11-12T00:13:23.355Z",
+  "api": "https://api.afuagro.tech",
   "storage": {
     "backend": "s3",
     "s3Configured": true,

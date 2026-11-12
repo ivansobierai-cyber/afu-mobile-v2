@@ -1,6 +1,6 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-11-10  
+**Atualizado:** 2026-11-11  
 **Base:** `main` — site canônico `https://afuagro.tech`, API `https://api.afuagro.tech` (rewrite Vercel → Railway)  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
@@ -36,27 +36,26 @@
 ### P3 — Qualidade / higiene (não bloqueante)
 
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
-- Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` após deploy.
+- ~~Smoke API anexos Eventos~~ — `npm run smoke:eventos-anexos` em produção (**AVANCAR**, 2026-11-12) → `docs/evidencias/smoke-eventos-anexos-latest.json`.
+- Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (API já verde; falta checklist manual no browser).
 
 ### P4 — Produto (backlog consciente)
 
 - ~~Cultivos offline/a11y lista + detalhe~~ — `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx`.
 - ~~Assistente Eventos LLM opcional~~ — `sugestoesIA` + Forge.
-- Diagnóstico IA no site: `diagnostico.analisar` responde `OPENAI_API_KEY is not configured` porque `BUILT_IN_FORGE_API_KEY` não está no Railway (`forgeConfigured: false`). Sem essa chave o laudo não fecha (**bloqueado até configurar o secret no Railway — não inventar chave**).
+- Diagnóstico IA no site: `diagnostico.analisar` falha sem `BUILT_IN_FORGE_API_KEY` no Railway (`forgeConfigured: false`). A API agora devolve mensagem em PT pedindo essa variável. Sem a chave o laudo não fecha (**bloqueado — não inventar chave**).
 - Fora do MVP do site, de propósito: Play Store, PIX real, piloto com produtores (etapa 29).
 
 ---
 
 ## PRs
 
-- #45 e #47 mergeados (site canônico + login sem demo).
-- [#46](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/46) — revalidação do smoke (este PR).
-- [#44](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/44) — aberto (cookie Express).
+#44–#47 mergeados (site, login sem demo, smoke docs, clearCookie). Nenhum PR aberto nesta frente.
 
 ---
 
 ## Próximo passo sugerido
 
-1. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech`.
-2. **Web:** checklist manual `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (upload arquivo no calendário).
+1. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech` (único bloqueio do laudo IA).
+2. Checklist manual UI anexos: `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md`.
 3. Lint por módulo ao editar arquivos.
