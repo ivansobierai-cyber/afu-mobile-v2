@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Alert, StyleSheet } from "react-native";
+import { View, Alert, StyleSheet, Platform, ScrollView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { ScreenHeader } from "@/components/screen-header";
 import { ScreenState } from "@/components/screen-state";
@@ -30,6 +30,10 @@ import type { SmartEventTemplate } from "@/lib/eventos/smart-templates";
 import type { EventoItem } from "@/lib/eventos/types";
 import { cancelEventReminder, scheduleEventReminder } from "@/lib/notifications";
 import { trpc } from "@/lib/trpc";
+
+/** No web, o chrome superior (filtros + IA) não pode comer toda a altura — a lista/agenda precisa de viewport. */
+const WEB_CHROME_MAX = 200;
+const WEB_BODY_MIN = 420;
 
 /**
  * Centro de Eventos — Etapas 1–2
@@ -295,54 +299,62 @@ export default function CalendarioScreen() {
       />
 
       <EventoViewTabs value={view} onChange={setView} />
-      <EventoAnalyticsStrip stats={stats} />
-      <EventoIntegrationsBar />
 
-      <EventoFiltersBar
-        fazendaLabel={fazendaLabel}
-        filters={filters}
-        onChange={setFilters}
-        propriedades={propriedadeOptions}
-        terrenos={terrenoOptions}
-        cultivos={cultivoOptions}
-        safras={safraOptions}
-        responsaveis={responsavelOptions}
-        gerandoCiclo={gerandoCiclo}
-        onGerarCiclo={async () => {
-          if (!filters.culturaId) return;
-          setGerandoCiclo(true);
-          try {
-            const res = await gerarCicloMut.mutateAsync({
-              culturaId: filters.culturaId,
-              propriedadeId: filters.propriedadeId,
-            });
-            await utils.coreData.calendario.list.invalidate();
-            Alert.alert(
-              "Ciclo gerado",
-              `${res.created} eventos criados a partir do cultivo (com dependências).`,
-            );
-          } catch (e: unknown) {
-            const message =
-              e instanceof Error ? e.message : "Não foi possível gerar o ciclo.";
-            Alert.alert("Erro", message);
-          } finally {
-            setGerandoCiclo(false);
-          }
-        }}
-      />
+      <ScrollView
+        style={Platform.OS === "web" ? styles.chromeWeb : undefined}
+        contentContainerStyle={styles.chromeContent}
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+      >
+        <EventoAnalyticsStrip stats={stats} />
+        <EventoIntegrationsBar />
 
-      <EventoSmartTemplates
-        compact
-        onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
-      />
+        <EventoFiltersBar
+          fazendaLabel={fazendaLabel}
+          filters={filters}
+          onChange={setFilters}
+          propriedades={propriedadeOptions}
+          terrenos={terrenoOptions}
+          cultivos={cultivoOptions}
+          safras={safraOptions}
+          responsaveis={responsavelOptions}
+          gerandoCiclo={gerandoCiclo}
+          onGerarCiclo={async () => {
+            if (!filters.culturaId) return;
+            setGerandoCiclo(true);
+            try {
+              const res = await gerarCicloMut.mutateAsync({
+                culturaId: filters.culturaId,
+                propriedadeId: filters.propriedadeId,
+              });
+              await utils.coreData.calendario.list.invalidate();
+              Alert.alert(
+                "Ciclo gerado",
+                `${res.created} eventos criados a partir do cultivo (com dependências).`,
+              );
+            } catch (e: unknown) {
+              const message =
+                e instanceof Error ? e.message : "Não foi possível gerar o ciclo.";
+              Alert.alert("Erro", message);
+            } finally {
+              setGerandoCiclo(false);
+            }
+          }}
+        />
 
-      <EventoIaPanel
-        sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
-        climaUsado={iaData?.climaUsado}
-        llmUsado={iaData?.llmUsado}
-        loading={iaLoading}
-        onRefresh={() => refetchIa()}
-      />
+        <EventoSmartTemplates
+          compact
+          onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
+        />
+
+        <EventoIaPanel
+          sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
+          climaUsado={iaData?.climaUsado}
+          llmUsado={iaData?.llmUsado}
+          loading={iaLoading}
+          onRefresh={() => refetchIa()}
+        />
+      </ScrollView>
 
       {isError ? (
         <ScreenState
@@ -351,7 +363,7 @@ export default function CalendarioScreen() {
           onAction={() => refetch()}
         />
       ) : (
-        <View style={styles.body}>
+        <View style={[styles.body, Platform.OS === "web" ? styles.bodyWeb : null]}>
           {view === "calendario" ? (
             isLoading ? (
               <ScreenState status="loading" message="Carregando calendário…" />
@@ -486,4 +498,7 @@ export default function CalendarioScreen() {
 
 const styles = StyleSheet.create({
   body: { flex: 1 },
+  bodyWeb: { minHeight: WEB_BODY_MIN },
+  chromeWeb: { maxHeight: WEB_CHROME_MAX, flexGrow: 0 },
+  chromeContent: { paddingBottom: 4 },
 });
