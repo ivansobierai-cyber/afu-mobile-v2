@@ -290,6 +290,59 @@ export default function CalendarioScreen() {
     });
   }, [eventos]);
 
+  const chrome = (
+    <>
+      <EventoAnalyticsStrip stats={stats} />
+      <EventoIntegrationsBar />
+
+      <EventoFiltersBar
+        fazendaLabel={fazendaLabel}
+        filters={filters}
+        onChange={setFilters}
+        propriedades={propriedadeOptions}
+        terrenos={terrenoOptions}
+        cultivos={cultivoOptions}
+        safras={safraOptions}
+        responsaveis={responsavelOptions}
+        gerandoCiclo={gerandoCiclo}
+        onGerarCiclo={async () => {
+          if (!filters.culturaId) return;
+          setGerandoCiclo(true);
+          try {
+            const res = await gerarCicloMut.mutateAsync({
+              culturaId: filters.culturaId,
+              propriedadeId: filters.propriedadeId,
+            });
+            await utils.coreData.calendario.list.invalidate();
+            Alert.alert(
+              "Ciclo gerado",
+              `${res.created} eventos criados a partir do cultivo (com dependências).`,
+            );
+          } catch (e: unknown) {
+            const message =
+              e instanceof Error ? e.message : "Não foi possível gerar o ciclo.";
+            Alert.alert("Erro", message);
+          } finally {
+            setGerandoCiclo(false);
+          }
+        }}
+      />
+
+      <EventoSmartTemplates
+        compact
+        onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
+      />
+
+      <EventoIaPanel
+        sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
+        climaUsado={iaData?.climaUsado}
+        llmUsado={iaData?.llmUsado}
+        loading={iaLoading}
+        onRefresh={() => refetchIa()}
+      />
+    </>
+  );
+
   return (
     <ScreenContainer>
       <ScreenHeader
@@ -300,61 +353,20 @@ export default function CalendarioScreen() {
 
       <EventoViewTabs value={view} onChange={setView} />
 
-      <ScrollView
-        style={Platform.OS === "web" ? styles.chromeWeb : undefined}
-        contentContainerStyle={styles.chromeContent}
-        nestedScrollEnabled
-        keyboardShouldPersistTaps="handled"
-      >
-        <EventoAnalyticsStrip stats={stats} />
-        <EventoIntegrationsBar />
-
-        <EventoFiltersBar
-          fazendaLabel={fazendaLabel}
-          filters={filters}
-          onChange={setFilters}
-          propriedades={propriedadeOptions}
-          terrenos={terrenoOptions}
-          cultivos={cultivoOptions}
-          safras={safraOptions}
-          responsaveis={responsavelOptions}
-          gerandoCiclo={gerandoCiclo}
-          onGerarCiclo={async () => {
-            if (!filters.culturaId) return;
-            setGerandoCiclo(true);
-            try {
-              const res = await gerarCicloMut.mutateAsync({
-                culturaId: filters.culturaId,
-                propriedadeId: filters.propriedadeId,
-              });
-              await utils.coreData.calendario.list.invalidate();
-              Alert.alert(
-                "Ciclo gerado",
-                `${res.created} eventos criados a partir do cultivo (com dependências).`,
-              );
-            } catch (e: unknown) {
-              const message =
-                e instanceof Error ? e.message : "Não foi possível gerar o ciclo.";
-              Alert.alert("Erro", message);
-            } finally {
-              setGerandoCiclo(false);
-            }
-          }}
-        />
-
-        <EventoSmartTemplates
-          compact
-          onSelect={(tpl) => openCreate(selectedKey ?? toDateKey(new Date()), tpl)}
-        />
-
-        <EventoIaPanel
-          sugestoes={iaData?.sugestoes ? [...iaData.sugestoes] : []}
-          climaUsado={iaData?.climaUsado}
-          llmUsado={iaData?.llmUsado}
-          loading={iaLoading}
-          onRefresh={() => refetchIa()}
-        />
-      </ScrollView>
+      {/* ScrollView só no web (cap de altura). No native, View intrínseca —
+          ScrollView com flexGrow default roubaria viewport da Agenda/Kanban. */}
+      {Platform.OS === "web" ? (
+        <ScrollView
+          style={styles.chromeWeb}
+          contentContainerStyle={styles.chromeContent}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {chrome}
+        </ScrollView>
+      ) : (
+        chrome
+      )}
 
       {isError ? (
         <ScreenState
