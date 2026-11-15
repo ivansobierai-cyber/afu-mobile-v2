@@ -1,7 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import { createServer } from "http";
+import fs from "fs";
 import net from "net";
+import path from "path";
+import { fileURLToPath } from "url";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
@@ -61,14 +64,29 @@ async function startServer() {
   registerOAuthRoutes(app);
   registerScheduledRoutes(app);
 
-  app.get("/", (_req, res) => {
-    res.json({
-      service: "AFU Agro API",
-      status: "ok",
-      health: "/api/health",
-      trpc: "/api/trpc",
-    });
+  const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
+  const webIndex = path.join(publicDir, "index.html");
+  const hasWeb = fs.existsSync(webIndex);
+
+  app.use((req, res, next) => {
+    const host = (req.headers.host ?? "").split(":")[0];
+    if (host === "www.afuagro.tech" || host === "app.afuagro.tech") {
+      res.redirect(301, `https://afuagro.tech${req.originalUrl}`);
+      return;
+    }
+    next();
   });
+
+  if (!hasWeb) {
+    app.get("/", (_req, res) => {
+      res.json({
+        service: "AFU Agro API",
+        status: "ok",
+        health: "/api/health",
+        trpc: "/api/trpc",
+      });
+    });
+  }
 
   app.get("/api/health", async (_req, res) => {
     const storage = await getPublicStorageHealth();
@@ -94,6 +112,23 @@ async function startServer() {
       createContext,
     }),
   );
+
+  if (hasWeb) {
+    app.use(express.static(publicDir, { index: false }));
+    app.use((req, res, next) => {
+      if (req.method !== "GET" && req.method !== "HEAD") {
+        next();
+        return;
+      }
+      if (req.path === "/api" || req.path.startsWith("/api/")) {
+        next();
+        return;
+      }
+      res.sendFile(webIndex, (err) => {
+        if (err) next(err);
+      });
+    });
+  }
 
   const preferredPort = parseInt(process.env.PORT || "3000", 10);
   // Em PaaS (Railway/etc) PORT é obrigatório — não procurar porta alternativa.
