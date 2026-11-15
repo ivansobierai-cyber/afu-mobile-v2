@@ -38,7 +38,7 @@
 
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
 - ~~Smoke API anexos Eventos~~ — `npm run smoke:eventos-anexos` em produção (**AVANCAR**, 2026-11-12) → `docs/evidencias/smoke-eventos-anexos-latest.json`.
-- Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (API **AVANCAR**; UI bloqueada no web porque filtros+IA comiam a altura da Agenda — fix de layout em andamento).
+- ~~Smoke UI anexos Eventos (web)~~ — layout #52 + preview AVANCAR (`docs/evidencias/smoke-eventos-anexos-ui-latest.json`); API já verde.
 
 ### P4 — Produto (backlog consciente)
 
