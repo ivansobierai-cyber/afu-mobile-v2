@@ -250,6 +250,31 @@ const resolveApiUrl = () => {
   return resolveForgeChatCompletionsUrl(base);
 };
 
+const isAlibabaMaasBase = (base: string): boolean => {
+  try {
+    const host = new URL(base).hostname.toLowerCase();
+    return host === "maas.aliyuncs.com" || host.endsWith(".maas.aliyuncs.com");
+  } catch {
+    return /\.maas\.aliyuncs\.com$/i.test(base);
+  }
+};
+
+/**
+ * Modelo enviado ao provider: arg explícito → BUILT_IN_FORGE_MODEL →
+ * fallback `qwen3-vl-plus` em hosts MaaS (API Alibaba exige `model`).
+ */
+export function resolveForgeModel(explicit?: string): string | undefined {
+  const fromArg = explicit?.trim();
+  if (fromArg) return fromArg;
+  const fromEnv = ENV.forgeModel?.trim();
+  if (fromEnv) return fromEnv;
+  const base = ENV.forgeApiUrl?.trim();
+  if (base && isAlibabaMaasBase(base)) {
+    return "qwen3-vl-plus";
+  }
+  return undefined;
+}
+
 const assertApiKey = () => {
   if (!ENV.forgeApiKey) {
     throw new Error(
@@ -396,8 +421,9 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     store: store === true ? true : false,
   };
 
-  if (model) {
-    payload.model = model;
+  const resolvedModel = resolveForgeModel(model);
+  if (resolvedModel) {
+    payload.model = resolvedModel;
   }
   if (metadata) {
     payload.metadata = metadata;
