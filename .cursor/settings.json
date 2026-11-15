@@ -9,6 +9,9 @@
     "cursor-team-kit": {
       "enabled": true
     },
+    "hostinger": {
+      "enabled": true
+    },
     "hostinger-connector": {
       "enabled": true
     }
