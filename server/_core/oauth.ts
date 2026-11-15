@@ -3,6 +3,7 @@ import type { Express, Request, Response } from "express";
 import { getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions, clearSessionCookie } from "./cookies";
 import { sdk } from "./sdk";
+import { resolveWebAppUrl } from "./web-app-url";
 
 function getQueryParam(req: Request, key: string): string | undefined {
   const value = req.query[key];
@@ -85,10 +86,11 @@ export function registerOAuthRoutes(app: Express) {
 
       // Redirect to the frontend URL (Expo web on port 8081)
       // Cookie is set with parent domain so it works across both 3000 and 8081 subdomains
-      const frontendUrl =
-        process.env.EXPO_WEB_PREVIEW_URL ||
-        process.env.EXPO_PACKAGER_PROXY_URL ||
-        "http://localhost:8081";
+      const frontendUrl = resolveWebAppUrl({
+        host: req.get("host") ?? undefined,
+        protocol: req.protocol,
+        forwardedProto: req.get("x-forwarded-proto") ?? undefined,
+      });
       res.redirect(302, frontendUrl);
     } catch (error) {
       console.error("[OAuth] Callback failed", error);
