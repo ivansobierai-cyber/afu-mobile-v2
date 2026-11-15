@@ -6,7 +6,8 @@
 /**
  * Normaliza a base Forge/OpenAI-compatível:
  * - acrescenta https:// se faltar esquema;
- * - remove /v1 ou /v1/chat/completions acidentais (o cliente LLM acrescenta o path).
+ * - remove /v1 ou /v1/chat/completions acidentais (o cliente LLM acrescenta o path);
+ * - preserva `/compatible-mode` (Alibaba MaaS / Model Studio).
  */
 export function normalizeForgeApiUrl(raw: string | undefined | null): string {
   let u = (raw ?? "").trim();
@@ -15,7 +16,9 @@ export function normalizeForgeApiUrl(raw: string | undefined | null): string {
     u = `https://${u}`;
   }
   u = u.replace(/\/+$/, "");
+  u = u.replace(/\/compatible-mode\/v1\/chat\/completions$/i, "/compatible-mode");
   u = u.replace(/\/v1\/chat\/completions$/i, "");
+  u = u.replace(/\/compatible-mode\/v1$/i, "/compatible-mode");
   u = u.replace(/\/v1$/i, "");
   return u.replace(/\/+$/, "");
 }
