@@ -353,8 +353,9 @@ export default function CalendarioScreen() {
 
       <EventoViewTabs value={view} onChange={setView} />
 
-      {/* ScrollView só no web (cap de altura). No native, View intrínseca —
-          ScrollView com flexGrow default roubaria viewport da Agenda/Kanban. */}
+      {/* Web: ScrollView com maxHeight. Native: View com flexGrow 0 para
+          conter ScrollViews horizontais (analytics/integrações) que senão
+          cresceriam no eixo vertical e encolheriam a Agenda/Kanban. */}
       {Platform.OS === "web" ? (
         <ScrollView
           style={styles.chromeWeb}
@@ -365,7 +366,7 @@ export default function CalendarioScreen() {
           {chrome}
         </ScrollView>
       ) : (
-        chrome
+        <View style={styles.chromeNative}>{chrome}</View>
       )}
 
       {isError ? (
@@ -512,5 +513,6 @@ const styles = StyleSheet.create({
   body: { flex: 1 },
   bodyWeb: { minHeight: WEB_BODY_MIN },
   chromeWeb: { maxHeight: WEB_CHROME_MAX, flexGrow: 0 },
+  chromeNative: { flexGrow: 0 },
   chromeContent: { paddingBottom: 4 },
 });
