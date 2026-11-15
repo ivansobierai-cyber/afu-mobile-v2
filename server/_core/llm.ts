@@ -207,6 +207,39 @@ const normalizeToolChoice = (
   return toolChoice;
 };
 
+/**
+ * Monta a URL de chat/completions a partir da base Forge já normalizada.
+ * Hosts `*.maas.aliyuncs.com` usam o prefixo OpenAI-compatível `/compatible-mode`
+ * (sem isso a API Alibaba MaaS responde 404 em `/v1/chat/completions`).
+ */
+export function resolveForgeChatCompletionsUrl(baseRaw: string): string {
+  const base = baseRaw.trim().replace(/\/+$/, "");
+  if (!base) {
+    throw new Error(
+      "LLM indisponível: defina BUILT_IN_FORGE_API_URL (endpoint OpenAI-compatível) no servidor.",
+    );
+  }
+
+  try {
+    const parsed = new URL(base);
+    const host = parsed.hostname.toLowerCase();
+    const isMaas =
+      host === "maas.aliyuncs.com" || host.endsWith(".maas.aliyuncs.com");
+    if (isMaas) {
+      const path = parsed.pathname.replace(/\/+$/, "") || "";
+      if (!/\/compatible-mode$/i.test(path)) {
+        parsed.pathname = `${path}/compatible-mode`.replace(/\/{2,}/g, "/") || "/compatible-mode";
+      }
+      const originAndPath = `${parsed.origin}${parsed.pathname.replace(/\/+$/, "")}`;
+      return `${originAndPath}/v1/chat/completions`;
+    }
+  } catch {
+    // URL inválida: cai no fallback genérico abaixo.
+  }
+
+  return `${base}/v1/chat/completions`;
+}
+
 const resolveApiUrl = () => {
   const base = ENV.forgeApiUrl?.trim();
   if (!base) {
@@ -214,7 +247,7 @@ const resolveApiUrl = () => {
       "LLM indisponível: defina BUILT_IN_FORGE_API_URL (endpoint OpenAI-compatível) no servidor.",
     );
   }
-  return `${base.replace(/\/$/, "")}/v1/chat/completions`;
+  return resolveForgeChatCompletionsUrl(base);
 };
 
 const assertApiKey = () => {
@@ -299,6 +332,15 @@ const fetchWithBackoff = async (url: string, init: FetchInit): Promise<Response>
     try {
       const response = await fetch(url, init);
       if (response.ok || attempt === RETRY_MAX_RETRIES) {
+        return response;
+      }
+
+      // 4xx (exceto 429) não melhoram com retry — evita ~7s de backoff em 404/401.
+      if (
+        response.status >= 400 &&
+        response.status < 500 &&
+        response.status !== 429
+      ) {
         return response;
       }
 
