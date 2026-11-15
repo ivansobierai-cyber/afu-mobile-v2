@@ -1,0 +1,17 @@
+{
+  "at": "2026-11-15T03:52:26.274474+00:00",
+  "endpoint": "https://api.afuagro.tech/api/trpc/diagnostico.analisar",
+  "httpStatus": 200,
+  "secs": 5.3,
+  "model": "qwen3-vl-plus",
+  "problema": "planta saudável",
+  "confianca": 100,
+  "tipo": "saudavel",
+  "health": {
+    "ok": true,
+    "forgeConfigured": true,
+    "storageReady": true,
+    "backend": "s3"
+  },
+  "notes": "Alibaba MaaS via BUILT_IN_FORGE_* + compatible-mode + qwen3-vl-plus (#50/#51)"
+}
