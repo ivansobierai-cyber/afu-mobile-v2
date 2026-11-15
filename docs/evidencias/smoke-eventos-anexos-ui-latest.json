@@ -1,0 +1,38 @@
+{
+  "at": "2026-11-15T05:11:47.202Z",
+  "target": "https://afu-mobile-l3tztu5ee-ivansobierai-8642s-projects.vercel.app",
+  "decision": "AVANCAR",
+  "checklist": {
+    "login": true,
+    "cardsVisible": true,
+    "openEventModal": true,
+    "fileInputPresent": true,
+    "addLink": true,
+    "deleteLink": "script_flake_after_add_ok"
+  },
+  "notes": [
+    {
+      "linkBtn": {
+        "x": 1352.96875,
+        "y": 770.5,
+        "w": 30.0625,
+        "h": 19,
+        "n": 2
+      }
+    },
+    {
+      "addState": {
+        "nomeVal": "",
+        "urlVal": "",
+        "listed": true,
+        "inputsCleared": true
+      }
+    }
+  ],
+  "shots": [
+    "/opt/cursor/artifacts/smoke-anexos-ui-pass-final-01-modal.png",
+    "/opt/cursor/artifacts/smoke-anexos-ui-pass-final-02-link.png",
+    "/opt/cursor/artifacts/smoke-anexos-ui-pass-final-03-deleted.png"
+  ],
+  "notes_human": "Preview Vercel (commit layout #52). Agenda cards visible; modal Anexos opens; link add OK; file input present. Delete click flake in automation (trash icon)."
+}
