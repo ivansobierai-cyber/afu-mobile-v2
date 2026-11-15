@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
-import { View, Alert, StyleSheet } from "react-native";
+import { View, Alert, StyleSheet, Platform, ScrollView } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { ScreenHeader } from "@/components/screen-header";
 import { ScreenState } from "@/components/screen-state";
@@ -30,6 +30,10 @@ import type { SmartEventTemplate } from "@/lib/eventos/smart-templates";
 import type { EventoItem } from "@/lib/eventos/types";
 import { cancelEventReminder, scheduleEventReminder } from "@/lib/notifications";
 import { trpc } from "@/lib/trpc";
+
+/** No web, o chrome superior (filtros + IA) não pode comer toda a altura — a lista/agenda precisa de viewport. */
+const WEB_CHROME_MAX = 200;
+const WEB_BODY_MIN = 420;
 
 /**
  * Centro de Eventos — Etapas 1–2
@@ -286,15 +290,8 @@ export default function CalendarioScreen() {
     });
   }, [eventos]);
 
-  return (
-    <ScreenContainer>
-      <ScreenHeader
-        title="Eventos"
-        subtitle="Centro de planejamento agrícola"
-        accentColor={MODULE_COLORS.eventos}
-      />
-
-      <EventoViewTabs value={view} onChange={setView} />
+  const chrome = (
+    <>
       <EventoAnalyticsStrip stats={stats} />
       <EventoIntegrationsBar />
 
@@ -343,6 +340,34 @@ export default function CalendarioScreen() {
         loading={iaLoading}
         onRefresh={() => refetchIa()}
       />
+    </>
+  );
+
+  return (
+    <ScreenContainer>
+      <ScreenHeader
+        title="Eventos"
+        subtitle="Centro de planejamento agrícola"
+        accentColor={MODULE_COLORS.eventos}
+      />
+
+      <EventoViewTabs value={view} onChange={setView} />
+
+      {/* Web: ScrollView com maxHeight. Native: View com flexGrow 0 para
+          conter ScrollViews horizontais (analytics/integrações) que senão
+          cresceriam no eixo vertical e encolheriam a Agenda/Kanban. */}
+      {Platform.OS === "web" ? (
+        <ScrollView
+          style={styles.chromeWeb}
+          contentContainerStyle={styles.chromeContent}
+          nestedScrollEnabled
+          keyboardShouldPersistTaps="handled"
+        >
+          {chrome}
+        </ScrollView>
+      ) : (
+        <View style={styles.chromeNative}>{chrome}</View>
+      )}
 
       {isError ? (
         <ScreenState
@@ -351,7 +376,7 @@ export default function CalendarioScreen() {
           onAction={() => refetch()}
         />
       ) : (
-        <View style={styles.body}>
+        <View style={[styles.body, Platform.OS === "web" ? styles.bodyWeb : null]}>
           {view === "calendario" ? (
             isLoading ? (
               <ScreenState status="loading" message="Carregando calendário…" />
@@ -486,4 +511,8 @@ export default function CalendarioScreen() {
 
 const styles = StyleSheet.create({
   body: { flex: 1 },
+  bodyWeb: { minHeight: WEB_BODY_MIN },
+  chromeWeb: { maxHeight: WEB_CHROME_MAX, flexGrow: 0 },
+  chromeNative: { flexGrow: 0 },
+  chromeContent: { paddingBottom: 4 },
 });

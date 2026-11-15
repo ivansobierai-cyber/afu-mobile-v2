@@ -1,4 +1,5 @@
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { MODULE_COLORS } from "@/constants/module-colors";
@@ -10,6 +11,8 @@ type Props = {
   llmUsado?: boolean;
   loading?: boolean;
   onRefresh?: () => void;
+  /** Web: inicia recolhido para não esconder a agenda/lista. */
+  defaultCollapsed?: boolean;
 };
 
 const SEV_COLOR = {
@@ -19,8 +22,16 @@ const SEV_COLOR = {
 } as const;
 
 /** Painel de sugestões IA do Centro de Eventos (Etapa 5). */
-export function EventoIaPanel({ sugestoes, climaUsado, llmUsado, loading, onRefresh }: Props) {
+export function EventoIaPanel({
+  sugestoes,
+  climaUsado,
+  llmUsado,
+  loading,
+  onRefresh,
+  defaultCollapsed = Platform.OS === "web",
+}: Props) {
   const colors = useColors();
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   if (loading) {
     return (
@@ -30,57 +41,61 @@ export function EventoIaPanel({ sugestoes, climaUsado, llmUsado, loading, onRefr
     );
   }
 
-  if (!sugestoes.length) {
-    return (
-      <View style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.surface }]}>
-        <View style={styles.header}>
-          <IconSymbol name="sparkles" size={14} color={MODULE_COLORS.eventos} />
-          <Text style={[styles.title, { color: colors.foreground }]}>Assistente de agenda</Text>
-          {onRefresh ? (
-            <TouchableOpacity onPress={onRefresh} accessibilityLabel="Atualizar sugestões">
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Atualizar</Text>
-            </TouchableOpacity>
-          ) : null}
-        </View>
-        <Text style={{ fontSize: 12, color: colors.muted }}>
-          Nenhuma sugestão no momento
-          {climaUsado ? " (clima considerado)" : ""}
-          {llmUsado ? " · IA generativa" : " (regras + clima)"}.
-        </Text>
-      </View>
-    );
-  }
+  const title = !sugestoes.length
+    ? "Assistente de agenda"
+    : `Assistente · ${sugestoes.length}${llmUsado ? " · IA" : ""}`;
 
   return (
     <View style={[styles.wrap, { borderColor: colors.border, backgroundColor: colors.surface }]}>
       <View style={styles.header}>
         <IconSymbol name="sparkles" size={14} color={MODULE_COLORS.eventos} />
-        <Text style={[styles.title, { color: colors.foreground }]}>
-          Assistente · {sugestoes.length}
-          {llmUsado ? " · IA" : ""}
-        </Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{title}</Text>
         {onRefresh ? (
           <TouchableOpacity onPress={onRefresh} accessibilityLabel="Atualizar sugestões">
             <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>Atualizar</Text>
           </TouchableOpacity>
         ) : null}
-      </View>
-      {sugestoes.slice(0, 5).map((s) => (
-        <View
-          key={s.id}
-          style={[styles.item, { borderLeftColor: SEV_COLOR[s.severidade] }]}
+        <TouchableOpacity
+          onPress={() => setCollapsed((v) => !v)}
+          accessibilityLabel={collapsed ? "Expandir assistente" : "Recolher assistente"}
+          accessibilityRole="button"
         >
-          <Text style={{ fontSize: 12, fontWeight: "800", color: colors.foreground }}>
-            {s.titulo}
+          <Text style={{ fontSize: 12, fontWeight: "700", color: colors.muted }}>
+            {collapsed ? "Mostrar" : "Ocultar"}
           </Text>
-          <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{s.mensagem}</Text>
-          {s.dataSugerida ? (
-            <Text style={{ fontSize: 11, fontWeight: "700", color: MODULE_COLORS.eventos, marginTop: 4 }}>
-              Data sugerida: {s.dataSugerida.split("-").reverse().join("/")}
+        </TouchableOpacity>
+      </View>
+      {collapsed ? null : !sugestoes.length ? (
+        <Text style={{ fontSize: 12, color: colors.muted }}>
+          Nenhuma sugestão no momento
+          {climaUsado ? " (clima considerado)" : ""}
+          {llmUsado ? " · IA generativa" : " (regras + clima)"}.
+        </Text>
+      ) : (
+        sugestoes.slice(0, 5).map((s) => (
+          <View
+            key={s.id}
+            style={[styles.item, { borderLeftColor: SEV_COLOR[s.severidade] }]}
+          >
+            <Text style={{ fontSize: 12, fontWeight: "800", color: colors.foreground }}>
+              {s.titulo}
             </Text>
-          ) : null}
-        </View>
-      ))}
+            <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>{s.mensagem}</Text>
+            {s.dataSugerida ? (
+              <Text
+                style={{
+                  fontSize: 11,
+                  fontWeight: "700",
+                  color: MODULE_COLORS.eventos,
+                  marginTop: 4,
+                }}
+              >
+                Data sugerida: {s.dataSugerida.split("-").reverse().join("/")}
+              </Text>
+            ) : null}
+          </View>
+        ))
+      )}
     </View>
   );
 }

@@ -1,6 +1,6 @@
 # Plano único — pendências AFU Mobile
 
-**Atualizado:** 2026-11-11  
+**Atualizado:** 2026-11-15  
 **Base:** `main` — site canônico `https://afuagro.tech`, API `https://api.afuagro.tech` (rewrite Vercel → Railway)  
 **Uso:** fonte única do que ainda falta. Docs de etapa/release antigos são histórico.
 
@@ -28,6 +28,7 @@
 | R2 produção + smoke anexos (upload/download) | `railway-storage-probe-latest.json`, `smoke-eventos-anexos-latest.json` (**AVANCAR**, 2026-08-02) |
 | Site canônico afuagro.tech | `docs/evidencias/smoke-mvp-site-afuagro-latest.json` — login, painel, CRUD, laudos, logout. `www` e `app` redirecionam para o apex. |
 | Login sem demo na web | PR [#47](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/47) — botões demo removidos; `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0` no build. |
+| Diagnóstico IA (Alibaba MaaS) | PRs [#50](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/50)/[#51](https://github.com/ivansobierai-cyber/afu-mobile-v2/pull/51) — `/compatible-mode` + `BUILT_IN_FORGE_MODEL=qwen3-vl-plus`; `diagnostico.analisar` HTTP 200 em produção. |
 
 ---
 
@@ -37,25 +38,25 @@
 
 - Lint legado (~100 problemas) — limpar por módulo ao tocar no arquivo.
 - ~~Smoke API anexos Eventos~~ — `npm run smoke:eventos-anexos` em produção (**AVANCAR**, 2026-11-12) → `docs/evidencias/smoke-eventos-anexos-latest.json`.
-- Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (API já verde; falta checklist manual no browser).
+- Smoke UI anexos Eventos (web) — checklist `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md` (API **AVANCAR**; UI bloqueada no web porque filtros+IA comiam a altura da Agenda — fix de layout em andamento).
 
 ### P4 — Produto (backlog consciente)
 
 - ~~Cultivos offline/a11y lista + detalhe~~ — `app/(tabs)/cultivos.tsx`, `app/cultivos/[id].tsx`.
 - ~~Assistente Eventos LLM opcional~~ — `sugestoesIA` + Forge.
-- Diagnóstico IA no site: `diagnostico.analisar` falha sem `BUILT_IN_FORGE_API_KEY` no Railway (`forgeConfigured: false`). A API agora devolve mensagem em PT pedindo essa variável. Sem a chave o laudo não fecha (**bloqueado — não inventar chave**).
+- ~~Diagnóstico IA no site~~ — Forge/MaaS configurado; laudo fecha em `afuagro.tech` / `api.afuagro.tech`.
 - Fora do MVP do site, de propósito: Play Store, PIX real, piloto com produtores (etapa 29).
 
 ---
 
 ## PRs
 
-#44–#47 mergeados (site, login sem demo, smoke docs, clearCookie). Nenhum PR aberto nesta frente.
+#44–#51 mergeados (site, login sem demo, smoke, Forge URL/model MaaS). Nenhum PR aberto nesta frente.
 
 ---
 
 ## Próximo passo sugerido
 
-1. Definir `BUILT_IN_FORGE_API_URL` e `BUILT_IN_FORGE_API_KEY` no serviço Railway e repetir `diagnostico.analisar` em `https://afuagro.tech` (único bloqueio do laudo IA).
-2. Checklist manual UI anexos: `docs/evidencias/SMOKE_EVENTOS_ANEXOS_UI.md`.
-3. Lint por módulo ao editar arquivos.
+1. Merge do layout web do Centro de Eventos (Agenda/Kanban visíveis) e repetir checklist UI anexos.
+2. Lint por módulo ao editar arquivos.
+3. ~~Rotacionar `JWT_SECRET` placeholder no Railway~~ — feito 2026-11-15.

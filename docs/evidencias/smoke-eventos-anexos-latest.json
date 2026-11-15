@@ -1,11 +1,11 @@
 {
   "suite": "smoke-eventos-anexos",
-  "at": "2026-11-12T00:13:23.355Z",
+  "at": "2026-11-15T03:52:47.247Z",
   "api": "https://api.afuagro.tech",
   "storage": {
     "backend": "s3",
     "s3Configured": true,
-    "forgeConfigured": false,
+    "forgeConfigured": true,
     "storageReady": true,
     "forgePresignOk": true
   },
@@ -15,7 +15,7 @@
     {
       "name": "health storage backend",
       "ok": true,
-      "detail": "{\"backend\":\"s3\",\"s3Configured\":true,\"forgeConfigured\":false,\"storageReady\":true,\"forgePresignOk\":true}"
+      "detail": "{\"backend\":\"s3\",\"s3Configured\":true,\"forgeConfigured\":true,\"storageReady\":true,\"forgePresignOk\":true}"
     },
     {
       "name": "health storageReady",
