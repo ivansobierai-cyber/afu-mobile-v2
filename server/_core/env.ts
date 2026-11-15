@@ -2,6 +2,24 @@
  * Env lido sob demanda — evita capturar JWT_SECRET vazio no import
  * (testes definem process.env em beforeAll / vitest.setup).
  */
+
+/**
+ * Normaliza a base Forge/OpenAI-compatível:
+ * - acrescenta https:// se faltar esquema;
+ * - remove /v1 ou /v1/chat/completions acidentais (o cliente LLM acrescenta o path).
+ */
+export function normalizeForgeApiUrl(raw: string | undefined | null): string {
+  let u = (raw ?? "").trim();
+  if (!u) return "";
+  if (!/^https?:\/\//i.test(u)) {
+    u = `https://${u}`;
+  }
+  u = u.replace(/\/+$/, "");
+  u = u.replace(/\/v1\/chat\/completions$/i, "");
+  u = u.replace(/\/v1$/i, "");
+  return u.replace(/\/+$/, "");
+}
+
 export const ENV = {
   get appId() {
     return process.env.VITE_APP_ID ?? "";
@@ -22,7 +40,7 @@ export const ENV = {
     return process.env.NODE_ENV === "production";
   },
   get forgeApiUrl() {
-    return process.env.BUILT_IN_FORGE_API_URL ?? "";
+    return normalizeForgeApiUrl(process.env.BUILT_IN_FORGE_API_URL);
   },
   get forgeApiKey() {
     return process.env.BUILT_IN_FORGE_API_KEY ?? "";

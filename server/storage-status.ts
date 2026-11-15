@@ -1,5 +1,6 @@
 import { isForgeStorageConfigured, isStorageBackendConfigured } from "./storage";
 import { isS3StorageConfigured, probeS3StorageBucket, getS3EnvPresence } from "./storage-s3";
+import { ENV } from "./_core/env";
 
 /** Presign PUT sem upload — valida URL/chave Forge no deploy. */
 export async function probeForgeStoragePresign(): Promise<{
@@ -9,8 +10,8 @@ export async function probeForgeStoragePresign(): Promise<{
   if (!isForgeStorageConfigured()) {
     return { ok: false, detail: "BUILT_IN_FORGE_API_URL/KEY ausentes" };
   }
-  const forgeUrl = process.env.BUILT_IN_FORGE_API_URL!.replace(/\/+$/, "");
-  const forgeKey = process.env.BUILT_IN_FORGE_API_KEY!;
+  const forgeUrl = ENV.forgeApiUrl;
+  const forgeKey = ENV.forgeApiKey;
   try {
     const presignUrl = new URL("v1/storage/presign/put", `${forgeUrl}/`);
     presignUrl.searchParams.set("path", "org/0/_probe/healthcheck.txt");
