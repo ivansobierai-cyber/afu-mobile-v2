@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { normalizeForgeApiUrl } from "../server/_core/env";
-import { resolveForgeChatCompletionsUrl } from "../server/_core/llm";
+import { resolveForgeChatCompletionsUrl, resolveForgeModel } from "../server/_core/llm";
 
 describe("normalizeForgeApiUrl", () => {
   it("acrescenta https quando o host vem sem esquema", () => {
@@ -60,5 +60,37 @@ describe("resolveForgeChatCompletionsUrl", () => {
     ).toBe(
       "https://ws-example.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/chat/completions",
     );
+  });
+});
+
+describe("resolveForgeModel", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it("prioriza o modelo explícito", () => {
+    vi.stubEnv("BUILT_IN_FORGE_MODEL", "from-env");
+    expect(resolveForgeModel("explicit")).toBe("explicit");
+  });
+
+  it("usa BUILT_IN_FORGE_MODEL quando não há arg", () => {
+    vi.stubEnv("BUILT_IN_FORGE_API_URL", "https://api.openai.com");
+    vi.stubEnv("BUILT_IN_FORGE_MODEL", "qwen-plus");
+    expect(resolveForgeModel()).toBe("qwen-plus");
+  });
+
+  it("fallback qwen3-vl-plus em hosts MaaS sem env", () => {
+    vi.stubEnv(
+      "BUILT_IN_FORGE_API_URL",
+      "https://ws-example.ap-southeast-1.maas.aliyuncs.com/compatible-mode",
+    );
+    vi.stubEnv("BUILT_IN_FORGE_MODEL", "");
+    expect(resolveForgeModel()).toBe("qwen3-vl-plus");
+  });
+
+  it("não inventa modelo em bases genéricas sem env", () => {
+    vi.stubEnv("BUILT_IN_FORGE_API_URL", "https://api.openai.com");
+    vi.stubEnv("BUILT_IN_FORGE_MODEL", "");
+    expect(resolveForgeModel()).toBeUndefined();
   });
 });

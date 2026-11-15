@@ -48,4 +48,8 @@ export const ENV = {
   get forgeApiKey() {
     return process.env.BUILT_IN_FORGE_API_KEY ?? "";
   },
+  /** Modelo OpenAI-compatível (obrigatório em Alibaba MaaS). Ex.: qwen3-vl-plus */
+  get forgeModel() {
+    return (process.env.BUILT_IN_FORGE_MODEL ?? "").trim();
+  },
 };
