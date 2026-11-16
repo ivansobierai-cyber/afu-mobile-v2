@@ -495,6 +495,7 @@ const MENU_SECTIONS: MenuSection[] = [
       { title: "Gerenciar Usuários", subtitle: "Roles, status e tipos de perfil", icon: "person.2.fill", route: "/mais/admin-usuarios", color: "#7C3AED", badge: "Admin", requireAdmin: true },
       { title: "Gestão de Produtores", subtitle: "Lista, convite, plano e histórico", icon: "person.2.fill", route: "/mais/admin-produtores", color: "#2E7D32", badge: "WP-06", requireAdmin: true },
       { title: "LGPD — Exclusões", subtitle: "Solicitações, graça e anonimização", icon: "lock.fill", route: "/mais/admin-lgpd", color: "#B71C1C", badge: "LGPD", requireAdmin: true },
+      { title: "Reset MFA", subtitle: "Desativar TOTP de outro usuário", icon: "lock.fill", route: "/mais/admin-mfa", color: "#4A148C", badge: "WP-08", requireAdmin: true },
       { title: "Gestão de Culturas", subtitle: "CRUD do banco de culturas", icon: "leaf.fill", route: "/mais/admin-culturas", color: "#166534", badge: "Admin", requireAdmin: true },
       { title: "Gestão de Pragas e Doenças", subtitle: "Banco fitossanitário — CRUD", icon: "cross.circle.fill", route: "/mais/admin-pragas", color: "#7F1D1D", badge: "Admin", requireAdmin: true },
       { title: "Gestão de Materiais", subtitle: "Conteúdos didáticos — CRUD", icon: "books.vertical.fill", route: "/mais/admin-materiais", color: "#1565C0", badge: "Admin", requireAdmin: true },
@@ -649,6 +650,23 @@ export default function MaisScreen() {
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>Perfil e Configurações</Text>
             <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>Dados pessoais e profissionais</Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.menuCard}
+          onPress={() => router.push("/mais/seguranca-mfa" as any)}
+        >
+          <View style={[styles.iconContainer, { backgroundColor: "#4A148C20" }]}>
+            <IconSymbol name="lock.fill" size={22} color="#4A148C" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>
+              Segurança — MFA
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+              Autenticador TOTP e códigos de recuperação
+            </Text>
           </View>
           <IconSymbol name="chevron.right" size={16} color={colors.muted} />
         </TouchableOpacity>
