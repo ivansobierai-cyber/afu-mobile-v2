@@ -125,6 +125,27 @@ async function verify0039OperacoesApontamentos(conn: mysql.Connection): Promise<
   }
 }
 
+async function verify0043LgpdCompliance(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "lgpd_consent_records"))) {
+    throw new Error("0043_lgpd_compliance: tabela lgpd_consent_records ausente");
+  }
+  if (!(await tableExists(conn, "lgpd_deletion_requests"))) {
+    throw new Error("0043_lgpd_compliance: tabela lgpd_deletion_requests ausente");
+  }
+  if (!(await columnExists(conn, "lgpd_deletion_requests", "previousStatusPerfil"))) {
+    throw new Error("0043_lgpd_compliance: coluna previousStatusPerfil ausente");
+  }
+}
+
+async function verify0044ProdutorPlano(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "produtores", "plano"))) {
+    throw new Error("0044_produtor_plano: produtores.plano ausente");
+  }
+  if (!(await columnExists(conn, "users", "mustChangePassword"))) {
+    throw new Error("0044_produtor_plano: users.mustChangePassword ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -344,6 +365,19 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:evento-tarefa-bridge:apply",
     required: true,
     verify: verify0040EventoTarefaBridge,
+  },
+  // Nota: 0041 em PR WP-03; 0042 em #68 WP-04 (stacked). WP-07=0043, WP-06=0044 já em main.
+  {
+    tag: "0043_lgpd_compliance",
+    npmScript: "db:lgpd:apply",
+    required: true,
+    verify: verify0043LgpdCompliance,
+  },
+  {
+    tag: "0044_produtor_plano",
+    npmScript: "db:produtor-plano:apply",
+    required: true,
+    verify: verify0044ProdutorPlano,
   },
 ];
 

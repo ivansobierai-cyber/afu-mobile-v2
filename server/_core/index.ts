@@ -12,6 +12,8 @@ import { registerScheduledRoutes, startWeatherAlertsScheduler } from "./schedule
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { getPublicStorageHealth } from "../storage-status";
+import { getAuthDepsHealth } from "../db-health";
+import { resolveCorsAllowOrigin } from "../cors-origins";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -36,11 +38,11 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // Enable CORS for all routes - reflect the request origin to support credentials
+  // CORS: production allowlist (afuagro.tech + Vercel afu-mobile*); see cors-origins.ts
   app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-      res.header("Access-Control-Allow-Origin", origin);
+    const allowed = resolveCorsAllowOrigin(req.headers.origin);
+    if (allowed) {
+      res.header("Access-Control-Allow-Origin", allowed);
     }
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header(
@@ -89,10 +91,23 @@ async function startServer() {
   }
 
   app.get("/api/health", async (_req, res) => {
-    const storage = await getPublicStorageHealth();
+    const [storage, authDeps] = await Promise.all([
+      getPublicStorageHealth(),
+      getAuthDepsHealth(),
+    ]);
+    // Liveness permanece 200; `ready` indica se login/signup/DB estão operacionais.
     res.json({
       ok: true,
+      ready: authDeps.ready,
       timestamp: Date.now(),
+      database: authDeps.database,
+      email: {
+        provider: authDeps.email.provider,
+        ready: authDeps.email.ready,
+        apiKeyConfigured: authDeps.email.apiKeyConfigured,
+        fromEmailConfigured: authDeps.email.fromEmailConfigured,
+        appUrl: authDeps.email.appUrl,
+      },
       storage: {
         backend: storage.backend,
         s3Configured: storage.s3Configured,

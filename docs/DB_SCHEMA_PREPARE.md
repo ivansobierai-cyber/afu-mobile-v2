@@ -66,7 +66,7 @@ Alternativa legada: `npm run db:push` (generate + migrate) **ainda não** aplica
 | Reverter coluna/tabela (staging) | Restaurar backup MySQL ou SQL manual documentado em `docs/SEGURANCA_ETAPA3_MIGRACAO_ORGANIZATION_ID.md` / ensaio `tests/etapa10-rollback-rehearsal.test.ts` — **nunca** em produção sem backup. |
 | Journal Drizzle | Não renomear tags em `__drizzle_migrations`; não inserir retroativamente `0020`/`0021` no journal em bancos já migrados. |
 
-## Inventário 0019–0040 (resumo)
+## Inventário 0019–0044 (resumo)
 
 | ID | Journal `drizzle-kit migrate` | Script apply | Registro supplemental |
 |----|------------------------------|--------------|------------------------|
@@ -77,6 +77,9 @@ Alternativa legada: `npm run db:push` (generate + migrate) **ainda não** aplica
 | 0029–0036 | **não** | `db:*:apply` | tags `0029_*` … `0036_*` |
 | 0037–0039 | **não** | `db:operacoes*:apply` | tags `0037_*` … `0039_*` |
 | 0040 | **não** | `db:evento-tarefa-bridge:apply` | `0040_evento_tarefa_bridge` (backfill ponte WP-02) |
+| 0041–0042 | **não** (PRs WP-03/WP-04) | diagnóstico→tarefa / revisão técnica | quando mergeados |
+| **0043** | **não** | `db:lgpd:apply` | `0043_lgpd_compliance` (WP-07) |
+| **0044** | **não** | `db:produtor-plano:apply` | `0044_produtor_plano` (WP-06) |
 
 `0030` (NOT NULL em culturas) é **opcional** no verify (`required: false`) — falha se houver cultivos sem safra/talhão; em banco vazio aplica normalmente.
 

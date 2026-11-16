@@ -7,6 +7,7 @@ import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
 import { verifyAccessToken } from "../token-service";
+import { assertAccountActive } from "../account-status";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -255,6 +256,12 @@ class SDKServer {
         if (!user) {
           throw ForbiddenError("User not found");
         }
+        // WP-06 — soft-deactivate (LGPD erase ativa pode passar para cancelar)
+        try {
+          await assertAccountActive(user, { allowPendingErasure: true });
+        } catch (e) {
+          throw ForbiddenError(e instanceof Error ? e.message : "Conta desativada");
+        }
         await db.upsertUser({
           openId: user.openId,
           lastSignedIn: signedInAt,
@@ -302,6 +309,13 @@ class SDKServer {
 
     if (!user) {
       throw ForbiddenError("User not found");
+    }
+
+    // WP-06 — soft-deactivate (LGPD erase ativa pode passar para cancelar)
+    try {
+      await assertAccountActive(user, { allowPendingErasure: true });
+    } catch (e) {
+      throw ForbiddenError(e instanceof Error ? e.message : "Conta desativada");
     }
 
     await db.upsertUser({

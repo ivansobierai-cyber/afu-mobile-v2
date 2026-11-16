@@ -23,9 +23,24 @@ export const weatherRouter = router({
         locationName: z.string().optional(),
       }),
     )
-    .query(async ({ input }) =>
-      fetchPropertyWeather(input.latitude, input.longitude, input.locationName),
-    ),
+    .query(async ({ input }) => {
+      try {
+        return await fetchPropertyWeather(
+          input.latitude,
+          input.longitude,
+          input.locationName,
+        );
+      } catch (err) {
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Não foi possível carregar o clima agora.";
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message,
+        });
+      }
+    }),
 
   byPropriedade: organizationProcedure
     .input(
@@ -52,6 +67,18 @@ export const weatherRouter = router({
         .filter(Boolean)
         .join(" · ");
 
-      return fetchPropertyWeather(latitude, longitude, locationName);
+      try {
+        return await fetchPropertyWeather(latitude, longitude, locationName);
+      } catch (err) {
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : "Não foi possível carregar o clima agora.";
+        // Upstream (Open-Meteo) timeout/DNS/SSL → soft failure for the UI, not a opaque 500.
+        throw new TRPCError({
+          code: "SERVICE_UNAVAILABLE",
+          message,
+        });
+      }
     }),
 });
