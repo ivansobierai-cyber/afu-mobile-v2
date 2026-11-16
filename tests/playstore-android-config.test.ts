@@ -53,8 +53,10 @@ describe("Play Store Android production config", () => {
 
   it("oauth native fallback points to Railway with afuagro scheme (api.afuagro.tech documented)", () => {
     const oauth = read("constants/oauth.ts");
+    const hosts = read("constants/api-hosts.ts");
     expect(oauth).toContain("afuagro");
-    expect(oauth).toContain(RAILWAY_API);
+    expect(oauth).toContain("RAILWAY_API_BASE_URL");
+    expect(hosts).toContain(RAILWAY_API);
     // Future custom domain kept in comments / host allowlist — not used as default.
     expect(oauth).toContain("https://api.afuagro.tech");
   });
