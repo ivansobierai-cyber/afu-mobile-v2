@@ -22,6 +22,7 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 import { CoreOfflineSyncManager } from "@/components/core-offline-sync-manager";
 import { PushNotificationManager } from "@/components/push-notification-manager";
 import { SpeedInsights } from "@vercel/speed-insights/react";
+import { Analytics } from "@vercel/analytics/react";
 import { useColors } from "@/hooks/use-colors";
 
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
@@ -215,7 +216,12 @@ export default function RootLayout() {
             <ProtectedStack />
           </ProtectedSessionGate>
           <StatusBar style="auto" />
-          {Platform.OS === "web" ? <SpeedInsights /> : null}
+          {Platform.OS === "web" ? (
+            <>
+              <Analytics />
+              <SpeedInsights />
+            </>
+          ) : null}
         </QueryClientProvider>
       </trpc.Provider>
     </GestureHandlerRootView>
