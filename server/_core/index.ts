@@ -12,6 +12,7 @@ import { registerScheduledRoutes, startWeatherAlertsScheduler } from "./schedule
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { getPublicStorageHealth } from "../storage-status";
+import { getAuthDepsHealth } from "../db-health";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -89,10 +90,23 @@ async function startServer() {
   }
 
   app.get("/api/health", async (_req, res) => {
-    const storage = await getPublicStorageHealth();
+    const [storage, authDeps] = await Promise.all([
+      getPublicStorageHealth(),
+      getAuthDepsHealth(),
+    ]);
+    // Liveness permanece 200; `ready` indica se login/signup/DB estão operacionais.
     res.json({
       ok: true,
+      ready: authDeps.ready,
       timestamp: Date.now(),
+      database: authDeps.database,
+      email: {
+        provider: authDeps.email.provider,
+        ready: authDeps.email.ready,
+        apiKeyConfigured: authDeps.email.apiKeyConfigured,
+        fromEmailConfigured: authDeps.email.fromEmailConfigured,
+        appUrl: authDeps.email.appUrl,
+      },
       storage: {
         backend: storage.backend,
         s3Configured: storage.s3Configured,

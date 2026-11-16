@@ -20,7 +20,7 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).unique(), // Opcional para login com e-mail/senha
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(), // Pode ser usado para login com e-mail/senha
-  passwordHash: varchar("passwordHash", { length: 255 }), // Hash bcrypt para e-mail/senha
+  passwordHash: varchar("passwordHash", { length: 255 }), // Hash PBKDF2-SHA512 (salt:hex) para e-mail/senha
   loginMethod: varchar("loginMethod", { length: 64 }), // 'oauth' | 'email' | 'email_oauth'
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   emailVerified: boolean("emailVerified").default(false).notNull(),
