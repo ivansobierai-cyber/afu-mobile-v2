@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { ScreenState } from "@/components/screen-state";
 import { PropriedadeOperacoesPanel } from "@/components/propriedade-operacoes-panel";
 import { openLaudoHtml } from "@/lib/laudo-html";
@@ -136,18 +137,13 @@ type CustosProps = { culturaId: number };
 export function CultivoCustosTab({ culturaId }: CustosProps) {
   const colors = useColors();
   const utils = trpc.useUtils();
+  const { runMutation } = useRunCoreMutation();
   const { data, isLoading, isError, refetch } = trpc.coreData.cultivos.indicadores.useQuery({
     id: culturaId,
   });
   const { data: dash } = trpc.coreData.cultivos.dashboard.useQuery({ id: culturaId });
   const [producaoReal, setProducaoReal] = useState("");
-  const update = trpc.coreData.cultivos.update.useMutation({
-    onSuccess: () => {
-      void utils.coreData.cultivos.indicadores.invalidate({ id: culturaId });
-      void utils.coreData.cultivos.dashboard.invalidate({ id: culturaId });
-      setProducaoReal("");
-    },
-  });
+  const [savingProducao, setSavingProducao] = useState(false);
   const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
   if (isLoading) {
@@ -292,23 +288,36 @@ export function CultivoCustosTab({ culturaId }: CustosProps) {
           accessibilityLabel="Produção real colhida"
         />
         <TouchableOpacity
-          disabled={update.isPending}
+          disabled={savingProducao}
           onPress={() => {
             const n = Number(String(producaoReal).replace(",", "."));
             if (!Number.isFinite(n) || n < 0) {
               Alert.alert("Informe a produção real (≥ 0)");
               return;
             }
-            void update
-              .mutateAsync({
-                id: culturaId,
-                data: {
-                  producaoReal: n,
-                  status: "colhido",
-                  unidadeProducao: dash?.cultivo.unidadeProducao ?? "kg",
-                },
+            setSavingProducao(true);
+            void runMutation("cultivo", "update", {
+              id: culturaId,
+              data: {
+                producaoReal: n,
+                status: "colhido",
+                unidadeProducao: dash?.cultivo.unidadeProducao ?? "kg",
+              },
+              clientMutationId: `cult_prod_${culturaId}_${Date.now()}`,
+            })
+              .then(async (result) => {
+                void utils.coreData.cultivos.indicadores.invalidate({ id: culturaId });
+                void utils.coreData.cultivos.dashboard.invalidate({ id: culturaId });
+                setProducaoReal("");
+                if (result.queued) {
+                  Alert.alert(
+                    "Fila offline",
+                    "Produção salva localmente e será sincronizada ao reconectar.",
+                  );
+                }
               })
-              .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"));
+              .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))
+              .finally(() => setSavingProducao(false));
           }}
           style={{
             minHeight: 44,
@@ -316,11 +325,11 @@ export function CultivoCustosTab({ culturaId }: CustosProps) {
             backgroundColor: colors.primary,
             alignItems: "center",
             justifyContent: "center",
-            opacity: update.isPending ? 0.7 : 1,
+            opacity: savingProducao ? 0.7 : 1,
           }}
         >
           <Text style={{ color: "#fff", fontWeight: "700" }}>
-            {update.isPending ? "Salvando…" : "Salvar produção real"}
+            {savingProducao ? "Salvando…" : "Salvar produção real"}
           </Text>
         </TouchableOpacity>
       </View>

@@ -38,6 +38,7 @@ import {
   operacoesListByPropriedadeInvalidateInput,
   resolvePromoteOperacaoUiId,
 } from "@/lib/operacoes";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 
 type Props = {
@@ -85,7 +86,7 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
       { enabled: visible && !!eventoId },
     );
 
-  const updateMut = trpc.coreData.calendario.update.useMutation();
+  const { runMutation } = useRunCoreMutation();
   const addComentarioMut = trpc.coreData.calendario.addComentario.useMutation();
   const deleteComentarioMut = trpc.coreData.calendario.deleteComentario.useMutation();
   const addAnexoMut = trpc.coreData.calendario.addAnexoLink.useMutation();
@@ -213,15 +214,19 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const persistMeta = async (nextTags = tags, nextChecklist = checklist) => {
     setSavingMeta(true);
     try {
-      await updateMut.mutateAsync({
+      const result = await runMutation("evento", "update", {
         id: item.id,
         data: {
           etiquetas: nextTags,
           checklist: nextChecklist,
         },
+        clientMutationId: `evt_meta_${item.id}_${Date.now()}`,
       });
       await utils.coreData.calendario.list.invalidate();
       onSaved?.();
+      if (result.queued) {
+        Alert.alert("Fila offline", "Alterações do evento serão sincronizadas ao reconectar.");
+      }
     } catch (e: unknown) {
       Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao salvar.");
     } finally {
@@ -314,17 +319,23 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
                       return;
                     }
                     try {
-                      await updateMut.mutateAsync({
+                      const result = await runMutation("evento", "update", {
                         id: item.id,
                         data: {
                           status: "concluido",
                           producaoColheitaKg: n,
                         },
+                        clientMutationId: `evt_colheita_${item.id}_${Date.now()}`,
                       });
                       await utils.coreData.calendario.list.invalidate();
                       await utils.coreData.cultivos.list.invalidate();
                       onSaved?.();
-                      Alert.alert("Colheita registrada", "Produção sincronizada com o cultivo.");
+                      Alert.alert(
+                        result.queued ? "Fila offline" : "Colheita registrada",
+                        result.queued
+                          ? "Colheita salva localmente e será sincronizada ao reconectar."
+                          : "Produção sincronizada com o cultivo.",
+                      );
                     } catch (e: unknown) {
                       Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao concluir colheita.");
                     }

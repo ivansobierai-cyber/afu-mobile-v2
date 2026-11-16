@@ -21,6 +21,19 @@ const MAX_RETRIES = 5;
 export type CoreEntity = "propriedade" | "cultivo" | "terreno" | "evento" | "tarefa";
 export type CoreAction = "create" | "update" | "delete";
 
+/** Prefere `payload.clientMutationId` estável (idempotência offline / WP-05). */
+export function resolveCoreClientMutationId(
+  payload: Record<string, unknown>,
+  prefix = "cm",
+): string {
+  const raw = payload.clientMutationId;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    if (trimmed.length >= 8) return trimmed.slice(0, 64);
+  }
+  return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 export interface CoreMutationItem {
   id: string;
   clientMutationId: string;
@@ -89,7 +102,7 @@ export async function enqueueCoreMutation(
     id: `core_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     clientMutationId:
       item.clientMutationId ??
-      `cm_${scope.userId}_${scope.organizationId}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+      resolveCoreClientMutationId(item.payload ?? {}, "cm"),
     userId: scope.userId,
     organizationId: scope.organizationId,
     deviceId: scope.deviceId,

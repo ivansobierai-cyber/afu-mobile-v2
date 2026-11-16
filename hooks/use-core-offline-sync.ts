@@ -1,4 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  createContext,
+  createElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 import { Platform } from "react-native";
 import NetInfo, { type NetInfoState } from "@react-native-community/netinfo";
 import {
@@ -7,6 +17,7 @@ import {
   loadCoreQueue,
   pendingCoreMutationsCount,
   processCoreQueue,
+  resolveCoreClientMutationId,
   type CoreAction,
   type CoreEntity,
 } from "@/lib/offline/core-mutation-queue";
@@ -15,11 +26,30 @@ import { trpc } from "@/lib/trpc";
 import { tenantCacheInput } from "@/lib/trpc-cache-scope";
 import { useOfflineTenantScope } from "@/hooks/use-offline-tenant-scope";
 
+export { resolveCoreClientMutationId } from "@/lib/offline/core-mutation-queue";
+
+type CoreOfflineSyncValue = {
+  isOnline: boolean;
+  pending: number;
+  isSyncing: boolean;
+  lastConflicts: number;
+  scope: ReturnType<typeof useOfflineTenantScope>["scope"];
+  queueMutation: (
+    entity: CoreEntity,
+    action: CoreAction,
+    payload: Record<string, unknown>,
+  ) => Promise<{ queued: true } | { queued: false; result: unknown }>;
+  syncNow: () => Promise<{ success: number; failed: number; conflicts: number }>;
+  refreshPending: () => Promise<void>;
+};
+
+const CoreOfflineSyncContext = createContext<CoreOfflineSyncValue | null>(null);
+
 /**
- * Fila offline para mutações core (propriedades, cultivos, terrenos, eventos).
- * Etapa 8: escopo user+org+device; revalida permissões no servidor a cada sync.
+ * Fila offline para mutações core (propriedades, cultivos, terrenos, eventos, tarefas).
+ * Etapa 8 / WP-05: escopo user+org+device; estado compartilhado via provider (banner sync).
  */
-export function useCoreOfflineSync() {
+function useCoreOfflineSyncState(): CoreOfflineSyncValue {
   const utils = trpc.useUtils();
   const { scope } = useOfflineTenantScope();
   const scopeRef = useRef(scope);
@@ -143,11 +173,13 @@ export function useCoreOfflineSync() {
         throw new Error("Sem organização ativa — não é possível salvar offline");
       }
 
+      const clientMutationId = resolveCoreClientMutationId(payload, "cm");
+
       if (isOnline) {
         try {
           const result = await executeItem({
             id: "live",
-            clientMutationId: `live_${Date.now()}`,
+            clientMutationId,
             userId: active.userId,
             organizationId: active.organizationId,
             deviceId: active.deviceId,
@@ -169,7 +201,12 @@ export function useCoreOfflineSync() {
         }
       }
 
-      await enqueueCoreMutation(active, { entity, action, payload });
+      await enqueueCoreMutation(active, {
+        entity,
+        action,
+        payload,
+        clientMutationId,
+      });
       await refreshPending();
       return { queued: true as const };
     },
@@ -233,14 +270,43 @@ export function useCoreOfflineSync() {
     return () => unsubscribe();
   }, [syncNow]);
 
-  return {
-    isOnline,
-    pending,
-    isSyncing,
-    lastConflicts,
-    scope,
-    queueMutation,
-    syncNow,
-    refreshPending,
-  };
+  return useMemo(
+    () => ({
+      isOnline,
+      pending,
+      isSyncing,
+      lastConflicts,
+      scope,
+      queueMutation,
+      syncNow,
+      refreshPending,
+    }),
+    [
+      isOnline,
+      pending,
+      isSyncing,
+      lastConflicts,
+      scope,
+      queueMutation,
+      syncNow,
+      refreshPending,
+    ],
+  );
+}
+
+export function CoreOfflineSyncProvider({ children }: { children: ReactNode }) {
+  const value = useCoreOfflineSyncState();
+  return createElement(CoreOfflineSyncContext.Provider, { value }, children);
+}
+
+/**
+ * Consome o estado compartilhado da fila (um NetInfo + contagem pendente).
+ * Requer `CoreOfflineSyncProvider` no root (ver `app/_layout.tsx`).
+ */
+export function useCoreOfflineSync(): CoreOfflineSyncValue {
+  const ctx = useContext(CoreOfflineSyncContext);
+  if (!ctx) {
+    throw new Error("useCoreOfflineSync requer CoreOfflineSyncProvider");
+  }
+  return ctx;
 }

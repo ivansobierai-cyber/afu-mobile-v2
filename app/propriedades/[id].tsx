@@ -61,6 +61,7 @@ import {
   type RegistrarAction,
 } from "@/lib/propriedades/registrar-flow";
 import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -154,6 +155,8 @@ export default function PropriedadeDetailScreen() {
   const [polygonDraw, setPolygonDraw] = useState<PolygonDrawState | null>(null);
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
+  const { runMutation } = useRunCoreMutation();
+  const [deletingProp, setDeletingProp] = useState(false);
 
   // Deep link / retorno preserva aba (?tab=)
   useEffect(() => {
@@ -240,13 +243,6 @@ export default function PropriedadeDetailScreen() {
     onSuccess: async () => {
       await utils.coreData.propriedades.list.invalidate();
       await utils.coreData.propriedades.listArchived.invalidate();
-      router.replace("/(tabs)/propriedades" as any);
-    },
-  });
-  const deleteProp = trpc.coreData.propriedades.delete.useMutation({
-    onSuccess: async () => {
-      await utils.coreData.propriedades.list.invalidate();
-      setDeleteConfirmOpen(false);
       router.replace("/(tabs)/propriedades" as any);
     },
   });
@@ -903,12 +899,28 @@ export default function PropriedadeDetailScreen() {
       <ConfirmNameModal
         visible={deleteConfirmOpen}
         expectedName={propriedade.nome}
-        loading={deleteProp.isPending}
+        loading={deletingProp}
         onCancel={() => setDeleteConfirmOpen(false)}
         onConfirm={(confirmNome) => {
-          void deleteProp
-            .mutateAsync({ id: propriedade.id, confirmNome })
-            .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
+          setDeletingProp(true);
+          void runMutation("propriedade", "delete", {
+            id: propriedade.id,
+            confirmNome,
+            clientMutationId: `prop_del_${propriedade.id}_${Date.now()}`,
+          })
+            .then(async (result) => {
+              setDeleteConfirmOpen(false);
+              await utils.coreData.propriedades.list.invalidate();
+              if (result.queued) {
+                Alert.alert(
+                  "Fila offline",
+                  "Exclusão salva localmente e será sincronizada ao reconectar.",
+                );
+              }
+              router.replace("/(tabs)/propriedades" as any);
+            })
+            .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"))
+            .finally(() => setDeletingProp(false));
         }}
       />
 
