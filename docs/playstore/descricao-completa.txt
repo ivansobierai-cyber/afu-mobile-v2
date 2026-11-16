@@ -1,0 +1,20 @@
+AFU Agro — Analisador Fitotécnico Universal
+
+O AFU Agro ajuda produtores e técnicos agrícolas a cuidar melhor das lavouras: diagnóstico assistido por foto, gestão de propriedades e safras, calendário de cuidados, estoque, custos e suporte.
+
+O que você pode fazer
+• Diagnosticar plantas com foto pela câmera ou galeria
+• Cadastrar propriedades e marcar localização no mapa
+• Acompanhar cultivos, operações e eventos da safra
+• Receber lembretes e alertas no celular
+• Organizar estoque e custos operacionais
+• Acessar materiais e solicitar suporte
+
+Para quem é
+Produtores rurais, técnicos agrícolas e equipes de campo que precisam de um app simples, em português, focado no dia a dia da fazenda.
+
+Privacidade
+Tratamos dados conforme a LGPD. Política completa: https://afuagro.tech/privacidade
+
+Contato
+suporte@afuagro.com.br
