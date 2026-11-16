@@ -103,11 +103,22 @@ export default function OAuthCallback() {
           console.log("[OAuth] Constructed URL from params:", url);
         } else {
           console.log("[OAuth] No params found, checking Linking.getInitialURL()...");
-          // Fallback: try to get from Linking
+          // Fallback: only accept URLs that look like an OAuth callback.
+          // Avoid treating arbitrary deep links (e.g. /mais/marketplace) as failed OAuth.
           const initialUrl = await Linking.getInitialURL();
           console.log("[OAuth] Linking.getInitialURL():", initialUrl);
           if (initialUrl) {
-            url = initialUrl;
+            const looksLikeOauth =
+              /[?&](code|state|sessionToken|error)=/.test(initialUrl) ||
+              /\/oauth\/callback/i.test(initialUrl);
+            if (looksLikeOauth) {
+              url = initialUrl;
+            } else {
+              console.warn(
+                "[OAuth] Ignoring getInitialURL — not an OAuth callback:",
+                initialUrl,
+              );
+            }
           }
         }
 
@@ -184,12 +195,13 @@ export default function OAuthCallback() {
 
         // Otherwise, exchange code for session token
         if (!code || !state) {
-          console.error("[OAuth] Missing code or state parameter", {
+          console.warn("[OAuth] Missing code or state — leaving callback without error UI", {
             hasCode: !!code,
             hasState: !!state,
           });
-          setStatus("error");
-          setErrorMessage("Missing code or state parameter");
+          // Cold open / accidental mount of /oauth/callback without params.
+          // Prefer a quiet redirect over a red error that looks like a marketplace/login failure.
+          router.replace("/auth/welcome" as any);
           return;
         }
 
