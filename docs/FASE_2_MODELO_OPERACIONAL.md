@@ -18,8 +18,9 @@ Código de referência: `lib/operacoes/entidades-operacionais.ts`.
 - Vínculo canônico: `tarefas_operacionais.legadoEventoId` → `calendario_cuidados.id` (UNIQUE desde `0013`).
 - Origem da tarefa criada pela ponte: `origem = calendario_legado`.
 - **Criar/atualizar** evento com `propriedadeId` → upsert da tarefa vinculada (título, datas, tipo, prioridade, dimensões).
+- **Status inicial** na criação da tarefa vem do status do evento; **atualizações de status operacional** passam por `tarefas.transition` (não por write cru do calendário), para preservar apontamentos/estoque/lock de `aprovada`.
 - **Transição** de status da tarefa vinculada → espelha status do evento.
-- Evento **sem** propriedade não gera tarefa (continua só na agenda).
+- Evento **sem** propriedade (ou sem `organizationId`) não gera tarefa (continua só na agenda).
 - Excluir evento **não** apaga a tarefa (preservação de histórico).
 
 ### Espelhamento de status
@@ -31,7 +32,8 @@ Código de referência: `lib/operacoes/entidades-operacionais.ts`.
 | `concluido` | `concluida` |
 | `cancelado` | `cancelada` |
 
-Direção inversa (tarefa → evento): `liberada`/`bloqueada` → `pendente`; `pausada` → `em_andamento`; `aprovada` → `concluido`.
+Direção canônica em runtime: **tarefa → evento** (via `tarefas.transition`).  
+Evento → tarefa: mapeamento só no **insert** da ponte; updates de evento não sobrescrevem status da tarefa.
 
 Helpers: `lib/operacoes/evento-tarefa-status.ts`.  
 Persistência: `server/db-evento-tarefa-bridge.ts`.

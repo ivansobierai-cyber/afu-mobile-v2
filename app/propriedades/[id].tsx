@@ -155,12 +155,14 @@ export default function PropriedadeDetailScreen() {
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
 
-  // Deep link / retorno preserva aba (?tab=)
+  // Deep link / retorno preserva aba (?tab=).
+  // Depende só de tabParam: incluir `tab` faria o efeito reverter selectTab local
+  // enquanto setParams ainda não propagou o novo valor na URL.
   useEffect(() => {
-    if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam) && tabParam !== tab) {
+    if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam)) {
       setTab(tabParam as PanelTab);
     }
-  }, [tabParam, tab]);
+  }, [tabParam]);
 
   const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const orgScope = sessionProp?.activeOrganizationId ?? undefined;

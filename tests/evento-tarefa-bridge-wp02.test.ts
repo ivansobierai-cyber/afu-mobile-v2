@@ -42,7 +42,7 @@ describe.skipIf(!hasDb)("WP-02 — ponte evento ↔ tarefa", () => {
     expect(tarefa!.propriedadeId).toBe(a.propriedadeId);
   });
 
-  it("atualizar evento espelha título e status na tarefa", async () => {
+  it("atualizar evento espelha metadados sem bypassar status da tarefa", async () => {
     const eventoId = await a.caller.coreData.calendario.create({
       propriedadeId: a.propriedadeId,
       tipoAtividade: "monitoramento",
@@ -61,7 +61,8 @@ describe.skipIf(!hasDb)("WP-02 — ponte evento ↔ tarefa", () => {
     const after = await a.caller.coreData.tarefas.getByEvento({ eventoId });
     expect(after?.id).toBe(before?.id);
     expect(after?.titulo).toBe("Depois do update");
-    expect(after?.status).toBe("em_execucao");
+    // Status operacional só muda via tarefas.transition (não write cru do calendário).
+    expect(after?.status).toBe("planejada");
   });
 
   it("transição da tarefa espelha status no evento", async () => {
@@ -87,7 +88,7 @@ describe.skipIf(!hasDb)("WP-02 — ponte evento ↔ tarefa", () => {
     expect(evento?.status).toBe("em_andamento");
   });
 
-  it("promoteFromEvento liga tarefaId na operação", async () => {
+  it("promoteFromEvento liga tarefaId na operação e backfill em re-promote", async () => {
     const eventoId = await a.caller.coreData.calendario.create({
       propriedadeId: a.propriedadeId,
       tipoAtividade: "inspecao",
@@ -98,10 +99,27 @@ describe.skipIf(!hasDb)("WP-02 — ponte evento ↔ tarefa", () => {
     const tarefa = await a.caller.coreData.tarefas.getByEvento({ eventoId });
     expect(tarefa?.tipoOperacao).toBe("vistoria");
 
-    const { operacaoId } = await a.caller.coreData.operacoes.promoteFromEvento({ eventoId });
-    const op = await a.caller.coreData.operacoes.get({ id: operacaoId });
+    const first = await a.caller.coreData.operacoes.promoteFromEvento({ eventoId });
+    const op = await a.caller.coreData.operacoes.get({ id: first.operacaoId });
     expect(op.eventoOrigemId).toBe(eventoId);
     expect(op.tarefaId).toBe(tarefa!.id);
+
+    // Simula promoção pré-WP-02 (tarefaId nulo) e confirma re-promote preenche o vínculo.
+    const { getDb } = await import("../server/db");
+    const { operacoesAgricolas } = await import("../drizzle/schema");
+    const { eq } = await import("drizzle-orm");
+    const db = await getDb();
+    expect(db).toBeTruthy();
+    await db!
+      .update(operacoesAgricolas)
+      .set({ tarefaId: null })
+      .where(eq(operacoesAgricolas.id, first.operacaoId));
+
+    const second = await a.caller.coreData.operacoes.promoteFromEvento({ eventoId });
+    expect(second.alreadyExisted).toBe(true);
+    expect(second.operacaoId).toBe(first.operacaoId);
+    const opRelinked = await a.caller.coreData.operacoes.get({ id: second.operacaoId });
+    expect(opRelinked.tarefaId).toBe(tarefa!.id);
   });
 
   it("isolamento tenant: getByEvento nega cross-tenant", async () => {

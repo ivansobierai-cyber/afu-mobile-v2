@@ -16,7 +16,6 @@ import {
   mapEventoStatusToTarefa,
   mapTarefaStatusToEvento,
   mapTipoAtividadeEventoToTipoTarefa,
-  shouldApplyEventoStatusToTarefa,
 } from "../lib/operacoes/evento-tarefa-status";
 
 export async function findTarefaByLegadoEventoId(
@@ -91,6 +90,8 @@ export async function upsertTarefaFromEvento(
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 
   if (existing) {
+    // Metadados apenas. Status operacional muda só via tarefas.transition
+    // (apontamentos, estoque, lock de aprovada) — nunca por write cru do calendário.
     const patch: Partial<TarefaOperacional> = {
       titulo: evento.titulo,
       instrucoes: evento.descricao ?? null,
@@ -103,14 +104,6 @@ export async function upsertTarefaFromEvento(
       responsavelUserId: evento.responsavelUserId ?? null,
       propriedadeId,
     };
-    if (
-      shouldApplyEventoStatusToTarefa({
-        currentTarefaStatus: existing.status,
-        nextEventoStatus: evento.status ?? "pendente",
-      })
-    ) {
-      patch.status = mappedStatus;
-    }
     await db
       .update(tarefasOperacionais)
       .set(patch as any)
@@ -250,6 +243,7 @@ export async function countEventosSemTarefaVinculada(): Promise<number> {
     FROM calendario_cuidados c
     LEFT JOIN tarefas_operacionais t ON t.legadoEventoId = c.id
     WHERE c.propriedadeId IS NOT NULL
+      AND c.organizationId IS NOT NULL
       AND t.id IS NULL
   `);
   const row = (result as any)[0]?.[0] as { n?: number | string } | undefined;

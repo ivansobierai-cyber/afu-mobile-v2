@@ -138,11 +138,14 @@ async function verify0040EventoTarefaBridge(conn: mysql.Connection): Promise<voi
   if (!(await columnExists(conn, "tarefas_operacionais", "legadoEventoId"))) {
     throw new Error("0040_evento_tarefa_bridge: tarefas_operacionais.legadoEventoId ausente");
   }
+  // Mesmo critério do apply-0040: só eventos com org (ponte exige organizationId).
   const [rows] = await conn.query<mysql.RowDataPacket[]>(
     `SELECT COUNT(*) AS n
      FROM calendario_cuidados c
      LEFT JOIN tarefas_operacionais t ON t.legadoEventoId = c.id
-     WHERE c.propriedadeId IS NOT NULL AND t.id IS NULL`,
+     WHERE c.propriedadeId IS NOT NULL
+       AND c.organizationId IS NOT NULL
+       AND t.id IS NULL`,
   );
   const orphans = Number(rows[0]?.n ?? 0);
   if (orphans > 0) {
