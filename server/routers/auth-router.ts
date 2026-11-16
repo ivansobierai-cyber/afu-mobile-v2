@@ -33,6 +33,23 @@ import {
   revokeRefreshToken,
   verifyRefreshToken,
 } from "../token-service";
+import {
+  anonymizeAccount,
+  cancelAccountDeletion,
+  exportUserData,
+  extractClientMeta,
+  getActiveDeletionRequest,
+  getLgpdPublicInfo,
+  listConsentsForUser,
+  listDeletionRequests,
+  recordConsent,
+  recordSignupConsents,
+  requestAccountDeletion,
+} from "../lgpd";
+import {
+  LGPD_PRIVACY_VERSION,
+  LGPD_TERMS_VERSION,
+} from "../../lib/lgpd/constants";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +85,10 @@ const signupSchema = z.object({
   name: z.string().min(2).max(150),
   /** Público: não permite auto-promoção a admin de plataforma (P0-4) */
   profile: z.enum(["produtor", "tecnico"]),
+  /** WP-07 — aceite explícito dos documentos legais (versão + flag) */
+  acceptedTerms: z.literal(true),
+  termsVersion: z.string().min(1).max(40).optional(),
+  privacyVersion: z.string().min(1).max(40).optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Senhas nao conferem",
   path: ["confirmPassword"],
@@ -245,6 +266,19 @@ export const authRouter = router({
         } catch (e) {
           console.warn("[auth.signup] ensurePersonalOrganization failed:", e);
         }
+
+        try {
+          const meta = extractClientMeta(ctx.req);
+          await recordSignupConsents({
+            userId: result.userId,
+            termsVersion: input.termsVersion ?? LGPD_TERMS_VERSION,
+            privacyVersion: input.privacyVersion ?? LGPD_PRIVACY_VERSION,
+            ip: meta.ip,
+            userAgent: meta.userAgent,
+          });
+        } catch (e) {
+          console.warn("[auth.signup] LGPD consent recording failed:", e);
+        }
         
         // Garantir que openId sempre existe (nunca null)
         if (!result.openId) {
@@ -273,6 +307,7 @@ export const authRouter = router({
         };
       } catch (error: any) {
         if (error.code === "CONFLICT") throw error;
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao criar conta" });
       }
     }),
@@ -392,6 +427,148 @@ export const authRouter = router({
   }),
 
   perfil: perfilRouter,
+
+  /** WP-07 — LGPD: consentimento, exportação e exclusão agendada (sem hard-delete) */
+  lgpd: router({
+    info: publicProcedure.query(() => getLgpdPublicInfo()),
+
+    consents: protectedProcedure.query(async ({ ctx }) => listConsentsForUser(ctx.user.id)),
+
+    recordConsent: protectedProcedure
+      .input(
+        z.object({
+          documentType: z.enum(["terms", "privacy"]),
+          documentVersion: z.string().min(1).max(40),
+          source: z.string().max(40).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const id = await recordConsent({
+          userId: ctx.user.id,
+          documentType: input.documentType,
+          documentVersion: input.documentVersion,
+          source: input.source ?? "in_app",
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return { success: true as const, consentId: id };
+      }),
+
+    export: protectedProcedure.mutation(async ({ ctx }) => {
+      const data = await exportUserData(ctx.user.id);
+      return { success: true as const, data };
+    }),
+
+    deletionStatus: protectedProcedure.query(async ({ ctx }) => {
+      const active = await getActiveDeletionRequest(ctx.user.id);
+      const history = await listDeletionRequests({
+        userId: ctx.user.id,
+        limit: 20,
+        offset: 0,
+      });
+      return { active, history };
+    }),
+
+    requestErase: protectedProcedure
+      .input(
+        z.object({
+          reason: z.string().max(2000).optional(),
+          confirm: z.literal(true),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const row = await requestAccountDeletion({
+          userId: ctx.user.id,
+          reason: input.reason,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return {
+          success: true as const,
+          request: row,
+          message:
+            "Solicitação registrada. Conta suspensa; anonimização agendada após o período de graça. Não há exclusão imediata.",
+        };
+      }),
+
+    cancelErase: protectedProcedure
+      .input(z.object({ requestId: z.number().int().positive().optional() }).optional())
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const row = await cancelAccountDeletion({
+          userId: ctx.user.id,
+          requestId: input?.requestId,
+          actorUserId: ctx.user.id,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return { success: true as const, request: row };
+      }),
+
+    adminListEraseRequests: adminProcedure
+      .input(
+        z
+          .object({
+            status: z
+              .enum(["pending", "scheduled", "cancelled", "anonymized", "rejected"])
+              .optional(),
+            limit: z.number().int().min(1).max(200).default(50),
+            offset: z.number().int().min(0).default(0),
+          })
+          .optional(),
+      )
+      .query(async ({ input }) => {
+        const requests = await listDeletionRequests({
+          status: input?.status,
+          limit: input?.limit ?? 50,
+          offset: input?.offset ?? 0,
+        });
+        return { requests, total: requests.length };
+      }),
+
+    adminCancelErase: adminProcedure
+      .input(z.object({ requestId: z.number().int().positive(), userId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const row = await cancelAccountDeletion({
+          userId: input.userId,
+          requestId: input.requestId,
+          actorUserId: ctx.user.id,
+          isAdmin: true,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return { success: true as const, request: row };
+      }),
+
+    adminAnonymize: adminProcedure
+      .input(
+        z.object({
+          requestId: z.number().int().positive(),
+          force: z.boolean().optional(),
+          adminNotes: z.string().max(2000).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const result = await anonymizeAccount({
+          requestId: input.requestId,
+          adminUserId: ctx.user.id,
+          force: input.force,
+          adminNotes: input.adminNotes,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return {
+          success: true as const,
+          ...result,
+          message: "Dados pessoais anonimizados. Nenhum hard-delete foi executado.",
+        };
+      }),
+  }),
+
   admin: router({
     usuarios: adminUsuariosRouter,
     stats: adminStatsRouter,

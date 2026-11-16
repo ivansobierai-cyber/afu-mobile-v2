@@ -1997,3 +1997,73 @@ export const syncConflicts = mysqlTable(
 
 export type SyncConflict = typeof syncConflicts.$inferSelect;
 export type InsertSyncConflict = typeof syncConflicts.$inferInsert;
+
+// ─────────────────────────────────────────────
+// WP-07 — LGPD: consentimento e exclusão agendada
+// ─────────────────────────────────────────────
+
+/** Registro auditável de aceite de Termos / Política de Privacidade */
+export const lgpdConsentRecords = mysqlTable(
+  "lgpd_consent_records",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    documentType: mysqlEnum("documentType", ["terms", "privacy"]).notNull(),
+    documentVersion: varchar("documentVersion", { length: 40 }).notNull(),
+    acceptedAt: timestamp("acceptedAt").defaultNow().notNull(),
+    ip: varchar("ip", { length: 64 }),
+    userAgent: varchar("userAgent", { length: 255 }),
+    source: varchar("source", { length: 40 }).default("signup").notNull(),
+    meta: text("meta"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("lgpd_consent_user_idx").on(t.userId),
+    index("lgpd_consent_doc_idx").on(t.documentType, t.documentVersion),
+    index("lgpd_consent_accepted_idx").on(t.acceptedAt),
+  ],
+);
+
+export type LgpdConsentRecord = typeof lgpdConsentRecords.$inferSelect;
+export type InsertLgpdConsentRecord = typeof lgpdConsentRecords.$inferInsert;
+
+/**
+ * Solicitação de exclusão de conta (nunca hard-delete imediato).
+ * Anonimização só após período de graça, com visibilidade admin.
+ */
+export const lgpdDeletionRequests = mysqlTable(
+  "lgpd_deletion_requests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    status: mysqlEnum("status", [
+      "pending",
+      "scheduled",
+      "cancelled",
+      "anonymized",
+      "rejected",
+    ])
+      .default("scheduled")
+      .notNull(),
+    reason: text("reason"),
+    gracePeriodDays: int("gracePeriodDays").default(30).notNull(),
+    requestedAt: timestamp("requestedAt").defaultNow().notNull(),
+    scheduledAnonymizeAt: timestamp("scheduledAnonymizeAt").notNull(),
+    cancelledAt: timestamp("cancelledAt"),
+    processedAt: timestamp("processedAt"),
+    processedByAdminUserId: int("processedByAdminUserId"),
+    adminNotes: text("adminNotes"),
+    ip: varchar("ip", { length: 64 }),
+    userAgent: varchar("userAgent", { length: 255 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("lgpd_deletion_user_idx").on(t.userId),
+    index("lgpd_deletion_status_idx").on(t.status, t.scheduledAnonymizeAt),
+    index("lgpd_deletion_requested_idx").on(t.requestedAt),
+  ],
+);
+
+export type LgpdDeletionRequest = typeof lgpdDeletionRequests.$inferSelect;
+export type InsertLgpdDeletionRequest = typeof lgpdDeletionRequests.$inferInsert;

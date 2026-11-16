@@ -6,6 +6,7 @@ import { AuthCard } from '@/components/auth-card';
 import { AuthTextInput } from '@/components/auth-text-input';
 import { AuthButton } from '@/components/auth-button';
 import { useAuthAPI } from '@/hooks/use-auth-api';
+import { LGPD_PRIVACY_VERSION, LGPD_TERMS_VERSION } from '@/lib/lgpd/constants';
 
 const PROFILE_TYPES = [
   { id: 'produtor', label: 'Produtor Rural', icon: '🚜', description: 'Gerencio propriedades e cultivos' },
@@ -89,6 +90,9 @@ export default function CadastroScreen() {
       password,
       confirmPassword,
       profile: selectedProfile as 'produtor' | 'tecnico',
+      acceptedTerms: true,
+      termsVersion: LGPD_TERMS_VERSION,
+      privacyVersion: LGPD_PRIVACY_VERSION,
     });
 
     if (result.success) {
@@ -270,7 +274,7 @@ export default function CadastroScreen() {
 
             <TouchableOpacity
               onPress={() => setAgreeTerms(!agreeTerms)}
-              className="flex-row items-center gap-2 mb-6 p-3 bg-surface rounded-lg"
+              className="flex-row items-center gap-2 mb-3 p-3 bg-surface rounded-lg"
             >
               <View className={`w-6 h-6 rounded border-2 items-center justify-center ${
                 agreeTerms ? 'bg-primary border-primary' : 'border-border'
@@ -278,9 +282,17 @@ export default function CadastroScreen() {
                 {agreeTerms && <RNText className="text-white">✓</RNText>}
               </View>
               <RNText className="text-sm text-muted flex-1">
-                Concordo com os termos de uso e política de privacidade
+                Concordo com os termos de uso e política de privacidade (versão {LGPD_TERMS_VERSION})
               </RNText>
             </TouchableOpacity>
+            <View className="flex-row flex-wrap gap-3 mb-6 px-1">
+              <TouchableOpacity onPress={() => router.push('/legal/termos' as any)}>
+                <RNText className="text-xs text-primary font-semibold underline">Ler Termos de Uso</RNText>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/legal/privacidade' as any)}>
+                <RNText className="text-xs text-primary font-semibold underline">Ler Política de Privacidade</RNText>
+              </TouchableOpacity>
+            </View>
             {errors.terms && <RNText className="text-xs text-error mb-4">{errors.terms}</RNText>}
 
             <View className="gap-3">
