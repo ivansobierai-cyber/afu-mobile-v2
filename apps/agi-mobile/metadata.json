@@ -1,0 +1,6 @@
+{
+  "name": "AGI Mobile",
+  "description": "Central de comando Android para AGI multiagente híbrida (Local + Nuvem via n8n), com Chat Multimodal, API Router, Gerenciador de Subagentes, Memória Persistente, Tarefas e Monitoramento.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

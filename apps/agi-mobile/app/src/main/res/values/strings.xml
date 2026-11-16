@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AFU AGI</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">Início</string>
+    <string name="nav_chat">Chat</string>
+    <string name="nav_agents">Agentes</string>
+    <string name="nav_tasks">Tarefas</string>
+    <string name="nav_menu">Menu</string>
+    <string name="nav_dashboard">Painel</string>
+
+    <!-- Hybrid Modes -->
+    <string name="mode_local">LOCAL</string>
+    <string name="mode_cloud">CLOUD</string>
+    <string name="mode_auto">AUTO</string>
+    <string name="mode_hybrid">HYBRID</string>
+
+    <!-- Home / Command Center -->
+    <string name="command_center_title">CENTRAL DE COMANDO</string>
+    <string name="agi_identity_subtitle">Núcleo de Inteligência Multiagente</string>
+    <string name="new_conversation">Nova Conversa</string>
+    <string name="recent_conversations">Conversas Recentes</string>
+    <string name="quick_command_hint">Enviar comando ou objetivo à AGI…</string>
+    <string name="quick_access">Acesso Rápido</string>
+    <string name="active_agents_label">Agentes Ativos</string>
+    <string name="orchestrator_status_label">Orquestrador</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Chat Multimodal</string>
+    <string name="chat_input_hint">Descreva um objetivo ou pergunte…</string>
+    <string name="send_message">Enviar</string>
+    <string name="stop_execution">Interromper</string>
+    <string name="voice_input">Entrada por voz</string>
+    <string name="tts_toggle">Resposta por voz</string>
+    <string name="attach_image">Anexar imagem</string>
+    <string name="attach_document">Anexar documento</string>
+    <string name="sessions_list">Sessões</string>
+
+    <!-- Agents -->
+    <string name="agents_title">Subagentes AGI</string>
+    <string name="create_agent">Criar Agente</string>
+
+    <!-- Tasks -->
+    <string name="tasks_title">Central de Tarefas</string>
+    <string name="tasks_view_list">Lista</string>
+    <string name="tasks_view_flow">Fluxo</string>
+
+    <!-- Menu & Subsections -->
+    <string name="menu_title">Sistemas &amp; Controle</string>
+    <string name="section_api_router">API ROUTER</string>
+    <string name="section_intelligence_manager">INTELLIGENCE MANAGER</string>
+    <string name="section_memory">MEMÓRIA</string>
+    <string name="section_dashboard">MONITORAMENTO</string>
+    <string name="section_settings">CONFIGURAÇÕES</string>
+
+    <!-- Errors & Security -->
+    <string name="error_offline_cloud_unavailable">Operação remota indisponível sem conexão ou servidor AGI configurado.</string>
+    <string name="admin_auth_required">Autorização de Administrador</string>
+</resources>

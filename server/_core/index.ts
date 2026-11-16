@@ -9,6 +9,7 @@ import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
 import { registerStorageProxy } from "./storageProxy";
 import { registerScheduledRoutes, startWeatherAlertsScheduler } from "./scheduled-routes";
+import { registerPlantHealthyGateway } from "../plant-healthy-gateway";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { getPublicStorageHealth } from "../storage-status";
@@ -64,6 +65,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerScheduledRoutes(app);
+  registerPlantHealthyGateway(app);
 
   const publicDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "public");
   const webIndex = path.join(publicDir, "index.html");
