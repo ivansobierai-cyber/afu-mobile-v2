@@ -37,7 +37,7 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // CORS: reflect Origin (credentials). Always allow afuagro.tech / www — see cors-origins.ts
+  // CORS: production allowlist (afuagro.tech + Vercel afu-mobile*); see cors-origins.ts
   app.use((req, res, next) => {
     const allowed = resolveCorsAllowOrigin(req.headers.origin);
     if (allowed) {

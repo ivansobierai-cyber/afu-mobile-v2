@@ -8,8 +8,11 @@
  * 3. Default Railway (API canônica com MySQL) — NÃO same-origin:
  *    o Node da Hostinger frequentemente não tem DATABASE_URL.
  *
+ * HOSTINGER_SITE_URL is ignored for API base (same-origin Hostinger Node often
+ * has no DATABASE_URL). Set HOSTINGER_API_BASE_URL or EXPO_PUBLIC_API_BASE_URL
+ * instead. See docs/API_ROUTING.md.
+ *
  * Futuro domínio custom da API: https://api.afuagro.tech (DNS → Railway).
- * Ver docs/API_ROUTING.md.
  */
 import { execSync } from "node:child_process";
 import { cpSync, rmSync } from "node:fs";
@@ -28,6 +31,16 @@ process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN =
 
 const hostingerApi = process.env.HOSTINGER_API_BASE_URL?.trim();
 const expoApi = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+const siteUrl = process.env.HOSTINGER_SITE_URL?.trim();
+
+if (siteUrl) {
+  console.warn(
+    `[build-hostinger] HOSTINGER_SITE_URL=${siteUrl} is ignored for API base ` +
+      "(same-origin Hostinger Node often has no DATABASE_URL). " +
+      "Use HOSTINGER_API_BASE_URL or EXPO_PUBLIC_API_BASE_URL; default is Railway. " +
+      "See docs/API_ROUTING.md.",
+  );
+}
 
 if (hostingerApi) {
   process.env.EXPO_PUBLIC_API_BASE_URL = hostingerApi.replace(/\/$/, "");

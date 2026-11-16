@@ -38,11 +38,13 @@ describe("build-hostinger API base precedence", () => {
     );
   });
 
-  it("script file documents Railway and future api.afuagro.tech", () => {
+  it("script file documents Railway and warns on HOSTINGER_SITE_URL", () => {
     const src = readFileSync("scripts/build-hostinger.mjs", "utf8");
     expect(src).toMatch(/HOSTINGER_API_BASE_URL/);
     expect(src).toMatch(/afu-mobile-v2-production\.up\.railway\.app/);
     expect(src).toMatch(/api\.afuagro\.tech/);
+    expect(src).toMatch(/HOSTINGER_SITE_URL/);
+    expect(src).toMatch(/is ignored for API base/);
   });
 });
 

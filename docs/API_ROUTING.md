@@ -18,7 +18,7 @@
 | Client | Config | API base |
 |--------|--------|----------|
 | EAS `preview` / `production` | `eas.json` → `EXPO_PUBLIC_API_BASE_URL` | Railway |
-| Hostinger web embed (`npm run build:hostinger`) | `HOSTINGER_API_BASE_URL` **>** `EXPO_PUBLIC_API_BASE_URL` **>** default Railway | Railway unless overridden |
+| Hostinger web embed (`npm run build:hostinger`) | `HOSTINGER_API_BASE_URL` **>** `EXPO_PUBLIC_API_BASE_URL` **>** default Railway | Railway unless overridden. **`HOSTINGER_SITE_URL` is ignored** for API base (warns at build); it used to force same-origin Hostinger Node (often no MySQL). |
 | Vercel web (`npm run build:web:preview`) | `EXPO_PUBLIC_API_BASE_URL` or default Railway | Railway |
 | Runtime web on `afuagro.tech` without bake-in | `getApiBaseUrl()` host rule | Railway (never same-origin Hostinger API) |
 
@@ -26,10 +26,15 @@
 
 ## CORS (Railway)
 
-`server/cors-origins.ts` reflects the request `Origin` (credentials).  
-Always required: `https://afuagro.tech`, `https://www.afuagro.tech`, `https://app.afuagro.tech`.
+Production **default is an allowlist** (not reflect-any), because session cookies use `SameSite=None` + `credentials: include`:
 
-Optional harden: `CORS_ALLOWED_ORIGINS` (CSV). Required web origins remain allowed even if omitted from the CSV.
+- Always: `https://afuagro.tech`, `https://www.afuagro.tech`, `https://app.afuagro.tech`
+- Vercel previews: `^https://afu-mobile[-\w]*\.vercel\.app$`
+- Extras: `CORS_ALLOWED_ORIGINS` (CSV)
+- Localhost / `127.0.0.1` only when `NODE_ENV !== production`
+- Escape hatch: `CORS_REFLECT_ORIGIN=1` restores reflect-any (avoid in production)
+
+Native apps send **no** `Origin` — CORS does not apply. Web auth uses **Bearer** from storage; do not call `establishSession` on web for cross-site Railway.
 
 ## S3 / R2 endpoint
 
