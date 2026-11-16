@@ -11,6 +11,7 @@ const FALLBACK_DEV_USER: User = {
   loginMethod: "email",
   role: "admin",
   emailVerified: true,
+  mustChangePassword: false,
   resetToken: null,
   resetTokenExpiry: null,
   refreshToken: null,

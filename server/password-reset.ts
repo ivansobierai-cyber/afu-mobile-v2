@@ -211,11 +211,12 @@ export async function resetPasswordWithToken(
       };
     }
 
-    // Atualizar senha e limpar token
+    // Atualizar senha, limpar token e flag de troca obrigatória (WP-06 convite)
     await db.update(users).set({
       passwordHash,
       resetToken: null,
       resetTokenExpiry: null,
+      mustChangePassword: false,
     }).where(eq(users.id, validation.userId));
 
     console.log('[PasswordReset] Senha resetada para usuário:', validation.userId);

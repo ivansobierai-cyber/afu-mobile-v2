@@ -13,18 +13,11 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
     ...((options.headers as Record<string, string>) || {}),
   };
 
-  // Determine the auth method:
-  // - Native platform: use stored session token as Bearer auth
-  // - Web (including iframe): use cookie-based auth (browser handles automatically)
-  //   Cookie is set on backend domain via POST /api/auth/session after receiving token via postMessage
-  if (Platform.OS !== "web") {
-    const sessionToken = await Auth.getSessionToken();
-    // Etapa 9 — não logar presença detalhada de token/Authorization
-    if (sessionToken) {
-      headers["Authorization"] = `Bearer ${sessionToken}`;
-    }
-  } else {
-    // web: cookie-based auth
+  // Bearer for native and web (token in Auth storage / localStorage).
+  // Cross-site cookie session is not used for afuagro.tech → Railway.
+  const sessionToken = await Auth.getSessionToken();
+  if (sessionToken) {
+    headers["Authorization"] = `Bearer ${sessionToken}`;
   }
 
   const baseUrl = getApiBaseUrl();
@@ -118,7 +111,7 @@ export async function logout(): Promise<void> {
   });
 }
 
-// Get current authenticated user (web uses cookie-based auth)
+// Get current authenticated user (Bearer from Auth storage)
 export async function getMe(): Promise<{
   id: number;
   openId: string;
@@ -136,9 +129,16 @@ export async function getMe(): Promise<{
   }
 }
 
-// Establish session cookie on the backend (3000-xxx domain)
-// Called after receiving token via postMessage to get a proper Set-Cookie from the backend
+/**
+ * Establish a SameSite=None session cookie on the API host.
+ * Web uses Bearer from localStorage instead — do not call on web
+ * (cross-site credentialed cookies + permissive CORS = risk).
+ * Kept for native/legacy same-site sandbox flows.
+ */
 export async function establishSession(token: string): Promise<boolean> {
+  if (Platform.OS === "web") {
+    return true;
+  }
   try {
     console.log("[API] establishSession: setting cookie on backend...");
     const baseUrl = getApiBaseUrl();
@@ -150,7 +150,7 @@ export async function establishSession(token: string): Promise<boolean> {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      credentials: "include", // Important: allows Set-Cookie to be stored
+      credentials: "include",
     });
 
     if (!response.ok) {

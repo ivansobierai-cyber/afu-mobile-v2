@@ -2,35 +2,56 @@
  * Build único para o app Node da Hostinger: API em dist/index.js e
  * web Expo em dist/public.
  *
- * Ordem de API base:
- * 1. EXPO_PUBLIC_API_BASE_URL (explícito)
- * 2. HOSTINGER_API_BASE_URL (ex.: Railway se o MySQL da Hostinger não estiver pronto)
- * 3. HOSTINGER_SITE_URL (same-origin — exige DATABASE_URL + JWT_SECRET no painel)
+ * Ordem de API base (cliente web embutido em dist/public):
+ * 1. HOSTINGER_API_BASE_URL (precedence — ex.: Railway se MySQL Hostinger não estiver pronto)
+ * 2. EXPO_PUBLIC_API_BASE_URL (explícito)
+ * 3. Default Railway (API canônica com MySQL) — NÃO same-origin:
+ *    o Node da Hostinger frequentemente não tem DATABASE_URL.
  *
- * Sem DATABASE_URL no Node da Hostinger, login/signup/forgot retornam erro;
- * use HOSTINGER_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app
- * até o MySQL local/remoto estar configurado.
+ * HOSTINGER_SITE_URL is ignored for API base (same-origin Hostinger Node often
+ * has no DATABASE_URL). Set HOSTINGER_API_BASE_URL or EXPO_PUBLIC_API_BASE_URL
+ * instead. See docs/API_ROUTING.md.
+ *
+ * Futuro domínio custom da API: https://api.afuagro.tech (DNS → Railway).
  */
 import { execSync } from "node:child_process";
 import { cpSync, rmSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+const RAILWAY_API = "https://afu-mobile-v2-production.up.railway.app";
+// Kept for docs / future custom domain (do not delete):
+// const FUTURE_API_CUSTOM_DOMAIN = "https://api.afuagro.tech";
+
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 process.chdir(root);
 
-process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN = process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN ?? "0";
-const siteUrl = process.env.HOSTINGER_SITE_URL?.trim();
+process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN =
+  process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN ?? "0";
+
 const hostingerApi = process.env.HOSTINGER_API_BASE_URL?.trim();
-if (!process.env.EXPO_PUBLIC_API_BASE_URL?.trim()) {
-  if (hostingerApi) {
-    process.env.EXPO_PUBLIC_API_BASE_URL = hostingerApi.replace(/\/$/, "");
-  } else if (siteUrl) {
-    process.env.EXPO_PUBLIC_API_BASE_URL = siteUrl.replace(/\/$/, "");
-  }
+const expoApi = process.env.EXPO_PUBLIC_API_BASE_URL?.trim();
+const siteUrl = process.env.HOSTINGER_SITE_URL?.trim();
+
+if (siteUrl) {
+  console.warn(
+    `[build-hostinger] HOSTINGER_SITE_URL=${siteUrl} is ignored for API base ` +
+      "(same-origin Hostinger Node often has no DATABASE_URL). " +
+      "Use HOSTINGER_API_BASE_URL or EXPO_PUBLIC_API_BASE_URL; default is Railway. " +
+      "See docs/API_ROUTING.md.",
+  );
 }
+
+if (hostingerApi) {
+  process.env.EXPO_PUBLIC_API_BASE_URL = hostingerApi.replace(/\/$/, "");
+} else if (expoApi) {
+  process.env.EXPO_PUBLIC_API_BASE_URL = expoApi.replace(/\/$/, "");
+} else {
+  process.env.EXPO_PUBLIC_API_BASE_URL = RAILWAY_API;
+}
+
 console.log(
-  `[build-hostinger] EXPO_PUBLIC_API_BASE_URL=${process.env.EXPO_PUBLIC_API_BASE_URL ?? "(same-origin/empty)"}`,
+  `[build-hostinger] EXPO_PUBLIC_API_BASE_URL=${process.env.EXPO_PUBLIC_API_BASE_URL}`,
 );
 
 execSync("node scripts/ensure-esbuild.mjs", { stdio: "inherit" });

@@ -35,6 +35,21 @@ import {
 } from "../token-service";
 import { isAuthDependencyError, normalizeEmail } from "../auth-errors";
 import { sendWelcomeEmail, isSendGridReady } from "../email-service";
+import { toAccountInactiveTrpc } from "../account-status";
+import {
+  anonymizeAccount,
+  cancelAccountDeletion,
+  exportUserData,
+  extractClientMeta,
+  getActiveDeletionRequest,
+  getLgpdPublicInfo,
+  listConsentsForUser,
+  listDeletionRequests,
+  recordConsent,
+  recordSignupConsents,
+  requestAccountDeletion,
+} from "../lgpd";
+import { assertAccountActive, getAccountStatus } from "../lgpd-account-active";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -70,6 +85,8 @@ const signupSchema = z.object({
   name: z.string().min(2).max(150),
   /** Público: não permite auto-promoção a admin de plataforma (P0-4) */
   profile: z.enum(["produtor", "tecnico"]),
+  /** WP-07 — aceite explícito; versões gravadas são sempre as do servidor */
+  acceptedTerms: z.literal(true),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Senhas nao conferem",
   path: ["confirmPassword"],
@@ -193,6 +210,21 @@ export const authRouter = router({
           throw new Error("User openId is missing");
         }
 
+        /**
+         * WP-06 coordenará enforcement completo de suspensão via
+         * `assertAccountActive(user.id, { allowPendingErasure: true })`.
+         * Em #69 (WP-07) ainda não bloqueamos login genérico, mas:
+         * - sinalizamos `pendingErasure` no retorno
+         * - se WP-06 ligar o assert com allowPendingErasure, titular com
+         *   exclusão agendada continua autenticável para cancelar
+         * - alternativa sem sessão: `auth.lgpd.cancelEraseWithCredentials`
+         */
+        const account = await getAccountStatus(user.id);
+        if (account.status === "suspenso" && account.pendingErasure) {
+          // Prévia do comportamento WP-06: permite sessão restrita à exclusão.
+          await assertAccountActive(user.id, { allowPendingErasure: true });
+        }
+
         // Etapa 10 — org pessoal só no login/signup (não em cada resolveSession)
         try {
           const { ensurePersonalOrganization } = await import("../db-organizations");
@@ -221,10 +253,19 @@ export const authRouter = router({
             name: user.name,
             role: user.role,
             openId: user.openId,
+            mustChangePassword: Boolean(user.mustChangePassword),
           },
-          message: "Login realizado com sucesso",
+          accountStatus: account.status,
+          pendingErasure: account.pendingErasure,
+          message: account.pendingErasure
+            ? "Login OK. Conta com exclusão LGPD agendada — você pode cancelar em Perfil ou via auth.lgpd.cancelErase."
+            : "Login realizado com sucesso",
         };
       } catch (error) {
+        // WP-06 — soft-deactivate deve surfacer FORBIDDEN (não mascarar como credencial inválida)
+        const inactive = toAccountInactiveTrpc(error);
+        if (inactive) throw inactive;
+        if (error instanceof TRPCError) throw error;
         if (isAuthDependencyError(error)) {
           throw new TRPCError({
             code: "INTERNAL_SERVER_ERROR",
@@ -258,6 +299,15 @@ export const authRouter = router({
           console.warn("[auth.signup] ensurePersonalOrganization failed:", e);
         }
 
+        // Consentimento obrigatório — falha o signup se não gravar (versões só do servidor).
+        const meta = extractClientMeta(ctx.req);
+        await recordSignupConsents({
+          userId: result.userId,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+
+        // Garantir que openId sempre existe (nunca null)
         if (!result.openId) {
           throw new Error("User openId is missing after creation");
         }
@@ -418,6 +468,189 @@ export const authRouter = router({
   }),
 
   perfil: perfilRouter,
+
+  /** WP-07 — LGPD: consentimento, exportação e exclusão agendada (sem hard-delete) */
+  lgpd: router({
+    info: publicProcedure.query(() => getLgpdPublicInfo()),
+
+    consents: protectedProcedure.query(async ({ ctx }) => listConsentsForUser(ctx.user.id)),
+
+    recordConsent: protectedProcedure
+      .input(
+        z.object({
+          documentType: z.enum(["terms", "privacy"]),
+          documentVersion: z.string().min(1).max(40),
+          source: z.string().max(40).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const id = await recordConsent({
+          userId: ctx.user.id,
+          documentType: input.documentType,
+          documentVersion: input.documentVersion,
+          source: input.source ?? "in_app",
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return { success: true as const, consentId: id };
+      }),
+
+    export: protectedProcedure.mutation(async ({ ctx }) => {
+      const data = await exportUserData(ctx.user.id);
+      return { success: true as const, data };
+    }),
+
+    deletionStatus: protectedProcedure.query(async ({ ctx }) => {
+      const active = await getActiveDeletionRequest(ctx.user.id);
+      const history = await listDeletionRequests({
+        userId: ctx.user.id,
+        limit: 20,
+        offset: 0,
+      });
+      return { active, history };
+    }),
+
+    requestErase: protectedProcedure
+      .input(
+        z.object({
+          reason: z.string().max(2000).optional(),
+          confirm: z.literal(true),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const row = await requestAccountDeletion({
+          userId: ctx.user.id,
+          reason: input.reason,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return {
+          success: true as const,
+          request: row,
+          message:
+            "Solicitação registrada. Conta suspensa; anonimização agendada após o período de graça. Não há exclusão imediata.",
+        };
+      }),
+
+    cancelErase: protectedProcedure
+      .input(z.object({ requestId: z.number().int().positive().optional() }).optional())
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const row = await cancelAccountDeletion({
+          userId: ctx.user.id,
+          requestId: input?.requestId,
+          actorUserId: ctx.user.id,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return { success: true as const, request: row };
+      }),
+
+    /**
+     * Cancela exclusão com e-mail/senha — funciona mesmo quando WP-06
+     * bloquear login/sessão para contas suspensas (sem allowPendingErasure).
+     */
+    cancelEraseWithCredentials: publicProcedure
+      .input(
+        z.object({
+          email: z.string().email(),
+          password: z.string().min(6),
+          confirm: z.literal(true),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        let user;
+        try {
+          user = await loginWithEmail(input.email, input.password);
+        } catch {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
+        }
+        const active = await getActiveDeletionRequest(user.id);
+        if (!active) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Nenhuma solicitação de exclusão ativa para esta conta",
+          });
+        }
+        const meta = extractClientMeta(ctx.req);
+        const row = await cancelAccountDeletion({
+          userId: user.id,
+          requestId: active.id,
+          actorUserId: user.id,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return {
+          success: true as const,
+          request: row,
+          message: "Solicitação de exclusão cancelada. Faça login novamente para usar o app.",
+        };
+      }),
+
+    adminListEraseRequests: adminProcedure
+      .input(
+        z
+          .object({
+            status: z
+              .enum(["pending", "scheduled", "cancelled", "anonymized", "rejected"])
+              .optional(),
+            limit: z.number().int().min(1).max(200).default(50),
+            offset: z.number().int().min(0).default(0),
+          })
+          .optional(),
+      )
+      .query(async ({ input }) => {
+        const requests = await listDeletionRequests({
+          status: input?.status,
+          limit: input?.limit ?? 50,
+          offset: input?.offset ?? 0,
+        });
+        return { requests, total: requests.length };
+      }),
+
+    adminCancelErase: adminProcedure
+      .input(z.object({ requestId: z.number().int().positive(), userId: z.number().int().positive() }))
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const row = await cancelAccountDeletion({
+          userId: input.userId,
+          requestId: input.requestId,
+          actorUserId: ctx.user.id,
+          isAdmin: true,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return { success: true as const, request: row };
+      }),
+
+    adminAnonymize: adminProcedure
+      .input(
+        z.object({
+          requestId: z.number().int().positive(),
+          force: z.boolean().optional(),
+          adminNotes: z.string().max(2000).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const meta = extractClientMeta(ctx.req);
+        const result = await anonymizeAccount({
+          requestId: input.requestId,
+          adminUserId: ctx.user.id,
+          force: input.force,
+          adminNotes: input.adminNotes,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return {
+          success: true as const,
+          ...result,
+          message: "Dados pessoais anonimizados. Nenhum hard-delete foi executado.",
+        };
+      }),
+  }),
+
   admin: router({
     usuarios: adminUsuariosRouter,
     stats: adminStatsRouter,

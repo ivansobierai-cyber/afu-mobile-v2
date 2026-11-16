@@ -7,6 +7,7 @@ import { users, usuariosAfu } from "../drizzle/schema";
 import type { InsertUsuarioAfu, UserPublic } from "../drizzle/schema";
 import * as crypto from "crypto";
 import { AuthDependencyError, normalizeEmail } from "./auth-errors";
+import { assertAccountActive } from "./account-status";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -301,6 +302,9 @@ export async function loginWithEmail(email: string, password: string): Promise<U
       throw new Error("Invalid email or password");
     }
 
+    // WP-06 — soft-deactivate: bloqueia suspenso/inativo (LGPD erase ativa pode passar)
+    await assertAccountActive(user, { allowPendingErasure: true });
+
     // Se usuário não tem openId (criado antes da correção), gerar um
     let openId = user.openId;
     if (!openId) {
@@ -328,6 +332,16 @@ export async function loginWithEmail(email: string, password: string): Promise<U
     console.error("[db-auth] Erro ao fazer login:", error);
     throw error;
   }
+}
+
+/** WP-06 — marca/desmarca obrigação de trocar senha (convite admin). */
+export async function setMustChangePassword(
+  userId: number,
+  mustChangePassword: boolean,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(users).set({ mustChangePassword }).where(eq(users.id, userId));
 }
 
 /**
