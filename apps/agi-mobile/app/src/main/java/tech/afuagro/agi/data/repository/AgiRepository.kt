@@ -657,11 +657,22 @@ class AgiRepository(
         return System.currentTimeMillis() >= (expMs - skewMs)
     }
 
-    private suspend fun refreshAfuAccessToken(): Result<String> = afuRefreshMutex.withLock {
-        // Another waiter may have refreshed while we were queued.
+    /**
+     * @param rejectedAccessToken when set (401 retry), skip network only if prefs already
+     * hold a *different* access token (another waiter refreshed while we queued).
+     */
+    private suspend fun refreshAfuAccessToken(
+        rejectedAccessToken: String? = null
+    ): Result<String> = afuRefreshMutex.withLock {
         val maybeFresh = preferences.getDecryptedAfuAccessToken()
             .ifBlank { preferences.getDecryptedAuthToken() }
-        if (maybeFresh.isNotBlank() && !accessTokenNeedsRefresh(maybeFresh, skewMs = 30_000L)) {
+        if (rejectedAccessToken == null) {
+            // Proactive/expiry path: reuse still-valid access token.
+            if (maybeFresh.isNotBlank() && !accessTokenNeedsRefresh(maybeFresh, skewMs = 30_000L)) {
+                return@withLock Result.success(maybeFresh)
+            }
+        } else if (maybeFresh.isNotBlank() && maybeFresh != rejectedAccessToken) {
+            // Sibling waiter already rotated away from the JWT that got 401.
             return@withLock Result.success(maybeFresh)
         }
 
@@ -720,7 +731,7 @@ class AgiRepository(
         if (first.isSuccess || !isUnauthorizedError(first.exceptionOrNull() ?: return first)) {
             return first
         }
-        val refreshed = refreshAfuAccessToken().getOrElse { return first }
+        val refreshed = refreshAfuAccessToken(rejectedAccessToken = token).getOrElse { return first }
         return call(refreshed)
     }
 

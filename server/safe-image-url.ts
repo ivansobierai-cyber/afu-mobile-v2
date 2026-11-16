@@ -148,6 +148,21 @@ export async function fetchSafePublicImage(
   const port = url.port ? Number(url.port) : url.protocol === "https:" ? 443 : 80;
 
   return await new Promise((resolve, reject) => {
+    let settled = false;
+    let deadline: ReturnType<typeof setTimeout> | undefined;
+    const fail = (err: Error) => {
+      if (settled) return;
+      settled = true;
+      if (deadline) clearTimeout(deadline);
+      reject(err);
+    };
+    const succeed = (value: { buffer: Buffer; contentType: string }) => {
+      if (settled) return;
+      settled = true;
+      if (deadline) clearTimeout(deadline);
+      resolve(value);
+    };
+
     const req = lib.request(
       {
         host: pinnedIp,
@@ -159,19 +174,20 @@ export async function fetchSafePublicImage(
           Host: url.host,
           Accept: "image/*,*/*;q=0.8",
         },
+        // Idle socket timeout (defense in depth); absolute deadline below.
         timeout: timeoutMs,
       },
       (res: IncomingMessage) => {
         const status = res.statusCode ?? 0;
         if (status < 200 || status >= 300) {
           res.resume();
-          reject(new Error("Não foi possível baixar image_url"));
+          fail(new Error("Não foi possível baixar image_url"));
           return;
         }
         const contentType = res.headers["content-type"] ?? "";
         if (contentType && !String(contentType).startsWith("image/")) {
           res.resume();
-          reject(new Error("image_url não retornou uma imagem"));
+          fail(new Error("image_url não retornou uma imagem"));
           return;
         }
         const chunks: Buffer[] = [];
@@ -180,22 +196,28 @@ export async function fetchSafePublicImage(
           total += chunk.length;
           if (total > maxBytes) {
             req.destroy();
-            reject(new Error("Imagem remota excede o limite (~1.8 MB). Comprima e tente novamente."));
+            fail(new Error("Imagem remota excede o limite (~1.8 MB). Comprima e tente novamente."));
             return;
           }
           chunks.push(chunk);
         });
         res.on("end", () => {
-          resolve({ buffer: Buffer.concat(chunks), contentType: String(contentType) });
+          succeed({ buffer: Buffer.concat(chunks), contentType: String(contentType) });
         });
-        res.on("error", reject);
+        res.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
       },
     );
+
+    deadline = setTimeout(() => {
+      req.destroy();
+      fail(new Error("Timeout ao baixar image_url"));
+    }, timeoutMs);
+
     req.on("timeout", () => {
       req.destroy();
-      reject(new Error("Timeout ao baixar image_url"));
+      fail(new Error("Timeout ao baixar image_url"));
     });
-    req.on("error", reject);
+    req.on("error", (err) => fail(err instanceof Error ? err : new Error(String(err))));
     req.end();
   });
 }
