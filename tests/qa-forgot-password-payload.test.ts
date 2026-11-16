@@ -12,24 +12,25 @@ describe("forgot-password tRPC HTTP payload", () => {
   });
 
   it("desembrulha a resposta tRPC result.data.json", () => {
-    const wire = {
+    const payload = {
+      success: true,
+      message:
+        "Se o e-mail existe em nossa base de dados, você receberá um link de recuperação.",
+    };
+    const wire: { result: { data: { json: typeof payload } } } = {
       result: {
         data: {
-          json: {
-            success: true,
-            message: "Se o e-mail existe em nossa base de dados, você receberá um link de recuperação.",
-          },
+          json: payload,
         },
       },
     };
     const unwrapped =
-      wire &&
-      typeof wire === "object" &&
       wire.result?.data &&
       Object.prototype.hasOwnProperty.call(wire.result.data, "json")
         ? wire.result.data.json
-        : wire;
+        : payload;
     expect(unwrapped.success).toBe(true);
+    expect(unwrapped).toEqual(payload);
   });
 
   it("serializa mensagem de erro tRPC sem [object Object]", () => {
