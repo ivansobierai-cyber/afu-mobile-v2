@@ -24,6 +24,8 @@ export const users = mysqlTable("users", {
   loginMethod: varchar("loginMethod", { length: 64 }), // 'oauth' | 'email' | 'email_oauth'
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   emailVerified: boolean("emailVerified").default(false).notNull(),
+  /** WP-06 — convite admin / senha temporária: forçar troca no próximo login. */
+  mustChangePassword: boolean("mustChangePassword").default(false).notNull(),
   resetToken: varchar("resetToken", { length: 255 }).unique(), // Token para recuperação de senha
   resetTokenExpiry: timestamp("resetTokenExpiry"), // Expiração do token de reset
   refreshToken: varchar("refreshToken", { length: 512 }), // Refresh token para renovar sessão
@@ -117,6 +119,10 @@ export const produtores = mysqlTable("produtores", {
     "empresarial",
   ]).default("comercial"),
   cadastroAtivo: boolean("cadastroAtivo").default(true).notNull(),
+  /** WP-06 — plano comercial mínimo (fundação até WP-14 monetização). */
+  plano: mysqlEnum("plano", ["free", "produtor", "pro", "enterprise"])
+    .default("free")
+    .notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

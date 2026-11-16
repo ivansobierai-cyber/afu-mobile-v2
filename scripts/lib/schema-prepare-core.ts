@@ -137,6 +137,15 @@ async function verify0043LgpdCompliance(conn: mysql.Connection): Promise<void> {
   }
 }
 
+async function verify0044ProdutorPlano(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "produtores", "plano"))) {
+    throw new Error("0044_produtor_plano: produtores.plano ausente");
+  }
+  if (!(await columnExists(conn, "users", "mustChangePassword"))) {
+    throw new Error("0044_produtor_plano: users.mustChangePassword ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -330,12 +339,18 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     required: true,
     verify: verify0039OperacoesApontamentos,
   },
-  // Nota de numeração: 0040/0041 usados em PRs WP-02/WP-03 (abertos). WP-07 usa 0043+.
+  // Nota: 0040/0041 em PRs WP-02/WP-03 (abertos); 0042 em #68 WP-04 (stacked). WP-07=0043, WP-06=0044.
   {
     tag: "0043_lgpd_compliance",
     npmScript: "db:lgpd:apply",
     required: true,
     verify: verify0043LgpdCompliance,
+  },
+  {
+    tag: "0044_produtor_plano",
+    npmScript: "db:produtor-plano:apply",
+    required: true,
+    verify: verify0044ProdutorPlano,
   },
 ];
 

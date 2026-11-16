@@ -28,6 +28,7 @@ import { pushRouter } from "./routers/push-router";
 import { bancoAgronomicoRouter } from "./routers/banco-agronomico-router";
 import { pilotoRouter } from "./routers/piloto-router";
 import { organizationsRouter } from "./routers/organizations-router";
+import { adminProdutoresRouter } from "./routers/admin-produtores-router";
 
 const diagnosticoRouter = router({
   /** Etapa 7 — histórico da organização ativa (não só do usuário) */
@@ -529,6 +530,8 @@ export const appRouter = router({
   push: pushRouter,
   bancoAgronomico: bancoAgronomicoRouter,
   piloto: pilotoRouter,
+  /** WP-06 — gestão admin de produtores (separado de auth.admin por conflito PR #61). */
+  adminProdutores: adminProdutoresRouter,
 });
 
 export type AppRouter = typeof appRouter;
