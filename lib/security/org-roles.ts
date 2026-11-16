@@ -40,6 +40,8 @@ export type OrgPermission =
   | "finance.read"
   | "finance.write"
   | "diagnostics.write"
+  /** WP-04 — aprovar / corrigir / rejeitar laudo IA (técnico) */
+  | "diagnostics.review"
   | "reports.read"
   | "reports.export"
   | "safra.close"
@@ -59,6 +61,7 @@ const ALL_PERMS: OrgPermission[] = [
   "finance.read",
   "finance.write",
   "diagnostics.write",
+  "diagnostics.review",
   "reports.read",
   "reports.export",
   "safra.close",
@@ -77,6 +80,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly OrgPermission[]> = {
     "operations.approve",
     "finance.read",
     "diagnostics.write",
+    "diagnostics.review",
     "reports.read",
     "reports.export",
     "safra.close",
@@ -87,6 +91,7 @@ const ROLE_PERMISSIONS: Record<OrgRole, readonly OrgPermission[]> = {
     "operations.read",
     "operations.write",
     "diagnostics.write",
+    "diagnostics.review",
     "reports.read",
     "safra.close",
   ],

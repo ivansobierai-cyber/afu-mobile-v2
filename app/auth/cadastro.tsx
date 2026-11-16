@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text as RNText, Alert, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { AuthCard } from '@/components/auth-card';
 import { AuthTextInput } from '@/components/auth-text-input';
 import { AuthButton } from '@/components/auth-button';
 import { useAuthAPI } from '@/hooks/use-auth-api';
+import { LGPD_TERMS_VERSION } from '@/lib/lgpd/constants';
 
 const PROFILE_TYPES = [
   { id: 'produtor', label: 'Produtor Rural', icon: '🚜', description: 'Gerencio propriedades e cultivos' },
@@ -89,6 +90,7 @@ export default function CadastroScreen() {
       password,
       confirmPassword,
       profile: selectedProfile as 'produtor' | 'tecnico',
+      acceptedTerms: true,
     });
 
     if (result.success) {
@@ -270,7 +272,9 @@ export default function CadastroScreen() {
 
             <TouchableOpacity
               onPress={() => setAgreeTerms(!agreeTerms)}
-              className="flex-row items-center gap-2 mb-6 p-3 bg-surface rounded-lg"
+              className="flex-row items-center gap-2 mb-3 p-3 bg-surface rounded-lg"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreeTerms }}
             >
               <View className={`w-6 h-6 rounded border-2 items-center justify-center ${
                 agreeTerms ? 'bg-primary border-primary' : 'border-border'
@@ -278,9 +282,21 @@ export default function CadastroScreen() {
                 {agreeTerms && <RNText className="text-white">✓</RNText>}
               </View>
               <RNText className="text-sm text-muted flex-1">
-                Concordo com os termos de uso e política de privacidade
+                Concordo com os termos de uso e política de privacidade (versão {LGPD_TERMS_VERSION})
               </RNText>
             </TouchableOpacity>
+            <View className="flex-row flex-wrap gap-x-3 gap-y-1 mb-6 px-1">
+              <Link href="/termos" asChild>
+                <TouchableOpacity accessibilityRole="link">
+                  <RNText className="text-sm text-primary font-semibold">Termos de uso</RNText>
+                </TouchableOpacity>
+              </Link>
+              <Link href="/privacidade" asChild>
+                <TouchableOpacity accessibilityRole="link">
+                  <RNText className="text-sm text-primary font-semibold">Política de privacidade</RNText>
+                </TouchableOpacity>
+              </Link>
+            </View>
             {errors.terms && <RNText className="text-xs text-error mb-4">{errors.terms}</RNText>}
 
             <View className="gap-3">

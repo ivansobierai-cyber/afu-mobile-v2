@@ -17,6 +17,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { ConfirmNameModal } from "@/components/confirm-name-modal";
 import { useColors } from "@/hooks/use-colors";
+import { CoreOfflineBanner } from "@/components/core-offline-banner";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { getDeviceCoordinates } from "@/hooks/use-device-location";
 import { hasValidCoordinates, parseCoordinate, parseCoordinateInput } from "@/lib/geo/coordinates";
@@ -106,18 +107,11 @@ export default function PropriedadesScreen() {
       await utils.coreData.propriedades.listArchived.invalidate();
     },
   });
-  const deleteMut = trpc.coreData.propriedades.delete.useMutation({
-    onSuccess: async () => {
-      await utils.coreData.propriedades.list.invalidate();
-      await utils.coreData.propriedades.listArchived.invalidate();
-      setDeleteTarget(null);
-    },
-  });
-
   const [modalVisible, setModalVisible] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [locating, setLocating] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; nome: string } | null>(null);
@@ -395,6 +389,8 @@ export default function PropriedadesScreen() {
         </View>
       </View>
 
+      <CoreOfflineBanner offlineHint="edições em propriedades" />
+
       {canArchive ? (
         <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingTop: 10, gap: 8 }}>
           <TouchableOpacity
@@ -473,13 +469,31 @@ export default function PropriedadesScreen() {
       <ConfirmNameModal
         visible={deleteTarget != null}
         expectedName={deleteTarget?.nome ?? ""}
-        loading={deleteMut.isPending}
+        loading={deleting}
         onCancel={() => setDeleteTarget(null)}
         onConfirm={(confirmNome) => {
           if (!deleteTarget) return;
-          void deleteMut
-            .mutateAsync({ id: deleteTarget.id, confirmNome })
-            .catch((e: any) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir."));
+          const targetId = deleteTarget.id;
+          setDeleting(true);
+          void runMutation("propriedade", "delete", {
+            id: targetId,
+            confirmNome,
+            clientMutationId: `prop_del_${targetId}_${Date.now()}`,
+          })
+            .then(async (result) => {
+              setDeleteTarget(null);
+              const drop = <T extends { id: number }>(rows: T[] | undefined) =>
+                (rows ?? []).filter((p) => p.id !== targetId);
+              // Offline: remove da lista local; online: invalida no servidor.
+              utils.coreData.propriedades.list.setData(cacheInput, drop);
+              utils.coreData.propriedades.listArchived.setData(cacheInput, drop);
+              if (!result.queued) {
+                await utils.coreData.propriedades.list.invalidate(cacheInput);
+                await utils.coreData.propriedades.listArchived.invalidate(cacheInput);
+              }
+            })
+            .catch((e: any) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir."))
+            .finally(() => setDeleting(false));
         }}
       />
 

@@ -25,6 +25,7 @@ function createAuthContext(hostname = "localhost"): {
     loginMethod: "manus",
     role: "user",
     emailVerified: true,
+    mustChangePassword: false,
     resetToken: null,
     resetTokenExpiry: null,
     refreshToken: null,

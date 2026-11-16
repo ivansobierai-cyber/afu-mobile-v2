@@ -5,8 +5,8 @@ import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { OfflineSyncIndicator } from "@/components/offline-sync-indicator";
 
 /**
- * Monta serviços de runtime do app: renovação de token e fila offline core.
- * Deve ficar dentro dos providers tRPC/Query e após AuthGuard.
+ * Monta serviços de runtime do app: renovação de token e banner da fila offline core.
+ * Deve ficar dentro de CoreOfflineSyncProvider + tRPC/Query e após AuthGuard.
  */
 export function CoreOfflineSyncManager() {
   const { isAuthenticated, loading } = useSession();
