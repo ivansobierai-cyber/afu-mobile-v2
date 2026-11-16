@@ -42,6 +42,7 @@
 | Monorepo `apps/mobile|web-admin` | Repo único Expo + `server/` | raiz do repo |
 | AWS S3 / Firebase Storage | Cloudflare R2 / S3-compat + proxy privado | `docs/RAILWAY_STORAGE_EVENTOS.md` |
 | Hostinger / Vercel / Railway | `scripts/build-hostinger.mjs`, `vercel.json`, `railway.toml` | deploy canônico `afuagro.tech` → API Railway |
+| bcrypt (spec/docs) | **PBKDF2-SHA512** (`server/db-auth.ts`) | corrigir comentários/docs quando tocar auth; não trocar algoritmo sem migração |
 
 ---
 
@@ -75,7 +76,7 @@ Legenda: **feito** · **parcial** · **faltando**
 | Item | Status | Evidência |
 |------|--------|-----------|
 | Tabelas core (usuários, produtores, propriedades, cultivos, diagnósticos, análises, relatórios, pragas, materiais, calendário, marketplace, pedidos) | **feito** | `drizzle/schema.ts` (~67 tabelas) |
-| Sensores + leituras | **parcial** | tabelas + `server/db-geo-iot.ts` / seeds; UI/API operacional de campo limitada |
+| Sensores + leituras | **parcial** | tabelas + seeds; API atual é leitura demo (`bancoAgronomico.iot.*` / `listarSensoresDemo`) — **sem** CRUD tenant de ingestão |
 | Extensões (orgs, tarefas, estoque, custos, safras, ocorrências, audit) | **feito** (além da spec) | migrations `0013+`, `organizations`, etc. |
 | PostgreSQL | **N/A — stack MySQL** | não migrar |
 
@@ -91,7 +92,7 @@ Legenda: **feito** · **parcial** · **faltando**
 | Item | Status | Evidência |
 |------|--------|-----------|
 | Auth, propriedades, cultivos, diagnóstico, análises, relatórios, materiais, marketplace | **feito** | `server/routers/*.ts`, `server/routers.ts` |
-| Sensores CRUD/leituras de produção | **parcial** | dados + seed; contratos REST da spec não espelhados 1:1 (tRPC) |
+| Sensores CRUD/leituras de produção | **parcial** | helpers em `server/db.ts` (`createSensor`); sem router tenant completo; UI `iot-automacao` é demo |
 | Pagamento real marketplace | **parcial** | `pagarPix` demo (`secondaryData.marketplace.pedidos.pagarPix`) |
 | Revisão técnica de diagnóstico | **faltando** | coluna `statusRevisao` existe; sem mutation/UI de técnico |
 
@@ -106,13 +107,13 @@ Legenda: **feito** · **parcial** · **faltando**
 
 | Item | Status | Evidência |
 |------|--------|-----------|
-| JWT + refresh + bcrypt + login/cadastro/logout/forgot/reset | **feito** | `server/routers/auth-router.ts` |
+| JWT + refresh + hash de senha + login/cadastro/logout/forgot/reset | **feito** | `auth-router.ts`; hash real = **PBKDF2-SHA512** em `server/db-auth.ts` (docs/spec ainda dizem bcrypt — drift documental) |
 | RBAC por organização | **feito** | `lib/security/org-roles.ts`, `organizationProcedure` |
-| Perfis globais admin/técnico/produtor… | **feito** | `usuarios_afu.tipo`, `auth.admin.*` |
-| MFA admin/técnico | **faltando** | nenhum endpoint/UI MFA |
-| Controle de sessão (dispositivos, encerrar remoto) | **parcial** | refresh tokens; sem painel de dispositivos |
-| LGPD (consentimento auditável, exportação, exclusão) | **parcial** | aceite de termos no cadastro; audit logs; **sem** export/delete de titular |
-| Logs de auditoria | **feito** (base) | `auditLogs`, `writeAuditLog` |
+| Perfis globais admin/técnico/produtor… | **parcial** | `usuarios_afu.tipoUsuario` (5 tipos) + `users.role` só `user`/`admin` + papéis de org — modelo triplo a unificar na UX/admin |
+| MFA admin/técnico | **faltando** | sem tabelas/endpoints/UI TOTP |
+| Controle de sessão (dispositivos, encerrar remoto) | **parcial** | um refresh token + revoke no logout; sem inventário multi-dispositivo |
+| LGPD (consentimento auditável, exportação, exclusão) | **faltando** / **parcial** | aceite de termos no cadastro (UI); **sem** tabelas/APIs de consentimento, export ou erase de titular |
+| Logs de auditoria | **parcial** | `auditLogs` + `writeAuditLog` em arquivos/orgs/core; login/LGPD ainda não auditados de forma dedicada |
 
 ### ETAPA 8 — Frontend mobile Planta Saudável
 
@@ -384,7 +385,7 @@ WP-01 é contínuo (toda PR).
 
 | Tema | Paths |
 |------|-------|
-| Auth | `server/routers/auth-router.ts`, `hooks/use-auth-api.ts`, `hooks/use-session.ts`, `app/auth/*` |
+| Auth | `server/routers/auth-router.ts`, `server/db-auth.ts` (PBKDF2), `hooks/use-auth-api.ts`, `hooks/use-session.ts`, `app/auth/*` |
 | Core fazenda | `server/routers/core-data-router.ts`, `tarefas-router.ts`, `propriedade-expansao-router.ts` |
 | Diagnóstico | `server/routers.ts`, `app/(tabs)/diagnostico.tsx` |
 | Schema | `drizzle/schema.ts` |
