@@ -2,11 +2,9 @@ import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
 
-// Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
-// e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
-const bundleId = "com.app.afumobile";
-const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+/** Deve coincidir com `scheme` / package em `app.config.ts`. */
+const DEEP_LINK_SCHEME = "afuagro";
+const PRODUCTION_API_FALLBACK = "https://api.afuagro.tech";
 
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
@@ -18,7 +16,7 @@ const env = {
     process.env.EXPO_PUBLIC_API_BASE_URL ??
     ((Constants.expoConfig?.extra as Record<string, string | undefined> | undefined)?.apiBaseUrl ??
       ""),
-  deepLinkScheme: schemeFromBundleId,
+  deepLinkScheme: DEEP_LINK_SCHEME,
 };
 
 export const OAUTH_PORTAL_URL = env.portal;
@@ -62,9 +60,9 @@ export function getApiBaseUrl(): string {
     return "http://10.0.2.2:3000";
   }
 
-  // Nativo sem EXPO_PUBLIC_API_BASE_URL: API Railway (EAS preview/prod deve definir a env)
+  // Nativo sem EXPO_PUBLIC_API_BASE_URL: API de produção (EAS preview/prod deve definir a env)
   if (ReactNative.Platform.OS === "ios" || ReactNative.Platform.OS === "android") {
-    return "https://afu-mobile-v2-production.up.railway.app";
+    return PRODUCTION_API_FALLBACK;
   }
 
   // Fallback dev: API local

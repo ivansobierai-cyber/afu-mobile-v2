@@ -76,6 +76,13 @@ export default function WelcomeScreen() {
           size="large"
           iconName="star.fill"
         />
+        <Text
+          onPress={() => router.push("/privacidade" as never)}
+          accessibilityRole="link"
+          className="text-center text-sm text-primary font-semibold py-2"
+        >
+          Política de privacidade
+        </Text>
       </View>
     </ScreenContainer>
   );

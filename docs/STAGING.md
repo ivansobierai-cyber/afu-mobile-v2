@@ -5,7 +5,8 @@ Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](
 ## Status atual
 
 - **Web (Vercel):** https://afuagro.tech — build `npm run build:web:preview` (API `https://api.afuagro.tech`; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex.
-- **APK staging:** profile `preview` no EAS → `https://afu-mobile-v2-production.up.railway.app`
+- **APK staging:** profile `preview` no EAS → `https://api.afuagro.tech` (rewrite Vercel → Railway)
+- **AAB produção (Play):** profile `production` → ver [playstore/README.md](./playstore/README.md)
 - **API:** `GET /api/health` em `https://api.afuagro.tech/api/health`. O hostname está no projeto Vercel `afu-mobile-web` e o `vercel.json` reescreve para `https://afu-mobile-v2-production.up.railway.app` (o token Railway deste ambiente não autoriza domínio customizado no serviço).
 
 Se `/api/health` retornar 503, a API ainda não está no ar — siga o deploy abaixo.
@@ -74,7 +75,7 @@ Contas demo: `demo@afuagro.com.br` e `comprador@afuagro.com.br` — senha `Demo@
 npm run eas:android:preview
 ```
 
-O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
+O profile `preview` em `eas.json` usa HTTPS (sem cleartext), API `https://api.afuagro.tech` e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
 
 ## 3. Testar no celular
 
