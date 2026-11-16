@@ -5,7 +5,8 @@ import { eq, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { users, usuariosAfu } from "../drizzle/schema";
 import type { InsertUsuarioAfu, UserPublic } from "../drizzle/schema";
-import * as crypto from 'crypto';
+import * as crypto from "crypto";
+import { AuthDependencyError, normalizeEmail } from "./auth-errors";
 import { assertAccountActive } from "./account-status";
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -20,6 +21,12 @@ async function getDb() {
     }
   }
   return _db;
+}
+
+async function requireDb() {
+  const db = await getDb();
+  if (!db) throw new AuthDependencyError("Database not available");
+  return db;
 }
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -179,28 +186,43 @@ export async function upsertPerfilAfu(
 // ─── Autenticação com E-mail/Senha ───
 
 /**
- * Hash de senha usando PBKDF2
+ * Hash de senha usando PBKDF2-SHA512 (formato `saltHex:derivedHex`).
  */
 export async function hashPassword(password: string): Promise<string> {
   return new Promise((resolve, reject) => {
-    const salt = crypto.randomBytes(16).toString('hex');
-    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
+    const salt = crypto.randomBytes(16).toString("hex");
+    crypto.pbkdf2(password, salt, 100000, 64, "sha512", (err, derivedKey) => {
       if (err) reject(err);
-      const hash = `${salt}:${derivedKey.toString('hex')}`;
-      resolve(hash);
+      else resolve(`${salt}:${derivedKey.toString("hex")}`);
     });
   });
 }
 
 /**
- * Verificar senha contra hash
+ * Verificar senha contra hash PBKDF2 (comparação em tempo constante).
  */
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
   return new Promise((resolve, reject) => {
-    const [salt, key] = hash.split(':');
-    crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
-      if (err) reject(err);
-      resolve(key === derivedKey.toString('hex'));
+    const [salt, key] = hash.split(":");
+    if (!salt || !key) {
+      resolve(false);
+      return;
+    }
+    crypto.pbkdf2(password, salt, 100000, 64, "sha512", (err, derivedKey) => {
+      if (err) {
+        reject(err);
+        return;
+      }
+      try {
+        const expected = Buffer.from(key, "hex");
+        if (expected.length !== derivedKey.length) {
+          resolve(false);
+          return;
+        }
+        resolve(crypto.timingSafeEqual(expected, derivedKey));
+      } catch {
+        resolve(false);
+      }
     });
   });
 }
@@ -212,51 +234,45 @@ export async function createUserWithEmail(data: {
   email: string;
   password: string;
   name: string;
-  profile: 'produtor' | 'tecnico' | 'administrador';
+  profile: "produtor" | "tecnico" | "administrador";
 }): Promise<{ userId: number; email: string; name: string; openId: string }> {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
+  const db = await requireDb();
+  const email = normalizeEmail(data.email);
 
   try {
-    // Hash da senha
     const passwordHash = await hashPassword(data.password);
-
-    // Gerar openId único para usuários de e-mail
     const openId = `email_${crypto.randomUUID()}`;
-
     // Administrador precisa de role=admin (aba Mais + RouteGuard)
     const role = data.profile === "administrador" ? "admin" : "user";
 
-    // Criar usuário base
     const result = await db.insert(users).values({
       openId,
-      email: data.email,
+      email,
       name: data.name,
       passwordHash,
-      loginMethod: 'email',
+      loginMethod: "email",
       emailVerified: false,
       role,
     });
 
     const userId = Number(result[0].insertId);
 
-    // Criar perfil AFU
     await db.insert(usuariosAfu).values({
       userId,
       nome: data.name,
-      email: data.email,
+      email,
       tipoUsuario: data.profile,
-      status: 'ativo',
+      status: "ativo",
     });
 
     return {
       userId,
       openId,
-      email: data.email,
+      email,
       name: data.name,
     };
   } catch (error) {
-    console.error('[db-auth] Erro ao criar usuário:', error);
+    console.error("[db-auth] Erro ao criar usuário:", error);
     throw error;
   }
 }
@@ -265,27 +281,25 @@ export async function createUserWithEmail(data: {
  * Fazer login com e-mail e senha
  */
 export async function loginWithEmail(email: string, password: string): Promise<UserPublic> {
-  const db = await getDb();
-  if (!db) throw new Error('Database not available');
+  const db = await requireDb();
+  const normalized = normalizeEmail(email);
 
   try {
-    // Buscar usuário por e-mail
-    const userRows = await db.select().from(users).where(eq(users.email, email)).limit(1);
-    
+    const userRows = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
+
     if (userRows.length === 0) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     const user = userRows[0];
 
-    // Verificar senha
     if (!user.passwordHash) {
-      throw new Error('User does not have a password set');
+      throw new Error("User does not have a password set");
     }
 
     const isPasswordValid = await verifyPassword(password, user.passwordHash);
     if (!isPasswordValid) {
-      throw new Error('Invalid email or password');
+      throw new Error("Invalid email or password");
     }
 
     // WP-06 — soft-deactivate: bloqueia suspenso/inativo (LGPD erase ativa pode passar)
@@ -295,22 +309,27 @@ export async function loginWithEmail(email: string, password: string): Promise<U
     let openId = user.openId;
     if (!openId) {
       openId = `email_${crypto.randomUUID()}`;
-      await db.update(users).set({
-        openId,
-        lastSignedIn: new Date(),
-      }).where(eq(users.id, user.id));
+      await db
+        .update(users)
+        .set({
+          openId,
+          lastSignedIn: new Date(),
+        })
+        .where(eq(users.id, user.id));
     } else {
-      // Atualizar lastSignedIn
-      await db.update(users).set({
-        lastSignedIn: new Date(),
-      }).where(eq(users.id, user.id));
+      await db
+        .update(users)
+        .set({
+          lastSignedIn: new Date(),
+        })
+        .where(eq(users.id, user.id));
     }
 
-    // Retornar sem passwordHash, com openId atualizado
     const { passwordHash: _, ...userPublic } = { ...user, openId };
     return userPublic as UserPublic;
   } catch (error) {
-    console.error('[db-auth] Erro ao fazer login:', error);
+    if (error instanceof AuthDependencyError) throw error;
+    console.error("[db-auth] Erro ao fazer login:", error);
     throw error;
   }
 }
@@ -326,18 +345,21 @@ export async function setMustChangePassword(
 }
 
 /**
- * Verificar se e-mail já existe
+ * Verificar se e-mail já existe.
+ * Lança AuthDependencyError se o banco não estiver disponível (não silencia).
  */
 export async function emailExists(email: string): Promise<boolean> {
-  const db = await getDb();
-  if (!db) return false;
+  const db = await requireDb();
+  const normalized = normalizeEmail(email);
 
   try {
-    const userRows = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const userRows = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
     return userRows.length > 0;
   } catch (error) {
-    console.error('[db-auth] Erro ao verificar e-mail:', error);
-    return false;
+    console.error("[db-auth] Erro ao verificar e-mail:", error);
+    throw new AuthDependencyError(
+      error instanceof Error ? error.message : "Database not available",
+    );
   }
 }
 

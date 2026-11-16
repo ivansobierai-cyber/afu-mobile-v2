@@ -6,12 +6,12 @@ Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](
 
 Roteamento completo (Hostinger vs Railway vs `api.afuagro.tech`): **[API_ROUTING.md](./API_ROUTING.md)**.
 
-- **Web:** https://afuagro.tech — build `npm run build:web:preview` (API default **Railway**; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex.
+- **Web:** https://afuagro.tech — build `npm run build:web:preview` (API default **Railway**; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex. DNS atual pode ainda servir Hostinger — nesse caso use `HOSTINGER_API_BASE_URL` → Railway ou configure `DATABASE_URL` no painel.
 - **APK staging / EAS production:** profiles `preview` e `production` → `https://afu-mobile-v2-production.up.railway.app`
-- **API canônica:** `GET /api/health` em `https://afu-mobile-v2-production.up.railway.app/api/health`.
+- **API canônica:** `GET /api/health` em `https://afu-mobile-v2-production.up.railway.app/api/health` — inclui `database` + `email` + `ready`.
 - **Futuro custom domain (não apagar):** `https://api.afuagro.tech` — DNS deve apontar para Railway (hoje pode ainda bater na Hostinger sem MySQL). `vercel.json` também reescreve esse host → Railway quando o tráfego chega na Vercel.
 
-Se `/api/health` retornar 503, a API ainda não está no ar — siga o deploy abaixo.
+Cheque `/api/health`: `ready:false` ou `database.configured:false` = login quebrado nesse host.
 
 ## Web (Vercel)
 
@@ -28,7 +28,7 @@ Projeto canônico: **afu-mobile-web** → https://afuagro.tech
 Variáveis no build web:
 
 - `EXPO_PUBLIC_SHOW_DEMO_LOGIN` — padrão **`0`** em `scripts/build-web-preview.mjs` (produção/preview sem botões demo). Só use `1` em builds locais de teste explícitos.
-- `EXPO_PUBLIC_API_BASE_URL` — **usa o valor do ambiente Vercel** quando definido (recomendado em **Preview** por PR); caso contrário, fallback `https://afu-mobile-v2-production.up.railway.app`. Domínio futuro `https://api.afuagro.tech` — ver [API_ROUTING.md](./API_ROUTING.md).
+- `EXPO_PUBLIC_API_BASE_URL` — **usa o valor do ambiente Vercel** quando definido (recomendado em **Preview** por PR); caso contrário, fallback `https://afu-mobile-v2-production.up.railway.app` (evita DNS Hostinger sem MySQL). Domínio futuro `https://api.afuagro.tech` — ver [API_ROUTING.md](./API_ROUTING.md).
 
 **FASE 2H:** o preview web só chama procedures que existem na API Railway em execução. Se o smoke retornar `No procedure found on path "coreData.operacoes.createApontamento"`, o frontend está correto mas a API em produção ainda não foi implantada com o branch `feat/fase-2h-apontamento-real-execucao`. Rode `npm run probe:trpc:procedure` e faça **Redeploy** no Railway a partir desse commit antes do smoke.
 

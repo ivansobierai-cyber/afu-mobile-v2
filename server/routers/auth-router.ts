@@ -33,6 +33,8 @@ import {
   revokeRefreshToken,
   verifyRefreshToken,
 } from "../token-service";
+import { isAuthDependencyError, normalizeEmail } from "../auth-errors";
+import { sendWelcomeEmail, isSendGridReady } from "../email-service";
 import { toAccountInactiveTrpc } from "../account-status";
 import {
   anonymizeAccount,
@@ -201,11 +203,11 @@ export const authRouter = router({
     .input(loginSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const user = await loginWithEmail(input.email, input.password);
-        
+        const user = await loginWithEmail(normalizeEmail(input.email), input.password);
+
         // Garantir que openId sempre existe (nunca null)
         if (!user.openId) {
-          throw new Error('User openId is missing');
+          throw new Error("User openId is missing");
         }
 
         /**
@@ -230,20 +232,17 @@ export const authRouter = router({
         } catch (e) {
           console.warn("[auth.login] ensurePersonalOrganization failed:", e);
         }
-        
-        // Criar access token (curta duração)
-        const accessToken = await createAccessToken(user.openId, user.name || '');
-        
-        // Criar refresh token (longa duração)
+
+        const accessToken = await createAccessToken(user.openId, user.name || "");
         const refreshToken = await createRefreshToken(user.openId);
-        
-        // Armazenar refresh token no banco
         await storeRefreshToken(user.id, refreshToken);
-        
-        // Setar cookie para web (usa access token)
+
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.setHeader('Set-Cookie', `${COOKIE_NAME}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=900`);
-        
+        ctx.res.cookie(COOKIE_NAME, accessToken, {
+          ...cookieOptions,
+          maxAge: 15 * 60 * 1000,
+        });
+
         return {
           success: true,
           accessToken,
@@ -267,6 +266,12 @@ export const authRouter = router({
         const inactive = toAccountInactiveTrpc(error);
         if (inactive) throw inactive;
         if (error instanceof TRPCError) throw error;
+        if (isAuthDependencyError(error)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Servico de autenticacao temporariamente indisponivel",
+          });
+        }
         throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
       }
     }),
@@ -275,12 +280,13 @@ export const authRouter = router({
     .input(signupSchema)
     .mutation(async ({ ctx, input }) => {
       try {
-        const exists = await emailExists(input.email);
+        const email = normalizeEmail(input.email);
+        const exists = await emailExists(email);
         if (exists) {
           throw new TRPCError({ code: "CONFLICT", message: "Este e-mail ja esta registrado" });
         }
         const result = await createUserWithEmail({
-          email: input.email,
+          email,
           password: input.password,
           name: input.name,
           profile: input.profile,
@@ -300,35 +306,50 @@ export const authRouter = router({
           ip: meta.ip,
           userAgent: meta.userAgent,
         });
-        
+
         // Garantir que openId sempre existe (nunca null)
         if (!result.openId) {
-          throw new Error('User openId is missing after creation');
+          throw new Error("User openId is missing after creation");
         }
-        
-        // Criar access token (curta duração)
+
         const accessToken = await createAccessToken(result.openId, result.name);
-        
-        // Criar refresh token (longa duração)
         const refreshToken = await createRefreshToken(result.openId);
-        
-        // Armazenar refresh token no banco
         await storeRefreshToken(result.userId, refreshToken);
-        
-        // Setar cookie para web (usa access token)
+
         const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.setHeader('Set-Cookie', `${COOKIE_NAME}=${accessToken}; Path=/; HttpOnly; SameSite=Lax; Max-Age=900`);
-        
+        ctx.res.cookie(COOKIE_NAME, accessToken, {
+          ...cookieOptions,
+          maxAge: 15 * 60 * 1000,
+        });
+
+        // Boas-vindas best-effort — falha de e-mail não bloqueia o cadastro
+        if (isSendGridReady()) {
+          void sendWelcomeEmail(result.email, result.name).catch((e) => {
+            console.warn("[auth.signup] welcome email failed:", e);
+          });
+        }
+
         return {
           success: true,
           accessToken,
           refreshToken,
-          user: { id: result.userId, email: result.email, name: result.name, openId: result.openId },
+          user: {
+            id: result.userId,
+            email: result.email,
+            name: result.name,
+            openId: result.openId,
+          },
           message: "Conta criada com sucesso",
         };
-      } catch (error: any) {
-        if (error.code === "CONFLICT") throw error;
+      } catch (error: unknown) {
         if (error instanceof TRPCError) throw error;
+        if (isAuthDependencyError(error)) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: "Servico de autenticacao temporariamente indisponivel",
+          });
+        }
+        console.error("[auth.signup]", error);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao criar conta" });
       }
     }),
@@ -368,7 +389,7 @@ export const authRouter = router({
   forgotPassword: publicProcedure
     .input(forgotPasswordSchema)
     .mutation(async ({ input }) => {
-      const result = await requestPasswordReset(input.email);
+      const result = await requestPasswordReset(normalizeEmail(input.email));
       return result;
     }),
 
@@ -391,7 +412,7 @@ export const authRouter = router({
     .mutation(async ({ input }) => {
       // Reenviar e-mail de reset (mesmo que forgotPassword)
       // Rate limiting implementado no frontend com cooldown
-      const result = await requestPasswordReset(input.email);
+      const result = await requestPasswordReset(normalizeEmail(input.email));
       return result;
     }),
 
