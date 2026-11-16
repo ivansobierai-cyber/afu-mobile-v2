@@ -4,6 +4,8 @@ App mobile/web para produtores rurais: dashboard, propriedades, cultivos, diagnÃ
 
 Stack: **Expo SDK 54**, **Expo Router**, **tRPC**, **Drizzle ORM**, **MySQL/MariaDB**, **NativeWind**.
 
+Assistente nativo **AFU AGI** (Kotlin/Compose): `apps/agi-mobile/` â€” ver [docs/agi/AFU_AGI_INTEGRATION.md](docs/agi/AFU_AGI_INTEGRATION.md).
+
 ## Requisitos
 
 - Node.js 24+ (LTS; ver `.nvmrc`)
