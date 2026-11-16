@@ -77,6 +77,7 @@
     "db:operacoes-apontamentos:apply": "tsx scripts/apply-0039-operacoes-apontamentos.ts",
     "db:evento-tarefa-bridge:apply": "tsx scripts/apply-0040-evento-tarefa-bridge.ts",
     "db:diagnostico-tarefa-bridge:apply": "tsx scripts/apply-0041-diagnostico-tarefa-bridge.ts",
+    "db:diagnostico-revisao-tecnica:apply": "tsx scripts/apply-0042-diagnostico-revisao-tecnica.ts",
     "db:sync-ai:apply": "tsx scripts/apply-0018-0019-sync-ai.ts",
     "backfill:organizations": "tsx scripts/backfill-organizations.ts",
     "backfill:organization-id": "tsx scripts/backfill-organization-id.ts",

@@ -185,6 +185,25 @@ async function verify0041DiagnosticoTarefaBridge(conn: mysql.Connection): Promis
   }
 }
 
+async function verify0042DiagnosticoRevisaoTecnica(conn: mysql.Connection): Promise<void> {
+  for (const col of [
+    "revisadoPorUserId",
+    "revisadoPorPerfilId",
+    "revisadoEm",
+    "parecerTecnico",
+    "recomendacaoCorrigida",
+  ] as const) {
+    if (!(await columnExists(conn, "diagnosticos_ia", col))) {
+      throw new Error(`0042_diagnostico_revisao_tecnica: diagnosticos_ia.${col} ausente`);
+    }
+  }
+  if (!(await indexExists(conn, "diagnosticos_org_status_revisao_idx"))) {
+    throw new Error(
+      "0042_diagnostico_revisao_tecnica: índice diagnosticos_org_status_revisao_idx ausente",
+    );
+  }
+}
+
 async function verifyRepair0022(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, "tarefas_operacionais", "responsavelUserId"))) {
     throw new Error("0022_tarefas_responsavel: responsavelUserId ausente");
@@ -380,6 +399,12 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:diagnostico-tarefa-bridge:apply",
     required: true,
     verify: verify0041DiagnosticoTarefaBridge,
+  },
+  {
+    tag: "0042_diagnostico_revisao_tecnica",
+    npmScript: "db:diagnostico-revisao-tecnica:apply",
+    required: true,
+    verify: verify0042DiagnosticoRevisaoTecnica,
   },
 ];
 

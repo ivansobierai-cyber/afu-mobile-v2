@@ -492,6 +492,7 @@ const MENU_SECTIONS: MenuSection[] = [
     requireAdmin: true,
     items: [
       { title: "Dashboard Admin", subtitle: "Contadores em tempo real", icon: "chart.bar.fill", route: "/mais/admin-dashboard", color: "#1E3A5F", badge: "Admin", requireAdmin: true },
+      { title: "Revisão Técnica IA", subtitle: "Aprovar / corrigir / rejeitar laudos", icon: "checkmark.shield.fill", route: "/mais/revisao-diagnosticos", color: "#0F766E", badge: "WP-04", requireAdmin: true },
       { title: "Gerenciar Usuários", subtitle: "Roles, status e tipos de perfil", icon: "person.2.fill", route: "/mais/admin-usuarios", color: "#7C3AED", badge: "Admin", requireAdmin: true },
       { title: "Gestão de Culturas", subtitle: "CRUD do banco de culturas", icon: "leaf.fill", route: "/mais/admin-culturas", color: "#166534", badge: "Admin", requireAdmin: true },
       { title: "Gestão de Pragas e Doenças", subtitle: "Banco fitossanitário — CRUD", icon: "cross.circle.fill", route: "/mais/admin-pragas", color: "#7F1D1D", badge: "Admin", requireAdmin: true },

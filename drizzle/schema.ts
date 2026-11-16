@@ -353,12 +353,20 @@ export const diagnosticosIa = mysqlTable(
     "confirmado",
     "descartado",
   ]).default("pendente"),
+  /** WP-04 — auditoria de revisão técnica (não apaga o laudo IA) */
+  revisadoPorUserId: int("revisadoPorUserId"),
+  revisadoPorPerfilId: int("revisadoPorPerfilId"),
+  revisadoEm: timestamp("revisadoEm"),
+  parecerTecnico: text("parecerTecnico"),
+  /** Recomendação corrigida pelo técnico; original permanece em `recomendacao` */
+  recomendacaoCorrigida: text("recomendacaoCorrigida"),
   dataDiagnostico: timestamp("dataDiagnostico").defaultNow().notNull(),
 },
   (t) => [
     index("diagnosticos_organization_idx").on(t.organizationId),
     index("diagnosticos_org_created_idx").on(t.organizationId, t.dataDiagnostico),
     index("diagnosticos_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("diagnosticos_org_status_revisao_idx").on(t.organizationId, t.statusRevisao),
   ],
 );
 

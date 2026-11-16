@@ -151,6 +151,71 @@ const diagnosticoRouter = router({
       );
       return tarefa ?? null;
     }),
+
+  /**
+   * WP-04 — revisão técnica: confirmar / corrigir / descartar.
+   * Exige diagnostics.review (agronomo/gerente/admin/proprietario).
+   */
+  revisar: organizationProcedure
+    .input(
+      z.object({
+        diagnosticoId: z.number().int().positive(),
+        acao: z.enum(["confirmar", "corrigir", "descartar"]),
+        parecerTecnico: z.string().max(4000).optional(),
+        recomendacaoCorrigida: z.string().max(4000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "diagnostics.review");
+      const { revisarDiagnostico } = await import("./db-diagnostico-revisao");
+      return revisarDiagnostico(tenant, input);
+    }),
+
+  /** WP-04 — fila de pendentes da organização ativa. */
+  listarPendentesRevisao: organizationProcedure
+    .input(
+      z
+        .object({
+          limit: z.number().int().min(1).max(100).optional(),
+          cacheScope: z.number().int().positive().optional(),
+        })
+        .optional(),
+    )
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "diagnostics.review");
+      const { listDiagnosticosPendentesRevisao } = await import(
+        "./db-diagnostico-revisao"
+      );
+      return listDiagnosticosPendentesRevisao(
+        tenant.organizationId,
+        input?.limit ?? 50,
+      );
+    }),
+
+  /** WP-04 — detalhe de revisão (produtor e técnico da mesma org). */
+  getRevisao: organizationProcedure
+    .input(z.object({ diagnosticoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "property.read");
+      const { createTenantDb } = await import("./tenant-db");
+      const diag = await createTenantDb(tenant.organizationId).requireDiagnostico(
+        input.diagnosticoId,
+      );
+      return {
+        id: diag.id,
+        statusRevisao: diag.statusRevisao ?? "pendente",
+        revisadoPorUserId: diag.revisadoPorUserId ?? null,
+        revisadoPorPerfilId: diag.revisadoPorPerfilId ?? null,
+        revisadoEm: diag.revisadoEm ?? null,
+        parecerTecnico: diag.parecerTecnico ?? null,
+        recomendacaoCorrigida: diag.recomendacaoCorrigida ?? null,
+        recomendacaoOriginal: diag.recomendacao ?? null,
+      };
+    }),
+
   /** Etapa 9 — IA escopada à org; contexto mínimo; auditada; sem treinamento */
   analisar: organizationProcedure
     .input(
