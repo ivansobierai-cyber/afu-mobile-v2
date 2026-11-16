@@ -828,6 +828,10 @@ const calendarioRouter = router({
         dataProgramada: new Date(input.dataProgramada),
       } as any);
 
+      /** WP-02 — ponte evento → tarefa (quando há propriedade). */
+      const { syncTarefaBridgeForEventoId } = await import("../db-evento-tarefa-bridge");
+      await syncTarefaBridgeForEventoId(tenant, eventId);
+
       if (input.lembreteAtivo) {
         const dataLabel = new Date(input.dataProgramada).toLocaleDateString("pt-BR");
         void sendPushToUsuario(tenant.perfilId, {
@@ -891,6 +895,10 @@ const calendarioRouter = router({
         tenant.organizationId,
       );
 
+      /** WP-02 — atualiza/cria tarefa vinculada após mutação do evento. */
+      const { syncTarefaBridgeForEventoId } = await import("../db-evento-tarefa-bridge");
+      await syncTarefaBridgeForEventoId(tenant, input.id);
+
       const becomingDone =
         input.data.status === "concluido" && atual.status !== "concluido";
       const tipoAtividade = input.data.tipoAtividade ?? atual.tipoAtividade;
@@ -934,6 +942,9 @@ const calendarioRouter = router({
             status: "pendente",
             lembreteAtivo: atual.lembreteAtivo ?? false,
           } as any);
+          if (nextEventId) {
+            await syncTarefaBridgeForEventoId(tenant, nextEventId);
+          }
         }
       }
 
@@ -964,6 +975,7 @@ const calendarioRouter = router({
         previsaoColheita: cultura.previsaoColheita,
       });
 
+      const { syncTarefaBridgeForEventoId } = await import("../db-evento-tarefa-bridge");
       const createdIds: number[] = [];
       for (const draft of drafts) {
         const dependsOnEventoId =
@@ -985,6 +997,7 @@ const calendarioRouter = router({
           status: "pendente",
           lembreteAtivo: true,
         } as any);
+        await syncTarefaBridgeForEventoId(tenant, id);
         createdIds.push(id);
       }
 

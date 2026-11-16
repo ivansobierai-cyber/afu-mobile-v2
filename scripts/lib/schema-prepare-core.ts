@@ -155,6 +155,27 @@ async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   }
 }
 
+async function verify0040EventoTarefaBridge(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "tarefas_operacionais", "legadoEventoId"))) {
+    throw new Error("0040_evento_tarefa_bridge: tarefas_operacionais.legadoEventoId ausente");
+  }
+  // Mesmo critério do apply-0040: só eventos com org (ponte exige organizationId).
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COUNT(*) AS n
+     FROM calendario_cuidados c
+     LEFT JOIN tarefas_operacionais t ON t.legadoEventoId = c.id
+     WHERE c.propriedadeId IS NOT NULL
+       AND c.organizationId IS NOT NULL
+       AND t.id IS NULL`,
+  );
+  const orphans = Number(rows[0]?.n ?? 0);
+  if (orphans > 0) {
+    throw new Error(
+      `0040_evento_tarefa_bridge: ${orphans} evento(s) com propriedade sem tarefa vinculada`,
+    );
+  }
+}
+
 async function verifyRepair0022(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, "tarefas_operacionais", "responsavelUserId"))) {
     throw new Error("0022_tarefas_responsavel: responsavelUserId ausente");
@@ -339,7 +360,13 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     required: true,
     verify: verify0039OperacoesApontamentos,
   },
-  // Nota: 0040/0041 em PRs WP-02/WP-03 (abertos); 0042 em #68 WP-04 (stacked). WP-07=0043, WP-06=0044.
+  {
+    tag: "0040_evento_tarefa_bridge",
+    npmScript: "db:evento-tarefa-bridge:apply",
+    required: true,
+    verify: verify0040EventoTarefaBridge,
+  },
+  // Nota: 0041 em PR WP-03; 0042 em #68 WP-04 (stacked). WP-07=0043, WP-06=0044 já em main.
   {
     tag: "0043_lgpd_compliance",
     npmScript: "db:lgpd:apply",
