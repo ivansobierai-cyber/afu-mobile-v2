@@ -67,6 +67,8 @@ describe("WP-05 offline forms inventory", () => {
     expect(evento).toMatch(/silentOffline:\s*true/);
     expect(evento).toMatch(/if\s*\(\s*!result\.queued\s*\)/);
     expect(evento).not.toMatch(/Fila offline/);
+    expect(evento).toMatch(/colheitaConcluidaLocal/);
+    expect(evento).toMatch(/evt_colheita_\$\{item\.id\}/);
 
     const custos = read("components/cultivos/cultivo-ops-ia-custos.tsx");
     expect(custos).toMatch(/if\s*\(\s*!result\.queued\s*\)/);

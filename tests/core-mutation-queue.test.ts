@@ -89,6 +89,27 @@ describe("core mutation queue (Etapa 8 tenant scope)", () => {
     expect(queue[1].clientMutationId).toBe("evt_meta_9_stable01");
   });
 
+  it("re-enqueue com mesmo clientMutationId substitui o pendente", async () => {
+    const mid = "evt_colheita_42";
+    await enqueueCoreMutation(scopeA, {
+      entity: "evento",
+      action: "update",
+      payload: { id: 42, data: { producaoColheitaKg: 10 } },
+      clientMutationId: mid,
+    });
+    await enqueueCoreMutation(scopeA, {
+      entity: "evento",
+      action: "update",
+      payload: { id: 42, data: { producaoColheitaKg: 99 } },
+      clientMutationId: mid,
+    });
+
+    const queue = await loadCoreQueue(scopeA);
+    expect(queue).toHaveLength(1);
+    expect(queue[0].clientMutationId).toBe(mid);
+    expect(queue[0].payload).toEqual({ id: 42, data: { producaoColheitaKg: 99 } });
+  });
+
   it("enfileira entidades core cobertas pelo aceite WP-05", async () => {
     const entities = [
       "propriedade",

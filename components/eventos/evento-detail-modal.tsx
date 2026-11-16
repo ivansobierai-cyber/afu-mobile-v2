@@ -61,6 +61,9 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const [savingMeta, setSavingMeta] = useState(false);
   const [uploadingAnexo, setUploadingAnexo] = useState(false);
   const [producaoColheita, setProducaoColheita] = useState("");
+  /** Optimistic: colheita enfileirada offline some da UI até sync. */
+  const [colheitaConcluidaLocal, setColheitaConcluidaLocal] = useState(false);
+  const [savingColheita, setSavingColheita] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const eventoId = item?.id;
@@ -73,6 +76,8 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
     setAnexoNome("");
     setAnexoUrl("");
     setProducaoColheita("");
+    setColheitaConcluidaLocal(false);
+    setSavingColheita(false);
   }, [item, visible]);
 
   const { data: comentarios = [], refetch: refetchComentarios } =
@@ -315,39 +320,60 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
                 keyboardType="decimal-pad"
                 accessibilityLabel="Produção colhida em quilogramas"
               />
-              {item.status !== "concluido" ? (
+              {item.status !== "concluido" && !colheitaConcluidaLocal ? (
                 <TouchableOpacity
+                  disabled={savingColheita}
                   onPress={async () => {
                     const n = Number(String(producaoColheita).replace(",", "."));
                     if (!Number.isFinite(n) || n <= 0) {
                       Alert.alert("Atenção", "Informe a produção colhida (número maior que zero).");
                       return;
                     }
+                    setSavingColheita(true);
                     try {
+                      // clientMutationId estável por evento — evita fila duplicada no mesmo aparelho.
                       const result = await runMutation("evento", "update", {
                         id: item.id,
                         data: {
                           status: "concluido",
                           producaoColheitaKg: n,
                         },
-                        clientMutationId: `evt_colheita_${item.id}_${Date.now()}`,
+                        clientMutationId: `evt_colheita_${item.id}`,
                       });
+                      setColheitaConcluidaLocal(true);
                       if (!result.queued) {
                         await utils.coreData.calendario.list.invalidate();
                         await utils.coreData.cultivos.list.invalidate();
                         onSaved?.();
                         Alert.alert("Colheita registrada", "Produção sincronizada com o cultivo.");
+                      } else {
+                        onSaved?.();
                       }
                     } catch (e: unknown) {
                       Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao concluir colheita.");
+                    } finally {
+                      setSavingColheita(false);
                     }
                   }}
-                  style={[styles.addBtn, { backgroundColor: MODULE_COLORS.eventos, alignSelf: "flex-start" }]}
+                  style={[
+                    styles.addBtn,
+                    {
+                      backgroundColor: MODULE_COLORS.eventos,
+                      alignSelf: "flex-start",
+                      opacity: savingColheita ? 0.7 : 1,
+                    },
+                  ]}
                 >
-                  <Text style={{ color: "#fff", fontWeight: "700" }}>Concluir colheita</Text>
+                  <Text style={{ color: "#fff", fontWeight: "700" }}>
+                    {savingColheita ? "Salvando…" : "Concluir colheita"}
+                  </Text>
                 </TouchableOpacity>
               ) : (
-                <Text style={{ fontSize: 12, color: colors.muted }}>Evento concluído — produção já registrada no cultivo.</Text>
+                <Text style={{ fontSize: 12, color: colors.muted }}>
+                  {colheitaConcluidaLocal && item.status !== "concluido"
+                    ? "Colheita na fila offline — será sincronizada ao reconectar."
+                    : "Evento concluído — produção já registrada no cultivo."}
+                </Text>
               )}
             </View>
           ) : null}

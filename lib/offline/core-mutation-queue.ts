@@ -97,20 +97,23 @@ export async function enqueueCoreMutation(
 ): Promise<CoreMutationItem> {
   assertScope(scope);
   const queue = await loadCoreQueue(scope);
+  const clientMutationId =
+    item.clientMutationId ??
+    resolveCoreClientMutationId(item.payload ?? {}, "cm");
   const entry: CoreMutationItem = {
     ...item,
     id: `core_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-    clientMutationId:
-      item.clientMutationId ??
-      resolveCoreClientMutationId(item.payload ?? {}, "cm"),
+    clientMutationId,
     userId: scope.userId,
     organizationId: scope.organizationId,
     deviceId: scope.deviceId,
     timestamp: Date.now(),
     tentativas: 0,
   };
-  queue.push(entry);
-  await saveCoreQueue(scope, queue);
+  // Re-submit com o mesmo clientMutationId substitui o pendente (não duplica).
+  const next = queue.filter((q) => q.clientMutationId !== clientMutationId);
+  next.push(entry);
+  await saveCoreQueue(scope, next);
   return entry;
 }
 
