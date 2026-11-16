@@ -51,7 +51,14 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
       let errorMessage = errorText;
       try {
         const errorJson = JSON.parse(errorText);
-        errorMessage = errorJson.error || errorJson.message || errorText;
+        // tRPC HTTP error shape: { error: { json: { message, data } } }
+        const trpcMsg = errorJson?.error?.json?.message;
+        const raw =
+          (typeof trpcMsg === "string" && trpcMsg) ||
+          (typeof errorJson.error === "string" && errorJson.error) ||
+          (typeof errorJson.message === "string" && errorJson.message) ||
+          errorText;
+        errorMessage = typeof raw === "string" ? raw : JSON.stringify(raw);
       } catch {
         // Not JSON, use text as is
       }
@@ -62,6 +69,15 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
     if (contentType && contentType.includes("application/json")) {
       const data = await response.json();
       console.log("[API] JSON response received");
+      // tRPC HTTP success: { result: { data: { json: T } } }
+      if (
+        data &&
+        typeof data === "object" &&
+        data.result?.data &&
+        Object.prototype.hasOwnProperty.call(data.result.data, "json")
+      ) {
+        return data.result.data.json as T;
+      }
       return data as T;
     }
 
