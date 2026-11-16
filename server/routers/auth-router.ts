@@ -46,10 +46,7 @@ import {
   recordSignupConsents,
   requestAccountDeletion,
 } from "../lgpd";
-import {
-  LGPD_PRIVACY_VERSION,
-  LGPD_TERMS_VERSION,
-} from "../../lib/lgpd/constants";
+import { assertAccountActive, getAccountStatus } from "../lgpd-account-active";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -85,10 +82,8 @@ const signupSchema = z.object({
   name: z.string().min(2).max(150),
   /** Público: não permite auto-promoção a admin de plataforma (P0-4) */
   profile: z.enum(["produtor", "tecnico"]),
-  /** WP-07 — aceite explícito dos documentos legais (versão + flag) */
+  /** WP-07 — aceite explícito; versões gravadas são sempre as do servidor */
   acceptedTerms: z.literal(true),
-  termsVersion: z.string().min(1).max(40).optional(),
-  privacyVersion: z.string().min(1).max(40).optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Senhas nao conferem",
   path: ["confirmPassword"],
@@ -212,6 +207,21 @@ export const authRouter = router({
           throw new Error('User openId is missing');
         }
 
+        /**
+         * WP-06 coordenará enforcement completo de suspensão via
+         * `assertAccountActive(user.id, { allowPendingErasure: true })`.
+         * Em #69 (WP-07) ainda não bloqueamos login genérico, mas:
+         * - sinalizamos `pendingErasure` no retorno
+         * - se WP-06 ligar o assert com allowPendingErasure, titular com
+         *   exclusão agendada continua autenticável para cancelar
+         * - alternativa sem sessão: `auth.lgpd.cancelEraseWithCredentials`
+         */
+        const account = await getAccountStatus(user.id);
+        if (account.status === "suspenso" && account.pendingErasure) {
+          // Prévia do comportamento WP-06: permite sessão restrita à exclusão.
+          await assertAccountActive(user.id, { allowPendingErasure: true });
+        }
+
         // Etapa 10 — org pessoal só no login/signup (não em cada resolveSession)
         try {
           const { ensurePersonalOrganization } = await import("../db-organizations");
@@ -238,9 +248,14 @@ export const authRouter = router({
           accessToken,
           refreshToken,
           user: { id: user.id, email: user.email, name: user.name, role: user.role, openId: user.openId },
-          message: "Login realizado com sucesso",
+          accountStatus: account.status,
+          pendingErasure: account.pendingErasure,
+          message: account.pendingErasure
+            ? "Login OK. Conta com exclusão LGPD agendada — você pode cancelar em Perfil ou via auth.lgpd.cancelErase."
+            : "Login realizado com sucesso",
         };
       } catch (error) {
+        if (error instanceof TRPCError) throw error;
         throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
       }
     }),
@@ -267,18 +282,13 @@ export const authRouter = router({
           console.warn("[auth.signup] ensurePersonalOrganization failed:", e);
         }
 
-        try {
-          const meta = extractClientMeta(ctx.req);
-          await recordSignupConsents({
-            userId: result.userId,
-            termsVersion: input.termsVersion ?? LGPD_TERMS_VERSION,
-            privacyVersion: input.privacyVersion ?? LGPD_PRIVACY_VERSION,
-            ip: meta.ip,
-            userAgent: meta.userAgent,
-          });
-        } catch (e) {
-          console.warn("[auth.signup] LGPD consent recording failed:", e);
-        }
+        // Consentimento obrigatório — falha o signup se não gravar (versões só do servidor).
+        const meta = extractClientMeta(ctx.req);
+        await recordSignupConsents({
+          userId: result.userId,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
         
         // Garantir que openId sempre existe (nunca null)
         if (!result.openId) {
@@ -505,6 +515,47 @@ export const authRouter = router({
           userAgent: meta.userAgent,
         });
         return { success: true as const, request: row };
+      }),
+
+    /**
+     * Cancela exclusão com e-mail/senha — funciona mesmo quando WP-06
+     * bloquear login/sessão para contas suspensas (sem allowPendingErasure).
+     */
+    cancelEraseWithCredentials: publicProcedure
+      .input(
+        z.object({
+          email: z.string().email(),
+          password: z.string().min(6),
+          confirm: z.literal(true),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        let user;
+        try {
+          user = await loginWithEmail(input.email, input.password);
+        } catch {
+          throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
+        }
+        const active = await getActiveDeletionRequest(user.id);
+        if (!active) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Nenhuma solicitação de exclusão ativa para esta conta",
+          });
+        }
+        const meta = extractClientMeta(ctx.req);
+        const row = await cancelAccountDeletion({
+          userId: user.id,
+          requestId: active.id,
+          actorUserId: user.id,
+          ip: meta.ip,
+          userAgent: meta.userAgent,
+        });
+        return {
+          success: true as const,
+          request: row,
+          message: "Solicitação de exclusão cancelada. Faça login novamente para usar o app.",
+        };
       }),
 
     adminListEraseRequests: adminProcedure

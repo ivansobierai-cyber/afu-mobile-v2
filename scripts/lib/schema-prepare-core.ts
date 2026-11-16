@@ -132,6 +132,9 @@ async function verify0043LgpdCompliance(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "lgpd_deletion_requests"))) {
     throw new Error("0043_lgpd_compliance: tabela lgpd_deletion_requests ausente");
   }
+  if (!(await columnExists(conn, "lgpd_deletion_requests", "previousStatusPerfil"))) {
+    throw new Error("0043_lgpd_compliance: coluna previousStatusPerfil ausente");
+  }
 }
 
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {

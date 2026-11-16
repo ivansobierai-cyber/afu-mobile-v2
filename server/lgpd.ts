@@ -1,6 +1,9 @@
 /**
  * WP-07 — LGPD operacional: consentimento, exportação e exclusão agendada.
  * Nunca faz hard-delete de conta. Anonimização só após período de graça.
+ *
+ * Anonimização após a graça é **manual/admin** (auth.lgpd.adminAnonymize) —
+ * não há job automático neste PR (ver docs/LGPD.md).
  */
 import { and, desc, eq, inArray } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -19,6 +22,7 @@ import {
   diagnosticosIa,
   lgpdConsentRecords,
   lgpdDeletionRequests,
+  organizations,
   produtores,
   propriedades,
   users,
@@ -55,6 +59,8 @@ function addDays(from: Date, days: number): Date {
   d.setUTCDate(d.getUTCDate() + days);
   return d;
 }
+
+type PerfilStatus = "ativo" | "inativo" | "suspenso";
 
 export async function recordConsent(opts: {
   userId: number;
@@ -99,19 +105,16 @@ export async function recordConsent(opts: {
   return id;
 }
 
+/** Sempre grava as versões canônicas do servidor (ignora input do cliente). */
 export async function recordSignupConsents(opts: {
   userId: number;
-  termsVersion?: string;
-  privacyVersion?: string;
   ip?: string | null;
   userAgent?: string | null;
 }): Promise<{ termsId: number; privacyId: number }> {
-  const termsVersion = opts.termsVersion || LGPD_TERMS_VERSION;
-  const privacyVersion = opts.privacyVersion || LGPD_PRIVACY_VERSION;
   const termsId = await recordConsent({
     userId: opts.userId,
     documentType: "terms",
-    documentVersion: termsVersion,
+    documentVersion: LGPD_TERMS_VERSION,
     source: "signup",
     ip: opts.ip,
     userAgent: opts.userAgent,
@@ -119,7 +122,7 @@ export async function recordSignupConsents(opts: {
   const privacyId = await recordConsent({
     userId: opts.userId,
     documentType: "privacy",
-    documentVersion: privacyVersion,
+    documentVersion: LGPD_PRIVACY_VERSION,
     source: "signup",
     ip: opts.ip,
     userAgent: opts.userAgent,
@@ -152,6 +155,18 @@ export async function getActiveDeletionRequest(userId: number): Promise<LgpdDele
     .orderBy(desc(lgpdDeletionRequests.requestedAt))
     .limit(1);
   return rows[0] ?? null;
+}
+
+function isAuditAboutUser(
+  entry: typeof auditLogs.$inferSelect,
+  userId: number,
+): boolean {
+  if (entry.action.startsWith("lgpd.")) return true;
+  if (entry.resourceType === "user" && entry.resourceId === String(userId)) return true;
+  if (entry.resourceType === "lgpd_consent" || entry.resourceType === "lgpd_deletion_request") {
+    return true;
+  }
+  return false;
 }
 
 export async function exportUserData(userId: number) {
@@ -206,12 +221,15 @@ export async function exportUserData(userId: number) {
     .where(eq(lgpdDeletionRequests.userId, userId))
     .orderBy(desc(lgpdDeletionRequests.requestedAt));
 
-  const audits = await db
+  const auditsRaw = await db
     .select()
     .from(auditLogs)
     .where(eq(auditLogs.actorUserId, userId))
     .orderBy(desc(auditLogs.createdAt))
     .limit(200);
+
+  // Somente entradas sobre o titular (evita vazar meta/ip de ações admin sobre terceiros).
+  const recentAuditLogs = auditsRaw.filter((a) => isAuditAboutUser(a, userId));
 
   const { passwordHash: _ph, refreshToken: _rt, resetToken: _rst, ...userSafe } = user;
 
@@ -228,7 +246,7 @@ export async function exportUserData(userId: number) {
     diagnosticos,
     consents,
     deletionRequests: deletionReqs,
-    recentAuditLogs: audits,
+    recentAuditLogs,
   };
 
   await writeAuditLog({
@@ -268,10 +286,18 @@ export async function requestAccountDeletion(opts: {
   const now = new Date();
   const scheduledAnonymizeAt = addDays(now, grace);
 
+  const [perfil] = await db
+    .select()
+    .from(usuariosAfu)
+    .where(eq(usuariosAfu.userId, opts.userId))
+    .limit(1);
+  const previousStatusPerfil: PerfilStatus | null = perfil?.status ?? null;
+
   const result = await db.insert(lgpdDeletionRequests).values({
     userId: opts.userId,
     status: "scheduled",
     reason: opts.reason?.slice(0, 2000) || null,
+    previousStatusPerfil,
     gracePeriodDays: grace,
     requestedAt: now,
     scheduledAnonymizeAt,
@@ -280,12 +306,7 @@ export async function requestAccountDeletion(opts: {
   });
   const id = Number(result[0].insertId);
 
-  // Suspende login imediatamente (soft) — dados permanecem até anonimização
-  const [perfil] = await db
-    .select()
-    .from(usuariosAfu)
-    .where(eq(usuariosAfu.userId, opts.userId))
-    .limit(1);
+  // Suspende imediatamente (soft) — dados permanecem até anonimização
   if (perfil) {
     await db
       .update(usuariosAfu)
@@ -304,6 +325,7 @@ export async function requestAccountDeletion(opts: {
     meta: JSON.stringify({
       gracePeriodDays: grace,
       scheduledAnonymizeAt: scheduledAnonymizeAt.toISOString(),
+      previousStatusPerfil,
     }),
   });
 
@@ -356,10 +378,17 @@ export async function cancelAccountDeletion(opts: {
     .from(usuariosAfu)
     .where(eq(usuariosAfu.userId, active.userId))
     .limit(1);
-  if (perfil && perfil.status === "suspenso") {
+  if (perfil) {
+    // Restaura status prévio — não força "ativo" (evita desfazer suspensão administrativa)
+    const restoreTo: PerfilStatus =
+      active.previousStatusPerfil === "ativo" ||
+      active.previousStatusPerfil === "inativo" ||
+      active.previousStatusPerfil === "suspenso"
+        ? active.previousStatusPerfil
+        : "ativo";
     await db
       .update(usuariosAfu)
-      .set({ status: "ativo" })
+      .set({ status: restoreTo })
       .where(eq(usuariosAfu.id, perfil.id));
   }
 
@@ -370,6 +399,9 @@ export async function cancelAccountDeletion(opts: {
     resourceId: String(active.id),
     ip: opts.ip ?? undefined,
     userAgent: opts.userAgent ?? undefined,
+    meta: JSON.stringify({
+      restoredStatus: active.previousStatusPerfil ?? "ativo",
+    }),
   });
 
   const [row] = await db
@@ -383,6 +415,7 @@ export async function cancelAccountDeletion(opts: {
 /**
  * Anonimiza dados pessoais do titular. NUNCA hard-delete.
  * Só processa se status scheduled/pending e scheduledAnonymizeAt <= now (ou forceAdmin).
+ * Operação atômica via transaction.
  */
 export async function anonymizeAccount(opts: {
   requestId: number;
@@ -420,68 +453,93 @@ export async function anonymizeAccount(opts: {
   const anonEmail = `deleted_${userId}@anonymized.local`;
   const anonName = `Usuario Anonimizado ${userId}`;
 
-  await db
-    .update(users)
-    .set({
-      email: anonEmail,
-      name: anonName,
-      passwordHash: null,
-      refreshToken: null,
-      refreshTokenExpiry: null,
-      resetToken: null,
-      resetTokenExpiry: null,
-      openId: `anon_${userId}_${Date.now()}`,
-    })
-    .where(eq(users.id, userId));
-
-  const [perfil] = await db
-    .select()
-    .from(usuariosAfu)
-    .where(eq(usuariosAfu.userId, userId))
-    .limit(1);
-  if (perfil) {
-    await db
-      .update(usuariosAfu)
+  await db.transaction(async (tx) => {
+    await tx
+      .update(users)
       .set({
-        nome: anonName,
         email: anonEmail,
-        telefone: null,
-        registroProfissional: null,
-        cargo: null,
-        status: "inativo",
+        name: anonName,
+        passwordHash: null,
+        refreshToken: null,
+        refreshTokenExpiry: null,
+        resetToken: null,
+        resetTokenExpiry: null,
+        openId: `anon_${userId}_${Date.now()}`,
       })
-      .where(eq(usuariosAfu.id, perfil.id));
+      .where(eq(users.id, userId));
 
-    const [prod] = await db
+    const [perfil] = await tx
       .select()
-      .from(produtores)
-      .where(eq(produtores.usuarioId, perfil.id))
+      .from(usuariosAfu)
+      .where(eq(usuariosAfu.userId, userId))
       .limit(1);
-    if (prod) {
-      await db
-        .update(produtores)
+    if (perfil) {
+      await tx
+        .update(usuariosAfu)
         .set({
-          documento: null,
-          cidade: null,
-          estado: null,
-          regiao: null,
-          cadastroAtivo: false,
+          nome: anonName,
+          email: anonEmail,
+          telefone: null,
+          registroProfissional: null,
+          cargo: null,
+          status: "inativo",
         })
-        .where(eq(produtores.id, prod.id));
+        .where(eq(usuariosAfu.id, perfil.id));
+
+      const [prod] = await tx
+        .select()
+        .from(produtores)
+        .where(eq(produtores.usuarioId, perfil.id))
+        .limit(1);
+      if (prod) {
+        await tx
+          .update(produtores)
+          .set({
+            documento: null,
+            cidade: null,
+            estado: null,
+            regiao: null,
+            cadastroAtivo: false,
+          })
+          .where(eq(produtores.id, prod.id));
+      }
     }
-  }
+
+    // Organização pessoal (produtor_individual) do titular
+    await tx
+      .update(organizations)
+      .set({ nome: `Organizacao Anonimizada ${userId}` })
+      .where(
+        and(
+          eq(organizations.ownerUserId, userId),
+          eq(organizations.tipo, "produtor_individual"),
+        ),
+      );
+
+    // Remove IP/UA dos registros LGPD do titular
+    await tx
+      .update(lgpdConsentRecords)
+      .set({ ip: null, userAgent: null })
+      .where(eq(lgpdConsentRecords.userId, userId));
+    await tx
+      .update(lgpdDeletionRequests)
+      .set({ ip: null, userAgent: null })
+      .where(eq(lgpdDeletionRequests.userId, userId));
+
+    await tx
+      .update(lgpdDeletionRequests)
+      .set({
+        status: "anonymized",
+        processedAt: new Date(),
+        processedByAdminUserId: opts.adminUserId,
+        adminNotes: opts.adminNotes ?? null,
+        ip: null,
+        userAgent: null,
+      })
+      .where(eq(lgpdDeletionRequests.id, opts.requestId));
+  });
 
   await revokeRefreshToken(userId);
-
-  await db
-    .update(lgpdDeletionRequests)
-    .set({
-      status: "anonymized",
-      processedAt: new Date(),
-      processedByAdminUserId: opts.adminUserId,
-      adminNotes: opts.adminNotes ?? null,
-    })
-    .where(eq(lgpdDeletionRequests.id, opts.requestId));
 
   await writeAuditLog({
     actorUserId: opts.adminUserId,
@@ -535,7 +593,8 @@ export function getLgpdPublicInfo() {
     privacyVersion: LGPD_PRIVACY_VERSION,
     deletionGraceDays: LGPD_DELETION_GRACE_DAYS,
     legalReviewRequired: true,
+    anonymizationMode: "manual_admin" as const,
     notice:
-      "Textos legais e prazos são PLACEHOLDER para revisão jurídica (LGPD / Play Store Data Safety).",
+      "Textos legais e prazos são PLACEHOLDER para revisão jurídica (LGPD / Play Store Data Safety). Anonimização pós-graça é manual via admin (sem cron neste release).",
   };
 }

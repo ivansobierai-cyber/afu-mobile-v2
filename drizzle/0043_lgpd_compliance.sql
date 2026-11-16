@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS `lgpd_deletion_requests` (
   `userId` int NOT NULL,
   `status` enum('pending','scheduled','cancelled','anonymized','rejected') NOT NULL DEFAULT 'scheduled',
   `reason` text NULL,
+  `previousStatusPerfil` enum('ativo','inativo','suspenso') NULL,
   `gracePeriodDays` int NOT NULL DEFAULT 30,
   `requestedAt` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `scheduledAnonymizeAt` timestamp NOT NULL,

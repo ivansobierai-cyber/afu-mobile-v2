@@ -41,13 +41,22 @@
 
 1. Titular chama `auth.lgpd.requestErase` (`confirm: true`).
 2. Status `scheduled`; `scheduledAnonymizeAt = now + LGPD_DELETION_GRACE_DAYS` (default **30**).
-3. Perfil AFU → `suspenso`; refresh token revogado.
-4. Titular ou admin pode **cancelar** durante a graça (`cancelErase` / `adminCancelErase`) → status `cancelled`, perfil volta a `ativo`.
-5. Após a graça (ou admin com `force: true`), `adminAnonymize` **anonimiza** (não apaga linhas):
-   - e-mail/nome → valores anônimos (`deleted_{id}@anonymized.local`)
-   - limpa telefone, documento, tokens, senha
-   - perfil `inativo`
+3. Guarda `previousStatusPerfil` e põe perfil AFU em `suspenso`; refresh token revogado.
+4. Cancelamento durante a graça:
+   - autenticado: `auth.lgpd.cancelErase`
+   - **sem sessão / pós WP-06:** `auth.lgpd.cancelEraseWithCredentials` (e-mail+senha)
+   - admin: `adminCancelErase`
+   - ao cancelar, o perfil volta ao **status anterior** (não força `ativo` se já era suspensão admin)
+5. Após a graça, a anonimização é **manual via admin** (`adminAnonymize`) — **não há cron/job automático** neste release. Operação em `db.transaction`; também anonimiza nome da org pessoal e limpa IP/UA em `lgpd_*`.
 6. **Nunca** há `DELETE` hard da conta neste fluxo.
+
+### Suspensão × login (coordenação WP-06)
+
+Helper estável: `assertAccountActive(userId, { allowPendingErasure })` em `server/lgpd-account-active.ts`.
+
+- WP-06 deve chamar esse helper em `loginWithEmail` / `authenticateRequest`.
+- Com `{ allowPendingErasure: true }`, titular `suspenso` **somente** por exclusão LGPD ativa ainda autentica para cancelar.
+- Se o login for bloqueado sem essa flag, use `cancelEraseWithCredentials`.
 
 ## Retenção (notas operacionais — PLACEHOLDER jurídico)
 
@@ -69,10 +78,13 @@ auth.lgpd.export                (autenticado) → JSON
 auth.lgpd.deletionStatus        (autenticado)
 auth.lgpd.requestErase          (autenticado)
 auth.lgpd.cancelErase           (autenticado)
+auth.lgpd.cancelEraseWithCredentials (público: email+senha — pós-bloqueio WP-06)
 auth.lgpd.adminListEraseRequests (admin)
 auth.lgpd.adminCancelErase      (admin)
-auth.lgpd.adminAnonymize        (admin)
+auth.lgpd.adminAnonymize        (admin) — manual após graça; sem cron
 ```
+
+URLs públicas (Play Store / PR #60): `https://afuagro.tech/privacidade` e `/termos` redirecionam para `/legal/privacidade` e `/legal/termos` (`vercel.json` + rotas Expo alias).
 
 Exemplo curl (export):
 

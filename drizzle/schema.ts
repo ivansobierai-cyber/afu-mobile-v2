@@ -2046,6 +2046,12 @@ export const lgpdDeletionRequests = mysqlTable(
       .default("scheduled")
       .notNull(),
     reason: text("reason"),
+    /** Status do perfil AFU antes da suspensão pela solicitação LGPD (restaurado no cancel). */
+    previousStatusPerfil: mysqlEnum("previousStatusPerfil", [
+      "ativo",
+      "inativo",
+      "suspenso",
+    ]),
     gracePeriodDays: int("gracePeriodDays").default(30).notNull(),
     requestedAt: timestamp("requestedAt").defaultNow().notNull(),
     scheduledAnonymizeAt: timestamp("scheduledAnonymizeAt").notNull(),

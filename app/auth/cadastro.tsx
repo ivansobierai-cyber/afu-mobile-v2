@@ -6,7 +6,7 @@ import { AuthCard } from '@/components/auth-card';
 import { AuthTextInput } from '@/components/auth-text-input';
 import { AuthButton } from '@/components/auth-button';
 import { useAuthAPI } from '@/hooks/use-auth-api';
-import { LGPD_PRIVACY_VERSION, LGPD_TERMS_VERSION } from '@/lib/lgpd/constants';
+import { LGPD_TERMS_VERSION } from '@/lib/lgpd/constants';
 
 const PROFILE_TYPES = [
   { id: 'produtor', label: 'Produtor Rural', icon: '🚜', description: 'Gerencio propriedades e cultivos' },
@@ -91,8 +91,6 @@ export default function CadastroScreen() {
       confirmPassword,
       profile: selectedProfile as 'produtor' | 'tecnico',
       acceptedTerms: true,
-      termsVersion: LGPD_TERMS_VERSION,
-      privacyVersion: LGPD_PRIVACY_VERSION,
     });
 
     if (result.success) {

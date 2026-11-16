@@ -45,8 +45,6 @@ export interface SignupInput {
   profile: 'produtor' | 'tecnico';
   /** WP-07 — aceite explícito dos documentos legais */
   acceptedTerms: true;
-  termsVersion?: string;
-  privacyVersion?: string;
 }
 
 export function useAuthAPI() {
@@ -148,8 +146,6 @@ export function useAuthAPI() {
         name: input.name,
         profile: input.profile,
         acceptedTerms: true,
-        termsVersion: input.termsVersion,
-        privacyVersion: input.privacyVersion,
       });
 
       if (result.success && result.accessToken) {
