@@ -11,7 +11,7 @@ import {
   TextInput,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
-import { useLocalSearchParams } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
@@ -22,6 +22,7 @@ import { openLaudoHtml } from "@/lib/laudo-html";
 import { notifyFitossanitario } from "@/lib/notifications";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import { useAiContext } from "@/hooks/use-ai-context";
+import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 import type { PartePlanta } from "@/shared/types";
 
 const PARTES: { value: PartePlanta; label: string; icon: string }[] = [
@@ -73,15 +74,23 @@ type CultivoAtivo = {
   areaPlantada?: string | null;
   status?: string | null;
   propriedadeId?: number | null;
+  safraId?: number | null;
 };
 
 export default function DiagnosticoScreen() {
   const colors = useColors();
+  const router = useRouter();
   const { historico: historicoParam } = useLocalSearchParams<{ historico?: string }>();
   const utils = trpc.useUtils();
 
   const { cacheInput, activeOrganizationId, tenantReady } = useTenantQueryScope();
-  
+  const { data: session } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
+  const activeRole = (session?.activeRole ?? null) as OrgRole | null;
+  const canCreateTarefaFromReco =
+    activeRole != null &&
+    roleHasPermission(activeRole, "operations.write") &&
+    roleHasPermission(activeRole, "diagnostics.write");
+
   const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoAtivo | null>(null);
   const { rememberDiagnostico } = useAiContext(cultivoSelecionado?.propriedadeId ?? null);
   const { data: historicoRaw = [], refetch: refetchHistorico } = trpc.diagnostico.historico.useQuery(
@@ -105,6 +114,10 @@ export default function DiagnosticoScreen() {
   const [showHistorico, setShowHistorico] = useState(false);
   const [showCultivoPicker, setShowCultivoPicker] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [creatingTarefa, setCreatingTarefa] = useState(false);
+  const [tarefaCriadaId, setTarefaCriadaId] = useState<number | null>(null);
+  /** ID real do banco após salvar (evita Date.now() local). */
+  const [persistedDiagnosticoId, setPersistedDiagnosticoId] = useState<number | null>(null);
 
   useEffect(() => {
     if (historicoParam === "1") {
@@ -115,6 +128,23 @@ export default function DiagnosticoScreen() {
   const salvarMutation = trpc.diagnostico.salvar.useMutation({
     onSuccess: () => utils.diagnostico.historico.invalidate(cacheInput),
   });
+
+  const criarTarefaMutation = trpc.diagnostico.criarTarefa.useMutation({
+    onSuccess: () => {
+      utils.diagnostico.historico.invalidate(cacheInput);
+      if (resultado?.id) {
+        utils.diagnostico.getTarefaVinculada.invalidate({ diagnosticoId: resultado.id });
+      }
+    },
+  });
+
+  const diagnosticoIdParaTarefa = persistedDiagnosticoId ?? null;
+  const { data: tarefaVinculada } = trpc.diagnostico.getTarefaVinculada.useQuery(
+    { diagnosticoId: diagnosticoIdParaTarefa ?? 0 },
+    {
+      enabled: tenantReady && diagnosticoIdParaTarefa != null && diagnosticoIdParaTarefa > 0,
+    },
+  );
 
   const pdfMutation = trpc.analise.gerarPDF.useMutation();
 
@@ -143,6 +173,8 @@ export default function DiagnosticoScreen() {
       setImageUri(result.assets[0].uri);
       setImageBase64(result.assets[0].base64 ?? null);
       setResultado(null);
+      setTarefaCriadaId(null);
+      setPersistedDiagnosticoId(null);
     }
   };
 
@@ -154,11 +186,13 @@ export default function DiagnosticoScreen() {
         ? `${cultivoSelecionado.nomeCultura} — ${cultivoSelecionado.variedade ?? ""}`
         : undefined;
 
+      let persistedId: number | null = null;
       try {
-        await salvarMutation.mutateAsync({
+        persistedId = await salvarMutation.mutateAsync({
           culturaNome,
           culturaId: cultivoSelecionado?.id,
           propriedadeId: cultivoSelecionado?.propriedadeId ?? undefined,
+          safraId: cultivoSelecionado?.safraId ?? undefined,
           parteAnalisada: parte,
           sintomas: sintomas.trim() || undefined,
           problema: data.problema,
@@ -182,10 +216,12 @@ export default function DiagnosticoScreen() {
       });
 
       const diag: DiagnosticoView = {
-        id: Date.now(),
+        id: persistedId ?? Date.now(),
         culturaNome,
         cultivoId: cultivoSelecionado?.id,
         cultivoNome,
+        propriedadeId: cultivoSelecionado?.propriedadeId ?? null,
+        safraId: cultivoSelecionado?.safraId ?? null,
         parteAnalisada: parte,
         sintomas: sintomas.trim() || undefined,
         imagemUrl: imageUri,
@@ -193,6 +229,8 @@ export default function DiagnosticoScreen() {
         resultado: data,
         createdAt: new Date().toISOString(),
       };
+      setTarefaCriadaId(null);
+      setPersistedDiagnosticoId(persistedId);
       setResultado(diag);
       setAnalyzing(false);
 
@@ -253,6 +291,57 @@ export default function DiagnosticoScreen() {
       Alert.alert("Erro", message);
     } finally {
       setGeneratingPdf(false);
+    }
+  };
+
+  const handleCriarTarefa = async (recomendacaoIndex?: number) => {
+    if (!resultado) return;
+    if (!resultado.propriedadeId && !cultivoSelecionado?.propriedadeId) {
+      Alert.alert(
+        "Propriedade necessária",
+        "Vincule um cultivo/propriedade antes de criar a tarefa a partir da recomendação.",
+      );
+      return;
+    }
+    if (persistedDiagnosticoId == null) {
+      Alert.alert(
+        "Diagnóstico não salvo",
+        "Não foi possível persistir o laudo. Tente analisar novamente para criar a tarefa.",
+      );
+      return;
+    }
+    setCreatingTarefa(true);
+    try {
+      const res = await criarTarefaMutation.mutateAsync({
+        diagnosticoId: persistedDiagnosticoId,
+        recomendacaoIndex,
+        safraId: resultado.safraId ?? cultivoSelecionado?.safraId ?? undefined,
+      });
+      setTarefaCriadaId(res.tarefaId);
+      Alert.alert(
+        res.created ? "Tarefa criada" : "Tarefa já vinculada",
+        res.created
+          ? `Tarefa #${res.tarefaId} criada a partir da recomendação do laudo.`
+          : `Já existe a tarefa #${res.tarefaId} vinculada a este diagnóstico.`,
+        [
+          { text: "OK" },
+          {
+            text: "Ver operações",
+            onPress: () => {
+              const propId = resultado.propriedadeId ?? cultivoSelecionado?.propriedadeId;
+              if (propId) {
+                router.push(`/propriedades/${propId}?tab=operacoes` as any);
+              }
+            },
+          },
+        ],
+      );
+    } catch (e: unknown) {
+      const message =
+        e instanceof Error ? e.message : "Não foi possível criar a tarefa.";
+      Alert.alert("Erro", message);
+    } finally {
+      setCreatingTarefa(false);
     }
   };
 
@@ -950,6 +1039,41 @@ export default function DiagnosticoScreen() {
               </View>
             )}
 
+            {/* Tarefa vinculada (WP-03) */}
+            {(tarefaVinculada || tarefaCriadaId) && (
+              <View
+                style={[
+                  styles.resultCard,
+                  {
+                    borderColor: colors.primary + "40",
+                    backgroundColor: colors.primary + "10",
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    fontWeight: "700",
+                    color: colors.primary,
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginBottom: 6,
+                  }}
+                >
+                  Tarefa operacional
+                </Text>
+                <Text style={{ fontSize: 14, color: colors.foreground, fontWeight: "600" }}>
+                  #{tarefaVinculada?.id ?? tarefaCriadaId}
+                  {tarefaVinculada?.titulo ? ` — ${tarefaVinculada.titulo}` : ""}
+                </Text>
+                {tarefaVinculada?.status ? (
+                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>
+                    Status: {tarefaVinculada.status}
+                  </Text>
+                ) : null}
+              </View>
+            )}
+
             {/* Botões de ação */}
             <View style={{ gap: 10, marginBottom: 20 }}>
               <TouchableOpacity
@@ -966,9 +1090,50 @@ export default function DiagnosticoScreen() {
                   {generatingPdf ? "Gerando laudo..." : "Gerar Laudo PDF"}
                 </Text>
               </TouchableOpacity>
+
+              {canCreateTarefaFromReco &&
+                resultado.resultado.recomendacoes.length > 0 &&
+                !tarefaVinculada &&
+                !tarefaCriadaId && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderRadius: 12,
+                      paddingVertical: 14,
+                      alignItems: "center",
+                      flexDirection: "row",
+                      justifyContent: "center",
+                      gap: 8,
+                      borderWidth: 1,
+                      borderColor: colors.primary,
+                    }}
+                    onPress={() => void handleCriarTarefa()}
+                    disabled={creatingTarefa}
+                  >
+                    {creatingTarefa ? (
+                      <ActivityIndicator color={colors.primary} />
+                    ) : (
+                      <IconSymbol name="wrench.fill" size={18} color={colors.primary} />
+                    )}
+                    <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>
+                      {creatingTarefa
+                        ? "Criando tarefa..."
+                        : "Criar tarefa a partir da recomendação"}
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
               <TouchableOpacity
                 style={{ backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 14, alignItems: "center", borderWidth: 1, borderColor: colors.border }}
-                onPress={() => { setImageUri(null); setImageBase64(null); setResultado(null); setSintomas(""); setCultivoSelecionado(null); }}
+                onPress={() => {
+                  setImageUri(null);
+                  setImageBase64(null);
+                  setResultado(null);
+                  setSintomas("");
+                  setCultivoSelecionado(null);
+                  setTarefaCriadaId(null);
+                  setPersistedDiagnosticoId(null);
+                }}
               >
                 <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 15 }}>Nova Análise</Text>
               </TouchableOpacity>

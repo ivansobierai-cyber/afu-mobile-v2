@@ -15,9 +15,9 @@ Linear history used by `drizzle-kit migrate` (see `meta/_journal.json`):
 
 **Do not rename applied tags** — `__drizzle_migrations` already records them.
 
-## Migrations fora do journal (0020, 0021, 0029–0040, 0043–0044)
+## Migrations fora do journal (0020, 0021, 0029–0041, 0043–0044)
 
-Arquivos SQL em `drizzle/0020_safras.sql`, `0021_property_archive.sql`, `0029_*` … `0040_*`, `0043_*`, `0044_*` são aplicados por scripts idempotentes e orquestrados por:
+Arquivos SQL em `drizzle/0020_safras.sql`, `0021_property_archive.sql`, `0029_*` … `0041_*`, `0043_*`, `0044_*` são aplicados por scripts idempotentes e orquestrados por:
 
 ```bash
 npm run db:schema:prepare

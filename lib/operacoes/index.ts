@@ -23,6 +23,21 @@ export {
 } from "./evento-tarefa-status";
 
 export {
+  DIAGNOSTICO_GRAVIDADES,
+  DIAGNOSTICO_TIPOS,
+  TAREFA_PRIORIDADES,
+  buildInstrucoesTarefaFromDiagnostico,
+  buildTituloTarefaFromDiagnostico,
+  listDiagnosticoTarefaPrioridadeMappings,
+  listDiagnosticoTarefaTipoMappings,
+  mapDiagnosticoGravidadeToPrioridade,
+  mapDiagnosticoTipoToTipoOperacao,
+  type DiagnosticoGravidade,
+  type DiagnosticoTipo,
+  type TarefaPrioridade,
+} from "./diagnostico-tarefa-map";
+
+export {
   TIPO_ATIVIDADE_EVENTO_PERSISTIDO,
   TIPO_OPERACAO_TAREFA_PERSISTIDO,
   type TipoAtividadeEventoPersistido,

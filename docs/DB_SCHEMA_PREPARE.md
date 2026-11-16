@@ -77,7 +77,8 @@ Alternativa legada: `npm run db:push` (generate + migrate) **ainda não** aplica
 | 0029–0036 | **não** | `db:*:apply` | tags `0029_*` … `0036_*` |
 | 0037–0039 | **não** | `db:operacoes*:apply` | tags `0037_*` … `0039_*` |
 | 0040 | **não** | `db:evento-tarefa-bridge:apply` | `0040_evento_tarefa_bridge` (backfill ponte WP-02) |
-| 0041–0042 | **não** (PRs WP-03/WP-04) | diagnóstico→tarefa / revisão técnica | quando mergeados |
+| 0041 | **não** | `db:diagnostico-tarefa-bridge:apply` | `0041_diagnostico_tarefa_bridge` (safraId + legadoDiagnosticoId WP-03) |
+| 0042 | **não** (PR WP-04) | revisão técnica | quando mergeado |
 | **0043** | **não** | `db:lgpd:apply` | `0043_lgpd_compliance` (WP-07) |
 | **0044** | **não** | `db:produtor-plano:apply` | `0044_produtor_plano` (WP-06) |
 

@@ -16,6 +16,8 @@ export type DiagnosticoView = {
   culturaNome: string;
   cultivoId?: number;
   cultivoNome?: string;
+  propriedadeId?: number | null;
+  safraId?: number | null;
   parteAnalisada: string;
   sintomas?: string;
   imagemUrl?: string | null;
@@ -43,6 +45,9 @@ export function mapDbDiagnostico(row: DiagnosticoIa): DiagnosticoView {
   return {
     id: row.id,
     culturaNome: parsed.culturaNome ?? row.sintomasInformados ?? "—",
+    cultivoId: row.culturaId ?? undefined,
+    propriedadeId: row.propriedadeId ?? null,
+    safraId: row.safraId ?? null,
     parteAnalisada: row.partePlanta ?? "folha",
     sintomas: parsed.sintomas ?? row.sintomasInformados ?? undefined,
     imagemUrl: row.imagemUrl,
