@@ -113,7 +113,7 @@ npm run eas:android:apk      # APK LAN (IP local 192.168.1.5)
 npm run eas:android:prod     # build produção (AAB)
 ```
 
-Ajuste `EXPO_PUBLIC_API_BASE_URL` em `eas.json` (profiles `preview` / `production`) para a URL real da API.
+`eas.json` (`preview` / `production`) aponta para a API Railway. Domínio custom futuro: `api.afuagro.tech` — ver [docs/API_ROUTING.md](docs/API_ROUTING.md).
 
 Guia completo de staging: [docs/STAGING.md](docs/STAGING.md).  
 Checklist merge PR #8 (expansão 31–46): [docs/MERGE_STAGING_CHECKLIST.md](docs/MERGE_STAGING_CHECKLIST.md).

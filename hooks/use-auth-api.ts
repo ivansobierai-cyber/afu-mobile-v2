@@ -78,13 +78,7 @@ export function useAuthAPI() {
           await Auth.setRefreshToken(result.refreshToken);
         }
 
-        // CORREÇÃO P1: Em web/iframe, cookies de domínio cruzado não funcionam.
-        // Chamar /api/auth/session para que o backend sete o cookie no domínio correto.
-        if (Platform.OS === 'web') {
-          console.log('[useAuthAPI] Web: estabelecendo sessão via /api/auth/session...');
-          const ok = await Api.establishSession(result.accessToken);
-          console.log('[useAuthAPI] establishSession resultado:', ok ? 'sucesso' : 'falhou');
-        }
+        // Web: Bearer via Auth storage / tRPC headers (no cross-site session cookie).
 
         // Armazenar informações do usuário
         if (result.user) {
@@ -155,13 +149,7 @@ export function useAuthAPI() {
           await Auth.setRefreshToken(result.refreshToken);
         }
 
-        // CORREÇÃO P1: Em web/iframe, cookies de domínio cruzado não funcionam.
-        // Chamar /api/auth/session para que o backend sete o cookie no domínio correto.
-        if (Platform.OS === 'web') {
-          console.log('[useAuthAPI] Web: estabelecendo sessão via /api/auth/session...');
-          const ok = await Api.establishSession(result.accessToken);
-          console.log('[useAuthAPI] establishSession resultado:', ok ? 'sucesso' : 'falhou');
-        }
+        // Web: Bearer via Auth storage / tRPC headers (no cross-site session cookie).
 
         // Armazenar informações do usuário
         if (result.user) {
