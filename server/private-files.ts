@@ -54,7 +54,12 @@ export type AuditAction =
   | "property.archive"
   | "property.restore"
   | "property.delete"
-  | "property.export";
+  | "property.export"
+  | "lgpd.consent"
+  | "lgpd.export"
+  | "lgpd.erase_request"
+  | "lgpd.erase_cancel"
+  | "lgpd.anonymize";
 
 /** Auditoria de tentativa bloqueada (cross-tenant / sem membership / sem permissão). */
 export async function auditAccessDenied(opts: {

@@ -1,10 +1,12 @@
 /**
- * WP-06 — bloqueio de conta soft-desativada (suspenso/inativo).
- * Separado de db-auth para reduzir conflito com PR #61; login/sdk só chamam o helper.
+ * Conta ativa / soft-deactivate (WP-06) + allowPendingErasure (WP-07 LGPD).
  *
- * allowPendingErasure: se existir solicitação LGPD ativa (PR #69 / tabela
- * lgpd_deletion_requests), permite login para o titular cancelar a exclusão.
- * Sem a tabela (este branch), o hook é no-op → conta suspensa/inativa continua bloqueada.
+ * Única implementação canônica de `assertAccountActive` — login (`db-auth`),
+ * Bearer/session (`sdk.authenticateRequest`) e rotas LGPD usam este módulo.
+ *
+ * `allowPendingErasure: true` permite titular com exclusão LGPD agendada
+ * autenticar-se para cancelar; sem a tabela `lgpd_deletion_requests`, o hook
+ * é no-op e conta suspensa/inativa continua bloqueada.
  */
 import { eq, sql } from "drizzle-orm";
 import { TRPCError } from "@trpc/server";
@@ -19,7 +21,12 @@ export class AccountInactiveError extends Error {
   }
 }
 
-/** Hook no-op quando a tabela LGPD não existe neste branch/ambiente. */
+export type AccountActiveResult = {
+  status: "ativo" | "inativo" | "suspenso" | null;
+  pendingErasure: boolean;
+};
+
+/** Hook no-op quando a tabela LGPD não existe neste ambiente. */
 export async function hasActiveLgpdErasureRequest(userId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
@@ -38,35 +45,49 @@ export async function hasActiveLgpdErasureRequest(userId: number): Promise<boole
   }
 }
 
+export async function getAccountStatus(userId: number): Promise<AccountActiveResult> {
+  const db = await getDb();
+  if (!db) {
+    return { status: null, pendingErasure: false };
+  }
+  const [perfil] = await db
+    .select({ status: usuariosAfu.status })
+    .from(usuariosAfu)
+    .where(eq(usuariosAfu.userId, userId))
+    .limit(1);
+  const status = (perfil?.status ?? null) as AccountActiveResult["status"];
+  const pendingErasure = await hasActiveLgpdErasureRequest(userId);
+  return { status, pendingErasure };
+}
+
 /**
- * Rejeita perfil `suspenso` / `inativo` com FORBIDDEN.
+ * Rejeita perfil `suspenso` / `inativo` com AccountInactiveError.
  * Sem perfil AFU → permite (legado / cron sync).
  */
 export async function assertAccountActive(
   user: { id: number },
   opts?: { allowPendingErasure?: boolean },
-): Promise<void> {
-  const db = await getDb();
-  if (!db) return;
+): Promise<AccountActiveResult> {
+  const result = await getAccountStatus(user.id);
 
-  const perfilRows = await db
-    .select({ status: usuariosAfu.status })
-    .from(usuariosAfu)
-    .where(eq(usuariosAfu.userId, user.id))
-    .limit(1);
-  const status = perfilRows[0]?.status;
-  if (!status || status === "ativo") return;
+  if (!result.status || result.status === "ativo") {
+    return result;
+  }
 
-  if (status === "suspenso" || status === "inativo") {
-    if (opts?.allowPendingErasure && (await hasActiveLgpdErasureRequest(user.id))) {
-      return;
+  if (result.status === "suspenso" || result.status === "inativo") {
+    if (opts?.allowPendingErasure && result.pendingErasure) {
+      return result;
     }
     throw new AccountInactiveError(
-      status === "suspenso"
-        ? "Conta suspensa. Contate o suporte AFU."
+      result.status === "suspenso"
+        ? result.pendingErasure
+          ? "Conta suspensa por solicitação de exclusão LGPD. Cancele a exclusão para reativar o acesso completo."
+          : "Conta suspensa. Contate o suporte AFU."
         : "Conta inativa. Contate o suporte AFU.",
     );
   }
+
+  return result;
 }
 
 /** Converte AccountInactiveError → TRPCError FORBIDDEN (para routers). */

@@ -75,6 +75,7 @@
     "db:operacoes:apply": "tsx scripts/apply-0037-operacoes-agricolas.ts",
     "db:operacoes-status:apply": "tsx scripts/apply-0038-operacoes-status.ts",
     "db:operacoes-apontamentos:apply": "tsx scripts/apply-0039-operacoes-apontamentos.ts",
+    "db:lgpd:apply": "tsx scripts/apply-0043-lgpd-compliance.ts",
     "db:produtor-plano:apply": "tsx scripts/apply-0044-produtor-plano.ts",
     "db:sync-ai:apply": "tsx scripts/apply-0018-0019-sync-ai.ts",
     "backfill:organizations": "tsx scripts/backfill-organizations.ts",

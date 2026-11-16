@@ -58,6 +58,55 @@ export function getS3EnvPresence(): {
   };
 }
 
+const ENDPOINT_HINT =
+  "use https://<ACCOUNT_ID>.r2.cloudflarestorage.com (scheme https:// obrigatório; não pub.dev/r2.dev)";
+
+/**
+ * Normalize S3/R2 endpoint: trim, prepend https:// when scheme missing, strip trailing slash.
+ * Returns undefined for empty input.
+ */
+export function normalizeS3Endpoint(url: string | undefined): string | undefined {
+  if (!url) return undefined;
+  let cleaned = url.trim();
+  if (!cleaned) return undefined;
+  cleaned = cleaned.replace(/\/+$/, "");
+  if (!cleaned) return undefined;
+  if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(cleaned)) {
+    cleaned = `https://${cleaned}`;
+  }
+  return cleaned;
+}
+
+/**
+ * Validate a normalized endpoint URL for the AWS SDK.
+ * Surfaces a clear hint instead of opaque "Invalid URL".
+ */
+export function validateS3Endpoint(
+  endpoint: string,
+): { ok: true } | { ok: false; detail: string } {
+  try {
+    const parsed = new URL(endpoint);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return {
+        ok: false,
+        detail: `STORAGE_S3_ENDPOINT protocolo inválido (${parsed.protocol}) — ${ENDPOINT_HINT}`,
+      };
+    }
+    if (!parsed.hostname) {
+      return {
+        ok: false,
+        detail: `STORAGE_S3_ENDPOINT sem hostname — ${ENDPOINT_HINT}`,
+      };
+    }
+    return { ok: true };
+  } catch {
+    return {
+      ok: false,
+      detail: `STORAGE_S3_ENDPOINT inválido (${endpoint.slice(0, 80)}) — ${ENDPOINT_HINT}`,
+    };
+  }
+}
+
 export function getS3StorageConfig(): S3StorageConfig | null {
   const bucket = firstEnv(
     "STORAGE_S3_BUCKET",
@@ -78,7 +127,7 @@ export function getS3StorageConfig(): S3StorageConfig | null {
     "R2_SECRET_ACCESS_KEY",
   );
   if (!bucket || !accessKeyId || !secretAccessKey) return null;
-  const endpoint = normalizeEndpoint(
+  const endpoint = normalizeS3Endpoint(
     firstEnv(
       "STORAGE_S3_ENDPOINT",
       "AWS_ENDPOINT_URL",
@@ -100,11 +149,6 @@ export function isS3StorageConfigured(): boolean {
   return getS3StorageConfig() !== null;
 }
 
-function normalizeEndpoint(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  return url.trim().replace(/\/+$/, "");
-}
-
 function resolveForcePathStyle(endpoint?: string): boolean {
   const raw = process.env.STORAGE_S3_FORCE_PATH_STYLE?.trim().toLowerCase();
   if (raw === "1" || raw === "true") return true;
@@ -119,7 +163,12 @@ function formatS3Error(err: unknown): string {
     const http = err.$metadata.httpStatusCode;
     return `${err.name}: ${err.message}${http ? ` (HTTP ${http})` : ""}`;
   }
-  if (err instanceof Error) return err.message;
+  if (err instanceof Error) {
+    if (/invalid url/i.test(err.message)) {
+      return `Invalid URL — ${ENDPOINT_HINT}`;
+    }
+    return err.message;
+  }
   return String(err);
 }
 
@@ -172,9 +221,12 @@ export async function probeS3StorageBucket(): Promise<{ ok: boolean; detail?: st
   if (!cfg.endpoint) {
     return {
       ok: false,
-      detail:
-        "STORAGE_S3_ENDPOINT ausente — use https://<ACCOUNT_ID>.r2.cloudflarestorage.com (não pub.dev/r2.dev)",
+      detail: `STORAGE_S3_ENDPOINT ausente — ${ENDPOINT_HINT}`,
     };
+  }
+  const validity = validateS3Endpoint(cfg.endpoint);
+  if (!validity.ok) {
+    return { ok: false, detail: validity.detail };
   }
   try {
     const client = createS3Client(cfg);
