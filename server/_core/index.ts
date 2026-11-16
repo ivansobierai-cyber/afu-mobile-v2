@@ -12,6 +12,7 @@ import { registerScheduledRoutes, startWeatherAlertsScheduler } from "./schedule
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import { getPublicStorageHealth } from "../storage-status";
+import { resolveCorsAllowOrigin } from "../cors-origins";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise((resolve) => {
@@ -36,11 +37,11 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // Enable CORS for all routes - reflect the request origin to support credentials
+  // CORS: reflect Origin (credentials). Always allow afuagro.tech / www — see cors-origins.ts
   app.use((req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-      res.header("Access-Control-Allow-Origin", origin);
+    const allowed = resolveCorsAllowOrigin(req.headers.origin);
+    if (allowed) {
+      res.header("Access-Control-Allow-Origin", allowed);
     }
     res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
     res.header(
