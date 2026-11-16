@@ -23,7 +23,15 @@ import { notifyFitossanitario } from "@/lib/notifications";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import { useAiContext } from "@/hooks/use-ai-context";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
+import { RevisaoTecnicaCard } from "@/components/diagnostico/revisao-tecnica-card";
 import type { PartePlanta } from "@/shared/types";
+
+const REVISAO_STATUS_COLORS: Record<string, string> = {
+  pendente: "#D97706",
+  revisado: "#2563EB",
+  confirmado: "#16A34A",
+  descartado: "#DC2626",
+};
 
 const PARTES: { value: PartePlanta; label: string; icon: string }[] = [
   { value: "folha", label: "Folha", icon: "leaf.fill" },
@@ -90,6 +98,8 @@ export default function DiagnosticoScreen() {
     activeRole != null &&
     roleHasPermission(activeRole, "operations.write") &&
     roleHasPermission(activeRole, "diagnostics.write");
+  const canReviewDiagnostico =
+    activeRole != null && roleHasPermission(activeRole, "diagnostics.review");
 
   const [cultivoSelecionado, setCultivoSelecionado] = useState<CultivoAtivo | null>(null);
   const { rememberDiagnostico } = useAiContext(cultivoSelecionado?.propriedadeId ?? null);
@@ -138,8 +148,35 @@ export default function DiagnosticoScreen() {
     },
   });
 
+  const [tarefaImpactoRevisao, setTarefaImpactoRevisao] = useState<{
+    tarefaId: number;
+    updated: boolean;
+    flaggedNeedsReview: boolean;
+    status: string;
+    statusChanged?: boolean;
+  } | null>(null);
+
+  const revisarMutation = trpc.diagnostico.revisar.useMutation({
+    onSuccess: () => {
+      utils.diagnostico.historico.invalidate(cacheInput);
+      if (persistedDiagnosticoId) {
+        utils.diagnostico.getRevisao.invalidate({ diagnosticoId: persistedDiagnosticoId });
+        utils.diagnostico.getTarefaVinculada.invalidate({
+          diagnosticoId: persistedDiagnosticoId,
+        });
+      }
+      utils.diagnostico.listarPendentesRevisao.invalidate();
+    },
+  });
+
   const diagnosticoIdParaTarefa = persistedDiagnosticoId ?? null;
   const { data: tarefaVinculada } = trpc.diagnostico.getTarefaVinculada.useQuery(
+    { diagnosticoId: diagnosticoIdParaTarefa ?? 0 },
+    {
+      enabled: tenantReady && diagnosticoIdParaTarefa != null && diagnosticoIdParaTarefa > 0,
+    },
+  );
+  const { data: revisaoAtual } = trpc.diagnostico.getRevisao.useQuery(
     { diagnosticoId: diagnosticoIdParaTarefa ?? 0 },
     {
       enabled: tenantReady && diagnosticoIdParaTarefa != null && diagnosticoIdParaTarefa > 0,
@@ -175,6 +212,7 @@ export default function DiagnosticoScreen() {
       setResultado(null);
       setTarefaCriadaId(null);
       setPersistedDiagnosticoId(null);
+      setTarefaImpactoRevisao(null);
     }
   };
 
@@ -226,6 +264,12 @@ export default function DiagnosticoScreen() {
         sintomas: sintomas.trim() || undefined,
         imagemUrl: imageUri,
         status: "concluido",
+        statusRevisao: "pendente",
+        statusRevisaoLabel: "Aguardando revisão",
+        parecerTecnico: null,
+        recomendacaoCorrigida: null,
+        recomendacaoOriginal: data.recomendacoes.join("; "),
+        revisadoEm: null,
         resultado: data,
         createdAt: new Date().toISOString(),
       };
@@ -294,8 +338,77 @@ export default function DiagnosticoScreen() {
     }
   };
 
+  const handleRevisar = async (input: {
+    acao: "confirmar" | "corrigir" | "descartar";
+    parecerTecnico?: string;
+    recomendacaoCorrigida?: string;
+  }) => {
+    if (persistedDiagnosticoId == null) {
+      Alert.alert("Diagnóstico não salvo", "Salve o laudo antes de revisar.");
+      return;
+    }
+    try {
+      const res = await revisarMutation.mutateAsync({
+        diagnosticoId: persistedDiagnosticoId,
+        ...input,
+      });
+      setTarefaImpactoRevisao(res.tarefaImpacto ?? null);
+      if (resultado) {
+        setResultado({
+          ...resultado,
+          statusRevisao: res.statusRevisao,
+          statusRevisaoLabel:
+            res.statusRevisao === "confirmado"
+              ? "Confirmado pelo técnico"
+              : res.statusRevisao === "revisado"
+                ? "Corrigido pelo técnico"
+                : res.statusRevisao === "descartado"
+                  ? "Rejeitado pelo técnico"
+                  : "Aguardando revisão",
+          parecerTecnico: res.parecerTecnico,
+          recomendacaoCorrigida: res.recomendacaoCorrigida,
+          revisadoEm: res.revisadoEm
+            ? new Date(res.revisadoEm).toISOString()
+            : new Date().toISOString(),
+          resultado: {
+            ...resultado.resultado,
+            recomendacoes:
+              res.statusRevisao === "revisado" && res.recomendacaoCorrigida
+                ? res.recomendacaoCorrigida
+                    .split(/\n|;/)
+                    .map((s) => s.trim())
+                    .filter(Boolean)
+                : resultado.resultado.recomendacoes,
+          },
+        });
+      }
+      const baseMsg =
+        res.statusRevisao === "confirmado"
+          ? "Laudo aprovado."
+          : res.statusRevisao === "revisado"
+            ? "Laudo corrigido. A recomendação corrigida alimenta a criação de tarefa."
+            : "Laudo rejeitado.";
+      const tarefaMsg = res.tarefaImpacto?.updated
+        ? res.tarefaImpacto.flaggedNeedsReview
+          ? `\n\nTarefa #${res.tarefaImpacto.tarefaId} sinalizada para revisão (status: ${res.tarefaImpacto.status}).`
+          : `\n\nTarefa #${res.tarefaImpacto.tarefaId} atualizada: nota da revisão anexada às instruções.`
+        : "";
+      Alert.alert("Revisão registrada", baseMsg + tarefaMsg);
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : "Não foi possível revisar.";
+      Alert.alert("Erro", message);
+    }
+  };
+
   const handleCriarTarefa = async (recomendacaoIndex?: number) => {
     if (!resultado) return;
+    if (resultado.statusRevisao === "descartado") {
+      Alert.alert(
+        "Diagnóstico rejeitado",
+        "Este laudo foi rejeitado pelo técnico e não gera tarefa.",
+      );
+      return;
+    }
     if (!resultado.propriedadeId && !cultivoSelecionado?.propriedadeId) {
       Alert.alert(
         "Propriedade necessária",
@@ -451,7 +564,7 @@ export default function DiagnosticoScreen() {
                         Sintomas: {diag.sintomas}
                       </Text>
                     )}
-                    <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center" }}>
+                    <View style={{ flexDirection: "row", gap: 8, marginTop: 6, alignItems: "center", flexWrap: "wrap" }}>
                       <View
                         style={{
                           backgroundColor: (STATUS_COLORS[diag.status] ?? colors.muted) + "20",
@@ -462,6 +575,25 @@ export default function DiagnosticoScreen() {
                       >
                         <Text style={{ fontSize: 10, fontWeight: "700", color: STATUS_COLORS[diag.status] ?? colors.muted }}>
                           {STATUS_LABELS[diag.status] ?? diag.status}
+                        </Text>
+                      </View>
+                      <View
+                        style={{
+                          backgroundColor:
+                            (REVISAO_STATUS_COLORS[diag.statusRevisao] ?? colors.muted) + "20",
+                          borderRadius: 6,
+                          paddingHorizontal: 7,
+                          paddingVertical: 2,
+                        }}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 10,
+                            fontWeight: "700",
+                            color: REVISAO_STATUS_COLORS[diag.statusRevisao] ?? colors.muted,
+                          }}
+                        >
+                          {diag.statusRevisaoLabel}
                         </Text>
                       </View>
                       <View
@@ -598,12 +730,23 @@ export default function DiagnosticoScreen() {
             Análise fitossanitária por inteligência artificial
           </Text>
         </View>
-        <TouchableOpacity
-          style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
-          onPress={openHistorico}
-        >
-          <IconSymbol name="clock.fill" size={20} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          {canReviewDiagnostico ? (
+            <TouchableOpacity
+              style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+              onPress={() => router.push("/mais/revisao-diagnosticos" as any)}
+              accessibilityLabel="Fila de revisão técnica"
+            >
+              <IconSymbol name="checkmark.shield.fill" size={20} color="#FFFFFF" />
+            </TouchableOpacity>
+          ) : null}
+          <TouchableOpacity
+            style={{ backgroundColor: "rgba(255,255,255,0.2)", borderRadius: 20, padding: 8 }}
+            onPress={openHistorico}
+          >
+            <IconSymbol name="clock.fill" size={20} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }} showsVerticalScrollIndicator={false}>
@@ -1039,14 +1182,57 @@ export default function DiagnosticoScreen() {
               </View>
             )}
 
+            {/* Revisão técnica (WP-04) — card novo; não remove laudo/PDF/tarefa */}
+            {persistedDiagnosticoId != null && (
+              <RevisaoTecnicaCard
+                diagnosticoId={persistedDiagnosticoId}
+                statusRevisao={
+                  (revisaoAtual?.statusRevisao as
+                    | "pendente"
+                    | "revisado"
+                    | "confirmado"
+                    | "descartado"
+                    | undefined) ?? resultado.statusRevisao
+                }
+                parecerTecnico={
+                  revisaoAtual?.parecerTecnico ?? resultado.parecerTecnico
+                }
+                recomendacaoCorrigida={
+                  revisaoAtual?.recomendacaoCorrigida ??
+                  resultado.recomendacaoCorrigida
+                }
+                recomendacaoOriginal={
+                  revisaoAtual?.recomendacaoOriginal ??
+                  resultado.recomendacaoOriginal
+                }
+                revisadoEm={
+                  revisaoAtual?.revisadoEm
+                    ? new Date(revisaoAtual.revisadoEm).toISOString()
+                    : resultado.revisadoEm
+                }
+                tarefaImpacto={tarefaImpactoRevisao}
+                canReview={canReviewDiagnostico}
+                reviewing={revisarMutation.isPending}
+                onRevisar={handleRevisar}
+              />
+            )}
+
             {/* Tarefa vinculada (WP-03) */}
             {(tarefaVinculada || tarefaCriadaId) && (
               <View
                 style={[
                   styles.resultCard,
                   {
-                    borderColor: colors.primary + "40",
-                    backgroundColor: colors.primary + "10",
+                    borderColor:
+                      tarefaVinculada?.status === "bloqueada" ||
+                      tarefaImpactoRevisao?.flaggedNeedsReview
+                        ? "#DC262655"
+                        : colors.primary + "40",
+                    backgroundColor:
+                      tarefaVinculada?.status === "bloqueada" ||
+                      tarefaImpactoRevisao?.flaggedNeedsReview
+                        ? "#DC262612"
+                        : colors.primary + "10",
                   },
                 ]}
               >
@@ -1054,7 +1240,11 @@ export default function DiagnosticoScreen() {
                   style={{
                     fontSize: 12,
                     fontWeight: "700",
-                    color: colors.primary,
+                    color:
+                      tarefaVinculada?.status === "bloqueada" ||
+                      tarefaImpactoRevisao?.flaggedNeedsReview
+                        ? "#DC2626"
+                        : colors.primary,
                     textTransform: "uppercase",
                     letterSpacing: 0.5,
                     marginBottom: 6,
@@ -1069,6 +1259,9 @@ export default function DiagnosticoScreen() {
                 {tarefaVinculada?.status ? (
                   <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>
                     Status: {tarefaVinculada.status}
+                    {tarefaVinculada.status === "bloqueada"
+                      ? " · precisa revisão técnica"
+                      : ""}
                   </Text>
                 ) : null}
               </View>
@@ -1092,6 +1285,7 @@ export default function DiagnosticoScreen() {
               </TouchableOpacity>
 
               {canCreateTarefaFromReco &&
+                resultado.statusRevisao !== "descartado" &&
                 resultado.resultado.recomendacoes.length > 0 &&
                 !tarefaVinculada &&
                 !tarefaCriadaId && (

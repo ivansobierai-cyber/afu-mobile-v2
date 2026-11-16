@@ -77,6 +77,7 @@
     "db:operacoes-apontamentos:apply": "tsx scripts/apply-0039-operacoes-apontamentos.ts",
     "db:evento-tarefa-bridge:apply": "tsx scripts/apply-0040-evento-tarefa-bridge.ts",
     "db:diagnostico-tarefa-bridge:apply": "tsx scripts/apply-0041-diagnostico-tarefa-bridge.ts",
+    "db:diagnostico-revisao-tecnica:apply": "tsx scripts/apply-0042-diagnostico-revisao-tecnica.ts",
     "db:lgpd:apply": "tsx scripts/apply-0043-lgpd-compliance.ts",
     "db:produtor-plano:apply": "tsx scripts/apply-0044-produtor-plano.ts",
     "db:sync-ai:apply": "tsx scripts/apply-0018-0019-sync-ai.ts",

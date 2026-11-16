@@ -81,6 +81,7 @@ const MAPPING = {
   "building.2.fill": "business",
   "cart.fill": "shopping-cart",
   "shield.fill": "shield",
+  "checkmark.shield.fill": "verified-user",
   "wrench.fill": "build",
   "circle.fill": "circle",
   "square.fill": "square",

@@ -23,6 +23,10 @@ import {
   mapDiagnosticoGravidadeToPrioridade,
   mapDiagnosticoTipoToTipoOperacao,
 } from "../lib/operacoes/diagnostico-tarefa-map";
+import {
+  canCreateTarefaFromRevisaoStatus,
+  resolveRecomendacoesEfetivas,
+} from "../lib/diagnostico-revisao";
 
 export async function findTarefaByLegadoDiagnosticoId(
   organizationId: number,
@@ -114,6 +118,13 @@ export async function createTarefaFromDiagnostico(
     });
   }
 
+  if (!canCreateTarefaFromRevisaoStatus(diag.statusRevisao)) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Diagnóstico rejeitado pelo técnico não gera tarefa",
+    });
+  }
+
   await requireWritablePropertyInTenant(tenant, diag.propriedadeId);
 
   // Terreno/safra/cultura devem pertencer à mesma propriedade do laudo.
@@ -137,12 +148,14 @@ export async function createTarefaFromDiagnostico(
     parsed.tipo ??
     (diag.pragaProvavel ? "praga" : diag.doencaProvavel ? "doenca" : "outro");
   const gravidade = parsed.severidade ?? diag.gravidade ?? "leve";
-  const recomendacoes =
-    parsed.recomendacoes.length > 0
-      ? parsed.recomendacoes
-      : diag.recomendacao
-        ? diag.recomendacao.split("; ").filter(Boolean)
-        : [];
+  // WP-04 — preferir recomendação corrigida pelo técnico quando existir.
+  const efetivas = resolveRecomendacoesEfetivas({
+    statusRevisao: diag.statusRevisao,
+    recomendacaoCorrigida: diag.recomendacaoCorrigida,
+    recomendacoesIa: parsed.recomendacoes,
+    recomendacaoIaTexto: diag.recomendacao,
+  });
+  const recomendacoes = efetivas.recomendacoes;
 
   const recomendacaoIndex =
     input.recomendacaoIndex != null &&
@@ -166,11 +179,23 @@ export async function createTarefaFromDiagnostico(
         recomendacaoIndex != null ? recomendacoes[recomendacaoIndex] : undefined,
     });
 
+  const observacoesComRevisao = [
+    parsed.observacoesTecnicas,
+    efetivas.fonte === "corrigida"
+      ? "Recomendação validada/corrigida por revisão técnica."
+      : null,
+    diag.parecerTecnico?.trim()
+      ? `Parecer técnico: ${diag.parecerTecnico.trim()}`
+      : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
+
   const instrucoes = buildInstrucoesTarefaFromDiagnostico({
     diagnosticoId: diag.id,
     recomendacoes,
     recomendacaoIndex,
-    observacoesTecnicas: parsed.observacoesTecnicas,
+    observacoesTecnicas: observacoesComRevisao || undefined,
   });
 
   try {

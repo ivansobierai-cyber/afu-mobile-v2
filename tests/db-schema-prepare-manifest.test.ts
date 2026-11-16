@@ -26,13 +26,16 @@ describe("schema prepare manifest", () => {
     expect(REQUIRED_PREPARE_TAGS).toContain("0021_property_archive");
   });
 
-  it("inclui 0040 e 0041 (WP-02 / WP-03) no manifesto", () => {
+  it("inclui 0040–0042 (WP-02 / WP-03 / WP-04) no manifesto", () => {
     const tags = SCHEMA_PREPARE_STEPS.map((s) => s.tag);
     const i40 = tags.indexOf("0040_evento_tarefa_bridge");
     const i41 = tags.indexOf("0041_diagnostico_tarefa_bridge");
+    const i42 = tags.indexOf("0042_diagnostico_revisao_tecnica");
     expect(i40).toBeGreaterThanOrEqual(0);
     expect(i41).toBeGreaterThan(i40);
+    expect(i42).toBeGreaterThan(i41);
     expect(REQUIRED_PREPARE_TAGS).toContain("0041_diagnostico_tarefa_bridge");
+    expect(REQUIRED_PREPARE_TAGS).toContain("0042_diagnostico_revisao_tecnica");
   });
 
   it("cada passo referencia script npm existente", () => {
