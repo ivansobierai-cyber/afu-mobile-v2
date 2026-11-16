@@ -95,7 +95,8 @@ interface PlantHealthyService {
         @Url endpointUrl: String,
         @Header("Authorization") authHeader: String?,
         @Query("crop_type") cropType: String? = null,
-        @Query("generation") generation: String? = null
+        @Query("generation") generation: String? = null,
+        @Query("propriedade_id") propriedadeId: Long? = null
     ): Response<PlantMonitoringResponse>
 }
 

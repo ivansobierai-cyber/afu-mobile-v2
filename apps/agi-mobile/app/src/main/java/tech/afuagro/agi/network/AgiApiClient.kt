@@ -387,7 +387,8 @@ class AgiApiClient(
         authToken: String,
         enforceHttpsOnly: Boolean,
         cropType: String? = null,
-        generation: String? = null
+        generation: String? = null,
+        propriedadeId: Long? = null
     ): Result<PlantMonitoringResponse> = withContext(Dispatchers.IO) {
         val securityError = validateUrlSecurity(baseUrl, enforceHttpsOnly)
         if (securityError != null) {
@@ -399,7 +400,8 @@ class AgiApiClient(
                 endpointUrl = fullUrl,
                 authHeader = bearerHeader(authToken),
                 cropType = cropType?.takeIf { it.isNotBlank() },
-                generation = generation?.takeIf { it.isNotBlank() }
+                generation = generation?.takeIf { it.isNotBlank() },
+                propriedadeId = propriedadeId?.takeIf { it > 0L }
             )
             if (!resp.isSuccessful) {
                 error("HTTP ${resp.code()}: ${resp.message()}")

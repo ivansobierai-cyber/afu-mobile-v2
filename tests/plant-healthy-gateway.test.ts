@@ -128,6 +128,91 @@ describe("plant-healthy-gateway HTTP auth", () => {
       );
     }
   });
+
+  it("analyze_image rejeita image_base64 oversized sem truncar", async () => {
+    if (!process.env.DATABASE_URL) {
+      return;
+    }
+
+    const { createIsolatedTenantPair } = await import("./helpers/tenant-fixture");
+    const { createAccessToken } = await import("../server/token-service");
+    const { a } = await createIsolatedTenantPair();
+    const token = await createAccessToken(a.openId, a.user.name || "A");
+
+    const app = express();
+    app.use(express.json({ limit: "8mb" }));
+    registerPlantHealthyGateway(app);
+
+    const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const oversized = "A".repeat(2_500_001);
+      const res = await fetch(`http://127.0.0.1:${port}/api/plant_healthy/analyze_image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          crop_type: "soja",
+          generation: "G3",
+          image_base64: oversized,
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error?: string };
+      expect(body.error).toMatch(/excede o limite/i);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve())),
+      );
+    }
+  }, 60_000);
+
+  it("analyze_image rejeita image_url SSRF (localhost)", async () => {
+    if (!process.env.DATABASE_URL) {
+      return;
+    }
+
+    const { createIsolatedTenantPair } = await import("./helpers/tenant-fixture");
+    const { createAccessToken } = await import("../server/token-service");
+    const { a } = await createIsolatedTenantPair();
+    const token = await createAccessToken(a.openId, a.user.name || "A");
+
+    const app = express();
+    app.use(express.json({ limit: "2mb" }));
+    registerPlantHealthyGateway(app);
+
+    const server = await new Promise<ReturnType<typeof app.listen>>((resolve) => {
+      const s = app.listen(0, "127.0.0.1", () => resolve(s));
+    });
+    const { port } = server.address() as AddressInfo;
+
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}/api/plant_healthy/analyze_image`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          crop_type: "soja",
+          generation: "G3",
+          image_url: "http://127.0.0.1/secret.png",
+        }),
+      });
+      expect(res.status).toBe(400);
+      const body = (await res.json()) as { error?: string };
+      expect(body.error).toMatch(/privada|reservada|bloqueado/i);
+    } finally {
+      await new Promise<void>((resolve, reject) =>
+        server.close((err) => (err ? reject(err) : resolve())),
+      );
+    }
+  }, 60_000);
 });
 
 describe("plant-healthy-gateway tenant isolation (DB)", () => {

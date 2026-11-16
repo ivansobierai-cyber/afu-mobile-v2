@@ -2,6 +2,7 @@ package tech.afuagro.agi.data.repository
 
 import android.content.Context
 import android.net.Uri
+import android.util.Base64
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingPeriodicWorkPolicy
@@ -41,7 +42,6 @@ import tech.afuagro.agi.data.preferences.AgiSettingsState
 import tech.afuagro.agi.intelligence.AgiSyncWorker
 import tech.afuagro.agi.intelligence.HybridIntelligenceRouter
 import tech.afuagro.agi.intelligence.LocalInferenceEngine
-import android.util.Base64
 import tech.afuagro.agi.core.agro.ProcessedRawAgroResult
 import tech.afuagro.agi.core.agro.RawAgroDataProcessor
 import tech.afuagro.agi.network.AfuFarmContextResponse
@@ -474,8 +474,9 @@ class AgiRepository(
             runCatching {
                 context.contentResolver.openInputStream(uri)?.use { input ->
                     val bytes = input.readBytes()
-                    if (bytes.size > 4_000_000) {
-                        error("Imagem excede 4 MB para envio direto via JSON.")
+                    // Gateway LLM limit ~2.5M base64 chars ≈ 1.8 MB binary
+                    if (bytes.size > 1_800_000) {
+                        error("Imagem excede ~1.8 MB. Comprima a foto e tente novamente.")
                     }
                     Base64.encodeToString(bytes, Base64.NO_WRAP)
                 }
@@ -489,8 +490,6 @@ class AgiRepository(
             return Result.failure(IllegalArgumentException("Selecione uma foto ou informe a image_url da planta."))
         }
 
-        val token = preferences.getDecryptedAfuAccessToken()
-            .ifBlank { preferences.getDecryptedAuthToken() }
         val request = PlantImageAnalyzeRequest(
             imageUrl = cleanUrl,
             imageBase64 = encodedImage,
@@ -500,13 +499,15 @@ class AgiRepository(
             propriedadeId = settings.afuPropriedadeId.takeIf { it > 0L }
         )
 
-        val apiResult = apiClient.analyzePlantImage(
-            baseUrl = targetUrl,
-            analyzePath = settings.plantAnalyzePath,
-            authToken = token,
-            enforceHttpsOnly = settings.enforceHttpsOnly,
-            request = request
-        )
+        val apiResult = withAfuAccessToken { token ->
+            apiClient.analyzePlantImage(
+                baseUrl = targetUrl,
+                analyzePath = settings.plantAnalyzePath,
+                authToken = token,
+                enforceHttpsOnly = settings.enforceHttpsOnly,
+                request = request
+            )
+        }
         return apiResult.fold(
             onSuccess = { (resp, latency) ->
                 recordAgentExecution("Planta Saudável", latency, true)
@@ -566,17 +567,17 @@ class AgiRepository(
         if (targetUrl.isBlank()) {
             return Result.failure(IllegalStateException("Configure a URL da API Planta Saudável ou do Servidor AGI/n8n."))
         }
-        val token = preferences.getDecryptedAfuAccessToken()
-            .ifBlank { preferences.getDecryptedAuthToken() }
-        val apiResult = apiClient.sendPlantRawTelemetry(
-            baseUrl = targetUrl,
-            telemetryPath = settings.plantTelemetryPath,
-            authToken = token,
-            enforceHttpsOnly = settings.enforceHttpsOnly,
-            request = processed.toTelemetryRequest().copy(
-                propriedadeId = settings.afuPropriedadeId.takeIf { it > 0L }
+        val apiResult = withAfuAccessToken { token ->
+            apiClient.sendPlantRawTelemetry(
+                baseUrl = targetUrl,
+                telemetryPath = settings.plantTelemetryPath,
+                authToken = token,
+                enforceHttpsOnly = settings.enforceHttpsOnly,
+                request = processed.toTelemetryRequest().copy(
+                    propriedadeId = settings.afuPropriedadeId.takeIf { it > 0L }
+                )
             )
-        )
+        }
         return apiResult.fold(
             onSuccess = { (resp, latency) ->
                 recordAgentExecution("Planta Saudável", latency, true)
@@ -615,16 +616,100 @@ class AgiRepository(
         if (targetUrl.isBlank()) {
             return Result.failure(IllegalStateException("Configure a URL da API Planta Saudável ou do Servidor AGI/n8n."))
         }
-        val token = preferences.getDecryptedAfuAccessToken()
-            .ifBlank { preferences.getDecryptedAuthToken() }
-        return apiClient.fetchPlantMonitoringAlerts(
-            baseUrl = targetUrl,
-            alertsPath = settings.plantAlertsPath,
-            authToken = token,
-            enforceHttpsOnly = settings.enforceHttpsOnly,
-            cropType = cropType,
-            generation = generation
+        return withAfuAccessToken { token ->
+            apiClient.fetchPlantMonitoringAlerts(
+                baseUrl = targetUrl,
+                alertsPath = settings.plantAlertsPath,
+                authToken = token,
+                enforceHttpsOnly = settings.enforceHttpsOnly,
+                cropType = cropType,
+                generation = generation,
+                propriedadeId = settings.afuPropriedadeId.takeIf { it > 0L }
+            )
+        }
+    }
+
+
+    /** JWT AFU access (~15 min). Refresh before expiry or after HTTP 401. */
+    private fun isUnauthorizedError(err: Throwable): Boolean {
+        val msg = err.message.orEmpty()
+        return msg.contains("HTTP 401") || msg.contains("Unauthorized", ignoreCase = true)
+    }
+
+    private fun jwtExpiresAtEpochMs(jwt: String): Long? {
+        val parts = jwt.split('.')
+        if (parts.size < 2) return null
+        return runCatching {
+            val payloadJson = String(Base64.decode(parts[1], Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING))
+            val expMatch = Regex("\"exp\"\\s*:\\s*(\\d+)").find(payloadJson) ?: return null
+            expMatch.groupValues[1].toLong() * 1000L
+        }.getOrNull()
+    }
+
+    private fun accessTokenNeedsRefresh(token: String, skewMs: Long = 60_000L): Boolean {
+        if (token.isBlank()) return true
+        val expMs = jwtExpiresAtEpochMs(token) ?: return false
+        return System.currentTimeMillis() >= (expMs - skewMs)
+    }
+
+    private suspend fun refreshAfuAccessToken(): Result<String> {
+        val settings = preferences.settingsFlow.first()
+        val base = settings.afuApiBaseUrl.ifBlank { settings.plantApiBaseUrl }
+        val refresh = preferences.getDecryptedAfuRefreshToken()
+        if (base.isBlank() || refresh.isBlank()) {
+            return Result.failure(IllegalStateException("Refresh token AFU ausente — faça login novamente."))
+        }
+        return apiClient.afuRefresh(
+            baseUrl = base,
+            refreshToken = refresh,
+            enforceHttpsOnly = settings.enforceHttpsOnly
+        ).fold(
+            onSuccess = { resp ->
+                val access = resp.accessToken.orEmpty()
+                val newRefresh = resp.refreshToken?.takeIf { it.isNotBlank() } ?: refresh
+                if (access.isBlank()) {
+                    Result.failure(IllegalStateException("Refresh AFU não retornou accessToken."))
+                } else {
+                    preferences.saveAfuSession(
+                        accessToken = access,
+                        refreshToken = newRefresh,
+                        email = settings.afuUserEmail,
+                        name = settings.afuUserName,
+                        organizationId = settings.afuOrganizationId,
+                        organizationName = settings.afuOrganizationName,
+                        propriedadeId = settings.afuPropriedadeId,
+                        propriedadeName = settings.afuPropriedadeName
+                    )
+                    Result.success(access)
+                }
+            },
+            onFailure = { Result.failure(it) }
         )
+    }
+
+    private suspend fun ensureAfuAccessToken(): Result<String> {
+        val current = preferences.getDecryptedAfuAccessToken()
+            .ifBlank { preferences.getDecryptedAuthToken() }
+        if (current.isNotBlank() && !accessTokenNeedsRefresh(current)) {
+            return Result.success(current)
+        }
+        val refreshed = refreshAfuAccessToken()
+        if (refreshed.isSuccess) return refreshed
+        if (current.isNotBlank()) return Result.success(current)
+        return refreshed
+    }
+
+    private suspend fun <T> withAfuAccessToken(
+        call: suspend (token: String) -> Result<T>
+    ): Result<T> {
+        val tokenResult = ensureAfuAccessToken()
+        val token = tokenResult.getOrElse { return Result.failure(it) }
+        val first = call(token)
+        if (first.isSuccess || !isUnauthorizedError(first.exceptionOrNull() ?: return first)) {
+            return first
+        }
+        val refreshed = refreshAfuAccessToken().getOrElse { return first }
+        return call(refreshed)
     }
 
     suspend fun loginAfuAccount(
@@ -669,16 +754,14 @@ class AgiRepository(
         if (base.isBlank()) {
             return Result.failure(IllegalStateException("URL da API AFU não configurada."))
         }
-        val token = preferences.getDecryptedAfuAccessToken()
-        if (token.isBlank()) {
-            return Result.failure(IllegalStateException("Faça login com a conta AFU Agro."))
+        val result = withAfuAccessToken { token ->
+            apiClient.afuFarmContext(
+                baseUrl = base,
+                authToken = token,
+                propriedadeId = settings.afuPropriedadeId.takeIf { it > 0L },
+                enforceHttpsOnly = settings.enforceHttpsOnly
+            )
         }
-        val result = apiClient.afuFarmContext(
-            baseUrl = base,
-            authToken = token,
-            propriedadeId = settings.afuPropriedadeId.takeIf { it > 0L },
-            enforceHttpsOnly = settings.enforceHttpsOnly
-        )
         return result.fold(
             onSuccess = { ctx ->
                 val org = ctx.organization
@@ -705,17 +788,18 @@ class AgiRepository(
     ): Result<AfuSelectContextResponse> {
         val settings = preferences.settingsFlow.first()
         val base = settings.afuApiBaseUrl.ifBlank { settings.plantApiBaseUrl }
-        val token = preferences.getDecryptedAfuAccessToken()
-        if (base.isBlank() || token.isBlank()) {
+        if (base.isBlank()) {
             return Result.failure(IllegalStateException("Sessão AFU ausente."))
         }
-        val result = apiClient.afuSelectContext(
-            baseUrl = base,
-            authToken = token,
-            organizationId = organizationId,
-            propriedadeId = propriedadeId,
-            enforceHttpsOnly = settings.enforceHttpsOnly
-        )
+        val result = withAfuAccessToken { token ->
+            apiClient.afuSelectContext(
+                baseUrl = base,
+                authToken = token,
+                organizationId = organizationId,
+                propriedadeId = propriedadeId,
+                enforceHttpsOnly = settings.enforceHttpsOnly
+            )
+        }
         return result.fold(
             onSuccess = { resp ->
                 preferences.saveAfuFarmSelection(

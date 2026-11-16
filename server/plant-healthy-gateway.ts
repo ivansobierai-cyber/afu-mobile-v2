@@ -371,15 +371,16 @@ export function registerPlantHealthyGateway(app: Express): void {
         sendError(res, 401, "Perfil AFU não encontrado");
         return;
       }
-      await setActiveOrganizationId(perfil.id, parsed.data.organizationId);
 
-      const { requireTenantContext, requirePropertyInTenant } = await import(
-        "./tenant-access"
-      );
-      const tenant = await requireTenantContext(user.id);
+      // Validate property against the *target* org before switching active org.
       if (parsed.data.propriedadeId) {
-        await requirePropertyInTenant(tenant, parsed.data.propriedadeId);
+        const { createTenantDb } = await import("./tenant-db");
+        await createTenantDb(parsed.data.organizationId).requirePropriedade(
+          parsed.data.propriedadeId,
+        );
       }
+
+      await setActiveOrganizationId(perfil.id, parsed.data.organizationId);
 
       res.json({
         success: true,
@@ -401,12 +402,26 @@ export function registerPlantHealthyGateway(app: Express): void {
       let imageBase64 = parsed.data.image_base64?.replace(/^data:image\/[a-zA-Z+]+;base64,/, "") ?? "";
       if (!imageBase64 && parsed.data.image_url) {
         try {
-          const imgRes = await fetch(parsed.data.image_url);
+          const { assertSafePublicImageUrl } = await import("./safe-image-url");
+          const safeUrl = await assertSafePublicImageUrl(parsed.data.image_url);
+          const imgRes = await fetch(safeUrl.toString(), {
+            redirect: "error",
+            signal: AbortSignal.timeout(10_000),
+          });
           if (!imgRes.ok) {
             sendError(res, 400, "Não foi possível baixar image_url");
             return;
           }
+          const contentType = imgRes.headers.get("content-type") ?? "";
+          if (contentType && !contentType.startsWith("image/")) {
+            sendError(res, 400, "image_url não retornou uma imagem");
+            return;
+          }
           const buf = Buffer.from(await imgRes.arrayBuffer());
+          if (buf.byteLength > 1_875_000) {
+            sendError(res, 400, "Imagem remota excede o limite (~1.8 MB). Comprima e tente novamente.");
+            return;
+          }
           imageBase64 = buf.toString("base64");
         } catch (e) {
           sendError(
@@ -419,6 +434,14 @@ export function registerPlantHealthyGateway(app: Express): void {
       }
       if (!imageBase64) {
         sendError(res, 400, "Informe image_base64 ou image_url");
+        return;
+      }
+      if (imageBase64.length > 2_500_000) {
+        sendError(
+          res,
+          400,
+          "image_base64 excede o limite do gateway (2.5M chars). Comprima a foto e tente novamente.",
+        );
         return;
       }
 
@@ -455,8 +478,7 @@ export function registerPlantHealthyGateway(app: Express): void {
         propriedadeId,
       });
 
-      const imageB64 =
-        imageBase64.length > 2_500_000 ? imageBase64.slice(0, 2_500_000) : imageBase64;
+      const imageB64 = imageBase64;
 
       let result: {
         problema: string;
