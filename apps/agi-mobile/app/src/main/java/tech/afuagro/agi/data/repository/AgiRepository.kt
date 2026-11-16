@@ -61,6 +61,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
@@ -107,6 +109,9 @@ class AgiRepository(
         )
     )
     val backendStatus: StateFlow<BackendProbeResult> = _backendStatus.asStateFlow()
+
+    /** Single-flight lock so concurrent 401/expiry paths do not rotate refresh twice. */
+    private val afuRefreshMutex = Mutex()
 
     private val _hardwareTelemetry = MutableStateFlow(telemetryMonitor.snapshot())
     val hardwareTelemetry: StateFlow<HardwareTelemetry> = _hardwareTelemetry.asStateFlow()
@@ -652,14 +657,21 @@ class AgiRepository(
         return System.currentTimeMillis() >= (expMs - skewMs)
     }
 
-    private suspend fun refreshAfuAccessToken(): Result<String> {
+    private suspend fun refreshAfuAccessToken(): Result<String> = afuRefreshMutex.withLock {
+        // Another waiter may have refreshed while we were queued.
+        val maybeFresh = preferences.getDecryptedAfuAccessToken()
+            .ifBlank { preferences.getDecryptedAuthToken() }
+        if (maybeFresh.isNotBlank() && !accessTokenNeedsRefresh(maybeFresh, skewMs = 30_000L)) {
+            return@withLock Result.success(maybeFresh)
+        }
+
         val settings = preferences.settingsFlow.first()
         val base = settings.afuApiBaseUrl.ifBlank { settings.plantApiBaseUrl }
         val refresh = preferences.getDecryptedAfuRefreshToken()
         if (base.isBlank() || refresh.isBlank()) {
-            return Result.failure(IllegalStateException("Refresh token AFU ausente — faça login novamente."))
+            return@withLock Result.failure(IllegalStateException("Refresh token AFU ausente — faça login novamente."))
         }
-        return apiClient.afuRefresh(
+        return@withLock apiClient.afuRefresh(
             baseUrl = base,
             refreshToken = refresh,
             enforceHttpsOnly = settings.enforceHttpsOnly

@@ -402,27 +402,12 @@ export function registerPlantHealthyGateway(app: Express): void {
       let imageBase64 = parsed.data.image_base64?.replace(/^data:image\/[a-zA-Z+]+;base64,/, "") ?? "";
       if (!imageBase64 && parsed.data.image_url) {
         try {
-          const { assertSafePublicImageUrl } = await import("./safe-image-url");
-          const safeUrl = await assertSafePublicImageUrl(parsed.data.image_url);
-          const imgRes = await fetch(safeUrl.toString(), {
-            redirect: "error",
-            signal: AbortSignal.timeout(10_000),
+          const { fetchSafePublicImage } = await import("./safe-image-url");
+          const { buffer } = await fetchSafePublicImage(parsed.data.image_url, {
+            timeoutMs: 10_000,
+            maxBytes: 1_875_000,
           });
-          if (!imgRes.ok) {
-            sendError(res, 400, "Não foi possível baixar image_url");
-            return;
-          }
-          const contentType = imgRes.headers.get("content-type") ?? "";
-          if (contentType && !contentType.startsWith("image/")) {
-            sendError(res, 400, "image_url não retornou uma imagem");
-            return;
-          }
-          const buf = Buffer.from(await imgRes.arrayBuffer());
-          if (buf.byteLength > 1_875_000) {
-            sendError(res, 400, "Imagem remota excede o limite (~1.8 MB). Comprima e tente novamente.");
-            return;
-          }
-          imageBase64 = buf.toString("base64");
+          imageBase64 = buffer.toString("base64");
         } catch (e) {
           sendError(
             res,
