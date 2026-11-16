@@ -125,6 +125,18 @@ async function verify0039OperacoesApontamentos(conn: mysql.Connection): Promise<
   }
 }
 
+async function verify0043LgpdCompliance(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "lgpd_consent_records"))) {
+    throw new Error("0043_lgpd_compliance: tabela lgpd_consent_records ausente");
+  }
+  if (!(await tableExists(conn, "lgpd_deletion_requests"))) {
+    throw new Error("0043_lgpd_compliance: tabela lgpd_deletion_requests ausente");
+  }
+  if (!(await columnExists(conn, "lgpd_deletion_requests", "previousStatusPerfil"))) {
+    throw new Error("0043_lgpd_compliance: coluna previousStatusPerfil ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -317,6 +329,13 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:operacoes-apontamentos:apply",
     required: true,
     verify: verify0039OperacoesApontamentos,
+  },
+  // Nota de numeração: 0040/0041 usados em PRs WP-02/WP-03 (abertos). WP-07 usa 0043+.
+  {
+    tag: "0043_lgpd_compliance",
+    npmScript: "db:lgpd:apply",
+    required: true,
+    verify: verify0043LgpdCompliance,
   },
 ];
 

@@ -43,6 +43,8 @@ export interface SignupInput {
   confirmPassword: string;
   name: string;
   profile: 'produtor' | 'tecnico';
+  /** WP-07 — aceite explícito dos documentos legais */
+  acceptedTerms: true;
 }
 
 export function useAuthAPI() {
@@ -137,6 +139,7 @@ export function useAuthAPI() {
         confirmPassword: input.confirmPassword,
         name: input.name,
         profile: input.profile,
+        acceptedTerms: true,
       });
 
       if (result.success && result.accessToken) {
