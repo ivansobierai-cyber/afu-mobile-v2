@@ -62,6 +62,7 @@ import {
 } from "@/lib/propriedades/registrar-flow";
 import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { tenantCacheInput } from "@/lib/trpc-cache-scope";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -903,19 +904,22 @@ export default function PropriedadeDetailScreen() {
         onCancel={() => setDeleteConfirmOpen(false)}
         onConfirm={(confirmNome) => {
           setDeletingProp(true);
+          const targetId = propriedade.id;
+          const listScope = tenantCacheInput(orgScope);
           void runMutation("propriedade", "delete", {
-            id: propriedade.id,
+            id: targetId,
             confirmNome,
-            clientMutationId: `prop_del_${propriedade.id}_${Date.now()}`,
+            clientMutationId: `prop_del_${targetId}_${Date.now()}`,
           })
             .then(async (result) => {
               setDeleteConfirmOpen(false);
-              await utils.coreData.propriedades.list.invalidate();
-              if (result.queued) {
-                Alert.alert(
-                  "Fila offline",
-                  "Exclusão salva localmente e será sincronizada ao reconectar.",
-                );
+              const drop = <T extends { id: number }>(rows: T[] | undefined) =>
+                (rows ?? []).filter((p) => p.id !== targetId);
+              utils.coreData.propriedades.list.setData(listScope, drop);
+              utils.coreData.propriedades.listArchived.setData(listScope, drop);
+              if (!result.queued) {
+                await utils.coreData.propriedades.list.invalidate(listScope);
+                await utils.coreData.propriedades.listArchived.invalidate(listScope);
               }
               router.replace("/(tabs)/propriedades" as any);
             })

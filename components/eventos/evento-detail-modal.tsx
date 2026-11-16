@@ -214,18 +214,23 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
   const persistMeta = async (nextTags = tags, nextChecklist = checklist) => {
     setSavingMeta(true);
     try {
-      const result = await runMutation("evento", "update", {
-        id: item.id,
-        data: {
-          etiquetas: nextTags,
-          checklist: nextChecklist,
+      const result = await runMutation(
+        "evento",
+        "update",
+        {
+          id: item.id,
+          data: {
+            etiquetas: nextTags,
+            checklist: nextChecklist,
+          },
+          clientMutationId: `evt_meta_${item.id}_${Date.now()}`,
         },
-        clientMutationId: `evt_meta_${item.id}_${Date.now()}`,
-      });
-      await utils.coreData.calendario.list.invalidate();
-      onSaved?.();
-      if (result.queued) {
-        Alert.alert("Fila offline", "Alterações do evento serão sincronizadas ao reconectar.");
+        // Tags/checklist disparam várias vezes — banner global basta offline.
+        { silentOffline: true },
+      );
+      if (!result.queued) {
+        await utils.coreData.calendario.list.invalidate();
+        onSaved?.();
       }
     } catch (e: unknown) {
       Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao salvar.");
@@ -327,15 +332,12 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
                         },
                         clientMutationId: `evt_colheita_${item.id}_${Date.now()}`,
                       });
-                      await utils.coreData.calendario.list.invalidate();
-                      await utils.coreData.cultivos.list.invalidate();
-                      onSaved?.();
-                      Alert.alert(
-                        result.queued ? "Fila offline" : "Colheita registrada",
-                        result.queued
-                          ? "Colheita salva localmente e será sincronizada ao reconectar."
-                          : "Produção sincronizada com o cultivo.",
-                      );
+                      if (!result.queued) {
+                        await utils.coreData.calendario.list.invalidate();
+                        await utils.coreData.cultivos.list.invalidate();
+                        onSaved?.();
+                        Alert.alert("Colheita registrada", "Produção sincronizada com o cultivo.");
+                      }
                     } catch (e: unknown) {
                       Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao concluir colheita.");
                     }

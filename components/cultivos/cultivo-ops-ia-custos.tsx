@@ -306,14 +306,11 @@ export function CultivoCustosTab({ culturaId }: CustosProps) {
               clientMutationId: `cult_prod_${culturaId}_${Date.now()}`,
             })
               .then(async (result) => {
-                void utils.coreData.cultivos.indicadores.invalidate({ id: culturaId });
-                void utils.coreData.cultivos.dashboard.invalidate({ id: culturaId });
                 setProducaoReal("");
-                if (result.queued) {
-                  Alert.alert(
-                    "Fila offline",
-                    "Produção salva localmente e será sincronizada ao reconectar.",
-                  );
+                // Offline: não invalidar — refetch falharia e a tela cairia em isError.
+                if (!result.queued) {
+                  void utils.coreData.cultivos.indicadores.invalidate({ id: culturaId });
+                  void utils.coreData.cultivos.dashboard.invalidate({ id: culturaId });
                 }
               })
               .catch((e) => Alert.alert("Erro", e?.message ?? "Falha"))

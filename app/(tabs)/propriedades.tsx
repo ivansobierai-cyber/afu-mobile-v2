@@ -473,21 +473,23 @@ export default function PropriedadesScreen() {
         onCancel={() => setDeleteTarget(null)}
         onConfirm={(confirmNome) => {
           if (!deleteTarget) return;
+          const targetId = deleteTarget.id;
           setDeleting(true);
           void runMutation("propriedade", "delete", {
-            id: deleteTarget.id,
+            id: targetId,
             confirmNome,
-            clientMutationId: `prop_del_${deleteTarget.id}_${Date.now()}`,
+            clientMutationId: `prop_del_${targetId}_${Date.now()}`,
           })
             .then(async (result) => {
               setDeleteTarget(null);
-              await utils.coreData.propriedades.list.invalidate();
-              await utils.coreData.propriedades.listArchived.invalidate();
-              if (result.queued) {
-                Alert.alert(
-                  "Fila offline",
-                  "Exclusão salva localmente e será sincronizada ao reconectar.",
-                );
+              const drop = <T extends { id: number }>(rows: T[] | undefined) =>
+                (rows ?? []).filter((p) => p.id !== targetId);
+              // Offline: remove da lista local; online: invalida no servidor.
+              utils.coreData.propriedades.list.setData(cacheInput, drop);
+              utils.coreData.propriedades.listArchived.setData(cacheInput, drop);
+              if (!result.queued) {
+                await utils.coreData.propriedades.list.invalidate(cacheInput);
+                await utils.coreData.propriedades.listArchived.invalidate(cacheInput);
               }
             })
             .catch((e: any) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir."))

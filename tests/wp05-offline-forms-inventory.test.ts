@@ -61,4 +61,23 @@ describe("WP-05 offline forms inventory", () => {
     expect(layout).toMatch(/CoreOfflineSyncProvider/);
     expect(layout).toMatch(/CoreOfflineSyncManager/);
   });
+
+  it("não duplica alerta offline nem invalida ao enfileirar (Bugbot)", () => {
+    const evento = read("components/eventos/evento-detail-modal.tsx");
+    expect(evento).toMatch(/silentOffline:\s*true/);
+    expect(evento).toMatch(/if\s*\(\s*!result\.queued\s*\)/);
+    expect(evento).not.toMatch(/Fila offline/);
+
+    const custos = read("components/cultivos/cultivo-ops-ia-custos.tsx");
+    expect(custos).toMatch(/if\s*\(\s*!result\.queued\s*\)/);
+    expect(custos).not.toMatch(/Fila offline/);
+
+    const lista = read("app/(tabs)/propriedades.tsx");
+    expect(lista).toMatch(/propriedades\.list\.setData/);
+    expect(lista).not.toMatch(/Fila offline/);
+
+    const detalhe = read("app/propriedades/[id].tsx");
+    expect(detalhe).toMatch(/propriedades\.list\.setData/);
+    expect(detalhe).not.toMatch(/Fila offline/);
+  });
 });
