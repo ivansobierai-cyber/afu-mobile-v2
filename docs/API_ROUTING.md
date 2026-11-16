@@ -28,7 +28,8 @@
 
 Production **default is an allowlist** (not reflect-any), because session cookies use `SameSite=None` + `credentials: include`:
 
-- Always: `https://afuagro.tech`, `https://www.afuagro.tech`, `https://app.afuagro.tech`
+- **Hardcoded always** (no Railway env required): `https://afuagro.tech`, `https://www.afuagro.tech`, `https://app.afuagro.tech`
+- Optional `WEB_APP_ORIGINS` CSV merges **extras** — never replaces the hardcoded defaults
 - Vercel previews: `^https://afu-mobile[-\w]*\.vercel\.app$`
 - Extras: `CORS_ALLOWED_ORIGINS` (CSV)
 - Localhost / `127.0.0.1` only when `NODE_ENV !== production`

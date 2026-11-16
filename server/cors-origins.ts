@@ -1,10 +1,17 @@
 import { WEB_APP_ORIGINS } from "../constants/api-hosts";
 
 /**
- * Production web hosts that must be able to call the Railway API with credentials.
- * Kept here so health/docs/tests can assert the contract without parsing Express.
+ * Hardcoded production web hosts — always allowed, even when Railway has no
+ * WEB_APP_ORIGINS / CORS_ALLOWED_ORIGINS env vars. Live site afuagro.tech
+ * must never depend on dashboard env for CORS.
  */
-export const REQUIRED_WEB_CORS_ORIGINS: readonly string[] = WEB_APP_ORIGINS;
+export const DEFAULT_WEB_APP_ORIGINS: readonly string[] = [...WEB_APP_ORIGINS];
+
+/**
+ * @deprecated Prefer DEFAULT_WEB_APP_ORIGINS — same hardcoded list.
+ * Kept so existing imports/tests keep working.
+ */
+export const REQUIRED_WEB_CORS_ORIGINS: readonly string[] = DEFAULT_WEB_APP_ORIGINS;
 
 /**
  * This project's Vercel preview hosts (afu-mobile / afu-mobile-web / …).
@@ -26,7 +33,7 @@ function isProductionRuntime(): boolean {
 }
 
 function parseCsvOrigins(raw: string | undefined): string[] {
-  if (!raw) return [];
+  if (!raw?.trim()) return [];
   return raw
     .split(",")
     .map((s) => s.trim())
@@ -34,10 +41,21 @@ function parseCsvOrigins(raw: string | undefined): string[] {
 }
 
 /**
+ * Hardcoded defaults ∪ optional env WEB_APP_ORIGINS (CSV extras).
+ * Defaults are never cleared by an empty/missing env.
+ */
+export function getEffectiveWebAppOrigins(): readonly string[] {
+  const fromEnv = parseCsvOrigins(process.env.WEB_APP_ORIGINS);
+  if (fromEnv.length === 0) return DEFAULT_WEB_APP_ORIGINS;
+  return [...new Set([...DEFAULT_WEB_APP_ORIGINS, ...fromEnv])];
+}
+
+/**
  * Whether an Origin is allowed for credentialed CORS.
  *
  * Production default: allowlist only
- *   - WEB_APP_ORIGINS (afuagro.tech / www / app)
+ *   - hardcoded DEFAULT_WEB_APP_ORIGINS (afuagro.tech / www / app) — always
+ *   - optional WEB_APP_ORIGINS env CSV (merged, never replaces defaults)
  *   - Vercel previews matching VERCEL_PREVIEW_ORIGIN_RE
  *   - optional CORS_ALLOWED_ORIGINS CSV extras
  *
@@ -49,7 +67,7 @@ function parseCsvOrigins(raw: string | undefined): string[] {
 export function isCorsOriginAllowed(origin: string): boolean {
   if (truthyEnv("CORS_REFLECT_ORIGIN")) return true;
 
-  if ((REQUIRED_WEB_CORS_ORIGINS as readonly string[]).includes(origin)) {
+  if (getEffectiveWebAppOrigins().includes(origin)) {
     return true;
   }
 
@@ -76,5 +94,5 @@ export function resolveCorsAllowOrigin(
 }
 
 export function isRequiredWebCorsOrigin(origin: string): boolean {
-  return (REQUIRED_WEB_CORS_ORIGINS as readonly string[]).includes(origin);
+  return DEFAULT_WEB_APP_ORIGINS.includes(origin);
 }

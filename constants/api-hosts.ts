@@ -11,7 +11,11 @@ export const RAILWAY_API_BASE_URL =
 /** Future custom domain for the Railway API (optional DNS step). */
 export const FUTURE_API_CUSTOM_DOMAIN = "https://api.afuagro.tech";
 
-/** Web origins that call the Railway API from the browser. */
+/**
+ * Hardcoded web origins that call the Railway API from the browser.
+ * Always allowed for CORS — not an env var; Railway does not need WEB_APP_ORIGINS set.
+ * Optional env WEB_APP_ORIGINS (CSV) only adds extras (see server/cors-origins.ts).
+ */
 export const WEB_APP_ORIGINS = [
   "https://afuagro.tech",
   "https://www.afuagro.tech",
