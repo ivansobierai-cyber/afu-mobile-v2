@@ -1,6 +1,7 @@
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
+import { RAILWAY_API_BASE_URL } from "./api-hosts";
 
 // Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
 // e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
@@ -53,7 +54,19 @@ export function getApiBaseUrl(): string {
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
     }
-    // Produção: usar URL relativa (mesmo domínio)
+
+    // afuagro.tech (Hostinger or Vercel): never same-origin — Hostinger Node has no DB.
+    // Future custom API host api.afuagro.tech should also hit Railway until DNS is cut over.
+    if (
+      hostname === "afuagro.tech" ||
+      hostname === "www.afuagro.tech" ||
+      hostname === "app.afuagro.tech" ||
+      hostname === "api.afuagro.tech"
+    ) {
+      return RAILWAY_API_BASE_URL;
+    }
+
+    // Outros hosts web: URL relativa (mesmo domínio) quando a API é servida junto
     return "";
   }
 
@@ -64,7 +77,7 @@ export function getApiBaseUrl(): string {
 
   // Nativo sem EXPO_PUBLIC_API_BASE_URL: API Railway (EAS preview/prod deve definir a env)
   if (ReactNative.Platform.OS === "ios" || ReactNative.Platform.OS === "android") {
-    return "https://afu-mobile-v2-production.up.railway.app";
+    return RAILWAY_API_BASE_URL;
   }
 
   // Fallback dev: API local
