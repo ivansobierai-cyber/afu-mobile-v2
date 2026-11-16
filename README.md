@@ -4,6 +4,8 @@ App mobile/web para produtores rurais: dashboard, propriedades, cultivos, diagn�
 
 Stack: **Expo SDK 54**, **Expo Router**, **tRPC**, **Drizzle ORM**, **MySQL/MariaDB**, **NativeWind**.
 
+Assistente nativo **AFU AGI** (Kotlin/Compose): `apps/agi-mobile/` — ver [docs/agi/AFU_AGI_INTEGRATION.md](docs/agi/AFU_AGI_INTEGRATION.md).
+
 ## Requisitos
 
 - Node.js 24+ (LTS; ver `.nvmrc`)
@@ -114,6 +116,8 @@ npm run eas:android:prod     # build produção (AAB)
 ```
 
 Ajuste `EXPO_PUBLIC_API_BASE_URL` em `eas.json` (profiles `preview` / `production`) para a URL real da API.
+
+**Produção Android (Play Store):** profile `production` gera **AAB** (`br.com.afuagro.app`) apontando para `https://api.afuagro.tech`, sem demo login. Guia completo: [docs/playstore/README.md](docs/playstore/README.md).
 
 Guia completo de staging: [docs/STAGING.md](docs/STAGING.md).  
 Checklist merge PR #8 (expansão 31–46): [docs/MERGE_STAGING_CHECKLIST.md](docs/MERGE_STAGING_CHECKLIST.md).

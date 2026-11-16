@@ -12,8 +12,10 @@ process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN =
   process.env.EXPO_PUBLIC_SHOW_DEMO_LOGIN ?? "0";
 
 if (!process.env.EXPO_PUBLIC_API_BASE_URL?.trim()) {
+  // Prefer Railway direto: DNS de api.afuagro.tech pode apontar para Hostinger
+  // sem DATABASE_URL (login/signup quebrados). Override via env no Vercel.
   process.env.EXPO_PUBLIC_API_BASE_URL =
-    "https://api.afuagro.tech";
+    "https://afu-mobile-v2-production.up.railway.app";
 }
 
 console.log(
