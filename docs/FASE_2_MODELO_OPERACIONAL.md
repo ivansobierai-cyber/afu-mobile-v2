@@ -63,4 +63,4 @@ Agenda global permanece em `app/mais/calendario.tsx` (não removida). Detalhe do
 
 - Substituir tarefas por operações (não).
 - Apagar `apontamentos_operacao` legado (não).
-- Elo diagnóstico → recomendação → tarefa (WP-03).
+- Elo diagnóstico → recomendação → tarefa — entregue em **WP-03** (`docs/FASE_4_DIAGNOSTICO_TAREFA.md`).

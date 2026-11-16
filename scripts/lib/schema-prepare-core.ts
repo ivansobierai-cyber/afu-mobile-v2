@@ -155,6 +155,36 @@ async function verify0040EventoTarefaBridge(conn: mysql.Connection): Promise<voi
   }
 }
 
+async function verify0041DiagnosticoTarefaBridge(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "diagnosticos_ia", "safraId"))) {
+    throw new Error("0041_diagnostico_tarefa_bridge: diagnosticos_ia.safraId ausente");
+  }
+  if (!(await columnExists(conn, "tarefas_operacionais", "legadoDiagnosticoId"))) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: tarefas_operacionais.legadoDiagnosticoId ausente",
+    );
+  }
+  if (!(await indexExists(conn, "tarefas_operacionais_legadoDiagnosticoId_unique"))) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: índice unique legadoDiagnosticoId ausente",
+    );
+  }
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_TYPE AS ct
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tarefas_operacionais'
+       AND COLUMN_NAME = 'origem'
+     LIMIT 1`,
+  );
+  const ct = String(rows[0]?.ct ?? "");
+  if (!ct.includes("'diagnostico'")) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: ENUM origem sem valor 'diagnostico'",
+    );
+  }
+}
+
 async function verifyRepair0022(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, "tarefas_operacionais", "responsavelUserId"))) {
     throw new Error("0022_tarefas_responsavel: responsavelUserId ausente");
@@ -344,6 +374,12 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:evento-tarefa-bridge:apply",
     required: true,
     verify: verify0040EventoTarefaBridge,
+  },
+  {
+    tag: "0041_diagnostico_tarefa_bridge",
+    npmScript: "db:diagnostico-tarefa-bridge:apply",
+    required: true,
+    verify: verify0041DiagnosticoTarefaBridge,
   },
 ];
 

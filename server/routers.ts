@@ -44,6 +44,8 @@ const diagnosticoRouter = router({
       sintomas: z.string().optional(),
       culturaId: z.number().int().positive().optional(),
       propriedadeId: z.number().int().positive().optional(),
+      /** WP-03 — ciclo produtivo opcional (persistido em diagnosticos_ia.safraId) */
+      safraId: z.number().int().positive().optional(),
       parteAnalisada: z.string(),
       problema: z.string(),
       tipo: z.string(),
@@ -58,10 +60,11 @@ const diagnosticoRouter = router({
     .mutation(async ({ ctx, input }) => {
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "diagnostics.write");
-      if (input.propriedadeId || input.culturaId) {
+      if (input.propriedadeId || input.culturaId || input.safraId) {
         await assertRelatedIdsInTenant(tenant, {
           propriedadeId: input.propriedadeId,
           culturaId: input.culturaId,
+          safraId: input.safraId,
         });
       }
       const created = await createDiagnostico({
@@ -69,6 +72,7 @@ const diagnosticoRouter = router({
         organizationId: tenant.organizationId,
         propriedadeId: input.propriedadeId,
         culturaId: input.culturaId,
+        safraId: input.safraId,
         partePlanta: input.parteAnalisada,
         sintomasInformados: input.sintomas ?? null,
         resultado: JSON.stringify({
@@ -101,6 +105,55 @@ const diagnosticoRouter = router({
       }
 
       return created;
+    }),
+
+  /**
+   * WP-03 — criar tarefa a partir da recomendação do laudo.
+   * Exige operations.write + diagnostics.write (elo operacional × diagnóstico).
+   */
+  criarTarefa: organizationProcedure
+    .input(
+      z.object({
+        diagnosticoId: z.number().int().positive(),
+        titulo: z.string().min(1).max(200).optional(),
+        dataPrevista: z.string().optional(),
+        recomendacaoIndex: z.number().int().min(0).optional(),
+        safraId: z.number().int().positive().optional(),
+        terrenoId: z.number().int().positive().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.write");
+      requireOrgPermission(tenant, "diagnostics.write");
+      if (input.safraId || input.terrenoId) {
+        await assertRelatedIdsInTenant(tenant, {
+          safraId: input.safraId,
+          terrenoId: input.terrenoId,
+        });
+      }
+      const { createTarefaFromDiagnostico } = await import(
+        "./db-diagnostico-tarefa-bridge"
+      );
+      return createTarefaFromDiagnostico(tenant, input);
+    }),
+
+  /** WP-03 — tarefa vinculada ao diagnóstico (legadoDiagnosticoId). */
+  getTarefaVinculada: organizationProcedure
+    .input(z.object({ diagnosticoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      const { createTenantDb } = await import("./tenant-db");
+      await createTenantDb(tenant.organizationId).requireDiagnostico(input.diagnosticoId);
+      const { findTarefaByLegadoDiagnosticoId } = await import(
+        "./db-diagnostico-tarefa-bridge"
+      );
+      const tarefa = await findTarefaByLegadoDiagnosticoId(
+        tenant.organizationId,
+        input.diagnosticoId,
+      );
+      return tarefa ?? null;
     }),
   /** Etapa 9 — IA escopada à org; contexto mínimo; auditada; sem treinamento */
   analisar: organizationProcedure
