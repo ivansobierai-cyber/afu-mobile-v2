@@ -160,7 +160,7 @@ export default function PropriedadeDetailScreen() {
     if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam) && tabParam !== tab) {
       setTab(tabParam as PanelTab);
     }
-  }, [tabParam]);
+  }, [tabParam, tab]);
 
   const { data: sessionProp } = trpc.auth.session.useQuery(undefined, { staleTime: 60_000 });
   const orgScope = sessionProp?.activeOrganizationId ?? undefined;
@@ -650,7 +650,7 @@ export default function PropriedadeDetailScreen() {
 
   const overviewShortcuts = [
     {
-      label: "Operações",
+      label: "Trabalho aberto",
       value: String(tarefasAbertas),
       color: "#EF6C00",
       onPress: () => selectTab("operacoes"),
@@ -1187,7 +1187,7 @@ export default function PropriedadeDetailScreen() {
               </Text>
               <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 20 }}>
                 {resumoHoje
-                  ? `${resumoHoje.hoje} tarefa(s) para hoje · ${resumoHoje.emExecucao} em execução · ${cultivosAtivos} cultivo(s) ativo(s).`
+                  ? `${resumoHoje.hoje} tarefa(s) para hoje · ${resumoHoje.emExecucao} em execução · ${cultivosAtivos} cultivo(s) ativo(s). Eventos da agenda com esta propriedade geram tarefas vinculadas.`
                   : cultivosAtivos > 0
                     ? `${cultivosAtivos} cultivo(s) em andamento · ${terrenos.length} talhão(ões).`
                     : "Nenhum cultivo ativo nesta safra. Cadastre um cultivo para começar."}
@@ -1204,11 +1204,11 @@ export default function PropriedadeDetailScreen() {
               <TouchableOpacity
                 onPress={() => selectTab("operacoes")}
                 accessibilityRole="button"
-                accessibilityLabel="Abrir operações"
+                accessibilityLabel="Abrir workspace de operações e tarefas"
                 style={{ marginTop: 10 }}
               >
                 <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
-                  Ver operações →
+                  Ver operações e tarefas →
                 </Text>
               </TouchableOpacity>
             </View>

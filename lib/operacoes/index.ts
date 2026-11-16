@@ -9,6 +9,20 @@ export {
 } from "./entidades-operacionais";
 
 export {
+  EVENTO_STATUS,
+  TAREFA_STATUS_ESPELHO,
+  isEventoStatus,
+  isTarefaStatusEspelho,
+  listEventoTarefaStatusMappings,
+  mapEventoStatusToTarefa,
+  mapTarefaStatusToEvento,
+  mapTipoAtividadeEventoToTipoTarefa,
+  shouldApplyEventoStatusToTarefa,
+  type EventoStatus,
+  type TarefaStatusEspelho,
+} from "./evento-tarefa-status";
+
+export {
   TIPO_ATIVIDADE_EVENTO_PERSISTIDO,
   TIPO_OPERACAO_TAREFA_PERSISTIDO,
   type TipoAtividadeEventoPersistido,
