@@ -4,10 +4,11 @@ Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](
 
 ## Status atual
 
-- **Web produção (DNS atual):** https://afuagro.tech — frequentemente servido pela **Hostinger** (headers `platform: hostinger`). Login/signup exigem `DATABASE_URL` + `JWT_SECRET` no painel Node da Hostinger **ou** o build apontando `EXPO_PUBLIC_API_BASE_URL` / `HOSTINGER_API_BASE_URL` para a API Railway.
+- **Web produção (DNS atual):** https://afuagro.tech — frequentemente servido pela **Hostinger** (headers `platform: hostinger`). Login/signup exigem `DATABASE_URL` + `JWT_SECRET` no painel Node da Hostinger **ou** o build apontando `EXPO_PUBLIC_API_BASE_URL` / `HOSTINGER_API_BASE_URL` para a API Railway. Build Vercel: `npm run build:web:preview` (API `https://api.afuagro.tech`; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex.
 - **API canônica (Railway):** https://afu-mobile-v2-production.up.railway.app — login demo validado; `/api/health` inclui `database` + `email` + `ready`.
-- **Vercel (`afu-mobile-web`):** domínios `afuagro.tech` / `api.afuagro.tech` estão verificados e `vercel.json` reescreve `api.afuagro.tech` → Railway. Se o DNS A/CNAME do apex/`api` apontar para Hostinger, o rewrite Vercel **não** recebe tráfego.
-- **APK staging:** profile `preview` no EAS → `https://afu-mobile-v2-production.up.railway.app`
+- **Vercel (`afu-mobile-web`):** domínios `afuagro.tech` / `api.afuagro.tech` estão verificados e `vercel.json` reescreve `api.afuagro.tech` → Railway. Se o DNS A/CNAME do apex/`api` apontar para Hostinger, o rewrite Vercel **não** recebe tráfego. Health via rewrite: `GET https://api.afuagro.tech/api/health` (o token Railway deste ambiente não autoriza domínio customizado no serviço).
+- **APK staging:** profile `preview` no EAS → `https://api.afuagro.tech` (rewrite Vercel → Railway); fallback direto Railway `https://afu-mobile-v2-production.up.railway.app`.
+- **AAB produção (Play):** profile `production` → ver [playstore/README.md](./playstore/README.md)
 
 Cheque `/api/health`: `ready:false` ou `database.configured:false` = login quebrado nesse host.
 
@@ -75,7 +76,7 @@ Contas demo: `demo@afuagro.com.br` e `comprador@afuagro.com.br` — senha `Demo@
 npm run eas:android:preview
 ```
 
-O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
+O profile `preview` em `eas.json` usa HTTPS (sem cleartext), API `https://api.afuagro.tech` e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
 
 ## 3. Testar no celular
 
