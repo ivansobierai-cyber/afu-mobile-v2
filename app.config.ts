@@ -1,161 +1,193 @@
 // Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
-import type { ExpoConfig } from "expo/config";
+import type { ExpoConfig, ConfigContext } from "expo/config";
 
-const rawBundleId = "space.manus.afu.mobile.t20260613";
-const bundleId =
-  rawBundleId
-    .replace(/[-_]/g, ".")
-    .replace(/[^a-zA-Z0-9.]/g, "")
-    .replace(/\.+/g, ".")
-    .replace(/^\.+|\.+$/g, "")
-    .toLowerCase()
-    .split(".")
-    .map((segment) => {
-      return /^[a-zA-Z]/.test(segment) ? segment : "x" + segment;
-    })
-    .join(".") || "space.manus.app";
+/** Application ID estável para Play Store / App Store (não usar IDs Manus de template). */
+const ANDROID_PACKAGE = "br.com.afuagro.app";
+const IOS_BUNDLE_ID = "br.com.afuagro.app";
+const DEEP_LINK_SCHEME = "afuagro";
 
-const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+/**
+ * Cleartext HTTP:
+ * - Negado em EAS `production` / `preview*` (API HTTPS).
+ * - Permitido em `development` / `apk`, `ALLOW_CLEARTEXT=1`, ou builds locais
+ *   (`expo run:android` / prebuild sem EAS_BUILD_PROFILE) para localhost/LAN.
+ */
+const easProfile = process.env.EAS_BUILD_PROFILE ?? "";
+const httpsOnlyProfiles = new Set(["production", "preview", "preview-simulator"]);
+const allowCleartext =
+  process.env.ALLOW_CLEARTEXT === "1" ||
+  easProfile === "development" ||
+  easProfile === "apk" ||
+  !httpsOnlyProfiles.has(easProfile);
 
 const env = {
   appName: "AFU Agro",
   appSlug: "afu-mobile",
-  logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310519663669322659/RiSprfgpLu2V46urERiwsY/icon-bZNaXxxAfBRpNTfeRNMXTD.png",
-  scheme: schemeFromBundleId,
-  iosBundleId: bundleId,
-  androidPackage: bundleId,
+  scheme: DEEP_LINK_SCHEME,
+  iosBundleId: IOS_BUNDLE_ID,
+  androidPackage: ANDROID_PACKAGE,
 };
 
-const config: ExpoConfig = {
-  name: env.appName,
-  slug: env.appSlug,
-  owner: "sobierai",
-  extra: {
-    eas: {
-      projectId: "a1dfdf25-6741-4df3-b724-cabb3aab3174",
+export default ({ config: _config }: ConfigContext): ExpoConfig => {
+  const config: ExpoConfig = {
+    name: env.appName,
+    slug: env.appSlug,
+    owner: "sobierai",
+    extra: {
+      eas: {
+        projectId: "a1dfdf25-6741-4df3-b724-cabb3aab3174",
+      },
+      // EAS production/preview (eas.json) → Railway. Local .env → localhost.
+      // Future custom domain (documented, not deleted): https://api.afuagro.tech
+      // Native/web fallbacks when empty: constants/oauth.ts → Railway / host rules.
+      apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
+      privacyPolicyUrl: "https://afuagro.tech/privacidade",
+      termsUrl: "https://afuagro.tech/termos",
     },
-    // EAS production/preview (eas.json) → Railway. Local .env → localhost.
-    // Future custom domain (documented, not deleted): https://api.afuagro.tech
-    // Native/web fallbacks when empty: constants/oauth.ts → Railway / host rules.
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
-  },
-  version: "1.0.0",
-  orientation: "portrait",
-  icon: "./assets/images/icon.png",
-  scheme: env.scheme,
-  userInterfaceStyle: "automatic",
-  newArchEnabled: true,
-  ios: {
-    supportsTablet: true,
-    bundleIdentifier: env.iosBundleId,
-    infoPlist: {
-      ITSAppUsesNonExemptEncryption: false,
-    },
-  },
-  android: {
-    adaptiveIcon: {
-      backgroundColor: "#2D6A4F",
-      foregroundImage: "./assets/images/android-icon-foreground.png",
-      backgroundImage: "./assets/images/android-icon-background.png",
-      monochromeImage: "./assets/images/android-icon-monochrome.png",
-    },
-    edgeToEdgeEnabled: true,
-    predictiveBackGestureEnabled: false,
-    package: env.androidPackage,
-    permissions: [
-      "POST_NOTIFICATIONS",
-      "CAMERA",
-      "READ_EXTERNAL_STORAGE",
-      "WRITE_EXTERNAL_STORAGE",
-      "ACCESS_FINE_LOCATION",
-      "ACCESS_COARSE_LOCATION",
-    ],
-    intentFilters: [
-      {
-        action: "VIEW",
-        autoVerify: true,
-        data: [
-          {
-            scheme: env.scheme,
-            host: "*",
-          },
-        ],
-        category: ["BROWSABLE", "DEFAULT"],
-      },
-    ],
-  },
-  web: {
-    bundler: "metro",
-    output: "static",
-    favicon: "./assets/images/favicon.png",
-  },
-  plugins: [
-    "expo-router",
-    "expo-font",
-    "expo-web-browser",
-    [
-      "expo-audio",
-      {
-        microphonePermission: "Allow $(PRODUCT_NAME) to access your microphone.",
-      },
-    ],
-    [
-      "expo-video",
-      {
-        supportsBackgroundPlayback: true,
-        supportsPictureInPicture: true,
-      },
-    ],
-    [
-      "expo-splash-screen",
-      {
-        image: "./assets/images/splash-icon.png",
-        imageWidth: 200,
-        resizeMode: "contain",
-        backgroundColor: "#2D6A4F",
-        dark: {
-          backgroundColor: "#0F1A14",
-        },
-      },
-    ],
-    [
-      "expo-build-properties",
-      {
-        android: {
-          buildArchs: ["armeabi-v7a", "arm64-v8a"],
-          minSdkVersion: 24,
-          usesCleartextTraffic: true,
-        },
-      },
-    ],
-    [
-      "expo-image-picker",
-      {
-        photosPermission: "O app precisa de acesso às suas fotos para diagnóstico de plantas.",
-        cameraPermission: "O app precisa de acesso à câmera para fotografar plantas.",
-      },
-    ],
-    [
-      "expo-location",
-      {
-        locationWhenInUsePermission:
+    /**
+     * versionName (visível na loja). versionCode Android é gerido pelo EAS
+     * (`cli.appVersionSource: remote` + `autoIncrement` no profile production).
+     */
+    version: "1.0.0",
+    orientation: "portrait",
+    icon: "./assets/images/icon.png",
+    scheme: env.scheme,
+    userInterfaceStyle: "automatic",
+    newArchEnabled: true,
+    ios: {
+      supportsTablet: true,
+      bundleIdentifier: env.iosBundleId,
+      infoPlist: {
+        ITSAppUsesNonExemptEncryption: false,
+        NSCameraUsageDescription:
+          "O AFU Agro precisa da câmera para fotografar plantas no diagnóstico.",
+        NSPhotoLibraryUsageDescription:
+          "O AFU Agro precisa das fotos para anexar imagens ao diagnóstico e eventos.",
+        NSLocationWhenInUseUsageDescription:
           "O AFU Agro usa sua localização para marcar propriedades no mapa.",
       },
-    ],
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/images/icon.png",
-        color: "#2D6A4F",
+    },
+    android: {
+      adaptiveIcon: {
+        backgroundColor: "#2D6A4F",
+        foregroundImage: "./assets/images/android-icon-foreground.png",
+        backgroundImage: "./assets/images/android-icon-background.png",
+        monochromeImage: "./assets/images/android-icon-monochrome.png",
       },
+      edgeToEdgeEnabled: true,
+      predictiveBackGestureEnabled: false,
+      package: env.androidPackage,
+      /**
+       * Permissões alinhadas ao uso real do código:
+       * - CAMERA / READ_MEDIA_IMAGES → expo-image-picker (diagnóstico e anexos)
+       * - ACCESS_*_LOCATION → expo-location (marcação de propriedades)
+       * - POST_NOTIFICATIONS → expo-notifications (lembretes e push)
+       * Sem microfone: app não grava áudio.
+       * READ_EXTERNAL_STORAGE NÃO é bloqueado: expo-image-picker precisa dele
+       *   em API ≤32 (galeria). Em API 33+ o sistema usa READ_MEDIA_IMAGES.
+       */
+      permissions: [
+        "CAMERA",
+        "READ_MEDIA_IMAGES",
+        "POST_NOTIFICATIONS",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+      ],
+      blockedPermissions: [
+        // App não grava áudio; expo-audio no package.json ainda declara isso no manifesto nativo.
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO",
+      ],
+      intentFilters: [
+        {
+          action: "VIEW",
+          autoVerify: true,
+          data: [
+            {
+              scheme: env.scheme,
+              host: "*",
+            },
+          ],
+          category: ["BROWSABLE", "DEFAULT"],
+        },
+      ],
+    },
+    web: {
+      bundler: "metro",
+      output: "static",
+      favicon: "./assets/images/favicon.png",
+      name: env.appName,
+      shortName: "AFU Agro",
+      description:
+        "Diagnóstico inteligente de plantas, gestão de cultivos e suporte para produtores rurais.",
+      themeColor: "#2D6A4F",
+      backgroundColor: "#0F1A14",
+    },
+    plugins: [
+      "expo-router",
+      "expo-font",
+      "expo-web-browser",
+      // Pacotes de áudio/vídeo ficam no package.json para uso futuro,
+      // mas não entram nos plugins de produção para não injetar RECORD_AUDIO / PiP.
+      [
+        "expo-splash-screen",
+        {
+          image: "./assets/images/splash-icon.png",
+          imageWidth: 200,
+          resizeMode: "contain",
+          backgroundColor: "#2D6A4F",
+          dark: {
+            backgroundColor: "#0F1A14",
+          },
+        },
+      ],
+      [
+        "expo-build-properties",
+        {
+          android: {
+            buildArchs: ["armeabi-v7a", "arm64-v8a"],
+            minSdkVersion: 24,
+            targetSdkVersion: 35,
+            usesCleartextTraffic: allowCleartext,
+          },
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission:
+            "O AFU Agro precisa de acesso às suas fotos para diagnóstico de plantas e anexos.",
+          cameraPermission:
+            "O AFU Agro precisa de acesso à câmera para fotografar plantas.",
+          // Diagnóstico usa só imagem — não solicitar microfone / RECORD_AUDIO.
+          microphonePermission: false,
+        },
+      ],
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission:
+            "O AFU Agro usa sua localização para marcar propriedades no mapa.",
+        },
+      ],
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/images/icon.png",
+          color: "#2D6A4F",
+        },
+      ],
     ],
-  ],
-  experiments: {
-    typedRoutes: true,
-    reactCompiler: true,
-  },
-};
+    experiments: {
+      typedRoutes: true,
+      reactCompiler: true,
+    },
+  };
 
-export default config;
+  return config;
+};

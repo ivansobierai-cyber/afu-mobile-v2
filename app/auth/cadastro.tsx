@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { View, Text as RNText, Alert, KeyboardAvoidingView, Platform, ScrollView, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
+import { Link, useRouter } from 'expo-router';
 import { ScreenContainer } from '@/components/screen-container';
 import { AuthCard } from '@/components/auth-card';
 import { AuthTextInput } from '@/components/auth-text-input';
@@ -273,6 +273,8 @@ export default function CadastroScreen() {
             <TouchableOpacity
               onPress={() => setAgreeTerms(!agreeTerms)}
               className="flex-row items-center gap-2 mb-3 p-3 bg-surface rounded-lg"
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: agreeTerms }}
             >
               <View className={`w-6 h-6 rounded border-2 items-center justify-center ${
                 agreeTerms ? 'bg-primary border-primary' : 'border-border'
@@ -283,13 +285,17 @@ export default function CadastroScreen() {
                 Concordo com os termos de uso e política de privacidade (versão {LGPD_TERMS_VERSION})
               </RNText>
             </TouchableOpacity>
-            <View className="flex-row flex-wrap gap-3 mb-6 px-1">
-              <TouchableOpacity onPress={() => router.push('/legal/termos' as any)}>
-                <RNText className="text-xs text-primary font-semibold underline">Ler Termos de Uso</RNText>
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => router.push('/legal/privacidade' as any)}>
-                <RNText className="text-xs text-primary font-semibold underline">Ler Política de Privacidade</RNText>
-              </TouchableOpacity>
+            <View className="flex-row flex-wrap gap-x-3 gap-y-1 mb-6 px-1">
+              <Link href="/termos" asChild>
+                <TouchableOpacity accessibilityRole="link">
+                  <RNText className="text-sm text-primary font-semibold">Termos de uso</RNText>
+                </TouchableOpacity>
+              </Link>
+              <Link href="/privacidade" asChild>
+                <TouchableOpacity accessibilityRole="link">
+                  <RNText className="text-sm text-primary font-semibold">Política de privacidade</RNText>
+                </TouchableOpacity>
+              </Link>
             </View>
             {errors.terms && <RNText className="text-xs text-error mb-4">{errors.terms}</RNText>}
 

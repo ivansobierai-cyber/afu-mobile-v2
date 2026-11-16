@@ -3,11 +3,11 @@ import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
 import { RAILWAY_API_BASE_URL } from "./api-hosts";
 
-// Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
-// e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
-const bundleId = "com.app.afumobile";
-const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+/** Deve coincidir com `scheme` / package em `app.config.ts`. */
+const DEEP_LINK_SCHEME = "afuagro";
+// Future custom API domain (DNS → Railway; keep documented, do not delete):
+// https://api.afuagro.tech
+
 
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
@@ -19,7 +19,7 @@ const env = {
     process.env.EXPO_PUBLIC_API_BASE_URL ??
     ((Constants.expoConfig?.extra as Record<string, string | undefined> | undefined)?.apiBaseUrl ??
       ""),
-  deepLinkScheme: schemeFromBundleId,
+  deepLinkScheme: DEEP_LINK_SCHEME,
 };
 
 export const OAUTH_PORTAL_URL = env.portal;
