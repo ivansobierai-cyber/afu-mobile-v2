@@ -12,7 +12,10 @@ import {
   type TarefaOperacional,
 } from "../drizzle/schema";
 import type { TenantContext } from "./tenant-access";
-import { requireWritablePropertyInTenant } from "./tenant-access";
+import {
+  assertRelatedIdsInTenant,
+  requireWritablePropertyInTenant,
+} from "./tenant-access";
 import { requireWritableSafraId } from "./db-safras";
 import {
   buildInstrucoesTarefaFromDiagnostico,
@@ -112,6 +115,14 @@ export async function createTarefaFromDiagnostico(
   }
 
   await requireWritablePropertyInTenant(tenant, diag.propriedadeId);
+
+  // Terreno/safra/cultura devem pertencer à mesma propriedade do laudo.
+  await assertRelatedIdsInTenant(tenant, {
+    propriedadeId: diag.propriedadeId,
+    safraId: input.safraId ?? diag.safraId ?? undefined,
+    terrenoId: input.terrenoId,
+    culturaId: diag.culturaId ?? undefined,
+  });
 
   const existing = await findTarefaByLegadoDiagnosticoId(
     tenant.organizationId,

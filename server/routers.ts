@@ -126,12 +126,8 @@ const diagnosticoRouter = router({
       const tenant = getCtxTenant(ctx);
       requireOrgPermission(tenant, "operations.write");
       requireOrgPermission(tenant, "diagnostics.write");
-      if (input.safraId || input.terrenoId) {
-        await assertRelatedIdsInTenant(tenant, {
-          safraId: input.safraId,
-          terrenoId: input.terrenoId,
-        });
-      }
+      // Validação terreno/safra × propriedade do laudo fica na ponte
+      // (assertRelatedIdsInTenant com propriedadeId do diagnóstico).
       const { createTarefaFromDiagnostico } = await import(
         "./db-diagnostico-tarefa-bridge"
       );

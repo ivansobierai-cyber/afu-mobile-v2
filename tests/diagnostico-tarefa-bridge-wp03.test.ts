@@ -150,4 +150,29 @@ describe.skipIf(!hasDb)("WP-03 — ponte diagnóstico → tarefa", () => {
     });
     await setMembershipRole(a.membershipId, "proprietario");
   });
+
+  it("terreno de outra propriedade no mesmo tenant é rejeitado", async () => {
+    const prop2Id = await a.caller.coreData.propriedades.create({
+      nome: `WP03 prop2 ${Date.now()}`,
+      cidade: "Teste",
+      estado: "PR",
+      tamanhoArea: 10,
+      tipoProducao: "graos",
+    });
+    const terreno2Id = await a.caller.coreData.terrenos.create({
+      propriedadeId: prop2Id,
+      nome: "Talhao outro",
+      area: 2,
+    });
+
+    const diagnosticoId = await a.caller.diagnostico.salvar(
+      salvarInput(a, { problema: "Terreno mismatch" }),
+    );
+    await expect(
+      a.caller.diagnostico.criarTarefa({
+        diagnosticoId,
+        terrenoId: terreno2Id,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
 });
