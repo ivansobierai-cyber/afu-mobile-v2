@@ -148,11 +148,22 @@ export default function DiagnosticoScreen() {
     },
   });
 
+  const [tarefaImpactoRevisao, setTarefaImpactoRevisao] = useState<{
+    tarefaId: number;
+    updated: boolean;
+    flaggedNeedsReview: boolean;
+    status: string;
+    statusChanged?: boolean;
+  } | null>(null);
+
   const revisarMutation = trpc.diagnostico.revisar.useMutation({
     onSuccess: () => {
       utils.diagnostico.historico.invalidate(cacheInput);
       if (persistedDiagnosticoId) {
         utils.diagnostico.getRevisao.invalidate({ diagnosticoId: persistedDiagnosticoId });
+        utils.diagnostico.getTarefaVinculada.invalidate({
+          diagnosticoId: persistedDiagnosticoId,
+        });
       }
       utils.diagnostico.listarPendentesRevisao.invalidate();
     },
@@ -201,6 +212,7 @@ export default function DiagnosticoScreen() {
       setResultado(null);
       setTarefaCriadaId(null);
       setPersistedDiagnosticoId(null);
+      setTarefaImpactoRevisao(null);
     }
   };
 
@@ -340,6 +352,7 @@ export default function DiagnosticoScreen() {
         diagnosticoId: persistedDiagnosticoId,
         ...input,
       });
+      setTarefaImpactoRevisao(res.tarefaImpacto ?? null);
       if (resultado) {
         setResultado({
           ...resultado,
@@ -360,7 +373,7 @@ export default function DiagnosticoScreen() {
           resultado: {
             ...resultado.resultado,
             recomendacoes:
-              res.recomendacaoCorrigida
+              res.statusRevisao === "revisado" && res.recomendacaoCorrigida
                 ? res.recomendacaoCorrigida
                     .split(/\n|;/)
                     .map((s) => s.trim())
@@ -369,14 +382,18 @@ export default function DiagnosticoScreen() {
           },
         });
       }
-      Alert.alert(
-        "Revisão registrada",
+      const baseMsg =
         res.statusRevisao === "confirmado"
           ? "Laudo aprovado."
           : res.statusRevisao === "revisado"
             ? "Laudo corrigido. A recomendação corrigida alimenta a criação de tarefa."
-            : "Laudo rejeitado.",
-      );
+            : "Laudo rejeitado.";
+      const tarefaMsg = res.tarefaImpacto?.updated
+        ? res.tarefaImpacto.flaggedNeedsReview
+          ? `\n\nTarefa #${res.tarefaImpacto.tarefaId} sinalizada para revisão (status: ${res.tarefaImpacto.status}).`
+          : `\n\nTarefa #${res.tarefaImpacto.tarefaId} atualizada: nota da revisão anexada às instruções.`
+        : "";
+      Alert.alert("Revisão registrada", baseMsg + tarefaMsg);
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Não foi possível revisar.";
       Alert.alert("Erro", message);
@@ -1193,6 +1210,7 @@ export default function DiagnosticoScreen() {
                     ? new Date(revisaoAtual.revisadoEm).toISOString()
                     : resultado.revisadoEm
                 }
+                tarefaImpacto={tarefaImpactoRevisao}
                 canReview={canReviewDiagnostico}
                 reviewing={revisarMutation.isPending}
                 onRevisar={handleRevisar}
@@ -1205,8 +1223,16 @@ export default function DiagnosticoScreen() {
                 style={[
                   styles.resultCard,
                   {
-                    borderColor: colors.primary + "40",
-                    backgroundColor: colors.primary + "10",
+                    borderColor:
+                      tarefaVinculada?.status === "bloqueada" ||
+                      tarefaImpactoRevisao?.flaggedNeedsReview
+                        ? "#DC262655"
+                        : colors.primary + "40",
+                    backgroundColor:
+                      tarefaVinculada?.status === "bloqueada" ||
+                      tarefaImpactoRevisao?.flaggedNeedsReview
+                        ? "#DC262612"
+                        : colors.primary + "10",
                   },
                 ]}
               >
@@ -1214,7 +1240,11 @@ export default function DiagnosticoScreen() {
                   style={{
                     fontSize: 12,
                     fontWeight: "700",
-                    color: colors.primary,
+                    color:
+                      tarefaVinculada?.status === "bloqueada" ||
+                      tarefaImpactoRevisao?.flaggedNeedsReview
+                        ? "#DC2626"
+                        : colors.primary,
                     textTransform: "uppercase",
                     letterSpacing: 0.5,
                     marginBottom: 6,
@@ -1229,6 +1259,9 @@ export default function DiagnosticoScreen() {
                 {tarefaVinculada?.status ? (
                   <Text style={{ fontSize: 12, color: colors.muted, marginTop: 4 }}>
                     Status: {tarefaVinculada.status}
+                    {tarefaVinculada.status === "bloqueada"
+                      ? " · precisa revisão técnica"
+                      : ""}
                   </Text>
                 ) : null}
               </View>

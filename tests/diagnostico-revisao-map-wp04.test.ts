@@ -3,10 +3,14 @@
  */
 import { describe, expect, it } from "vitest";
 import {
+  appendNotaToInstrucoes,
+  buildNotaRevisaoParaTarefa,
   canCreateTarefaFromRevisaoStatus,
   mapAcaoRevisaoToStatus,
   resolveRecomendacoesEfetivas,
+  shouldBlockTarefaOnDescartar,
   STATUS_REVISAO_LABELS,
+  TAREFA_NEEDS_REVIEW_MARKER,
 } from "@/lib/diagnostico-revisao";
 import { roleHasPermission } from "@/lib/security/org-roles";
 
@@ -59,5 +63,24 @@ describe("WP-04 — mapeamentos revisão técnica", () => {
     expect(roleHasPermission("operador", "diagnostics.review")).toBe(false);
     expect(roleHasPermission("consultor", "diagnostics.review")).toBe(false);
     expect(roleHasPermission("auditor", "diagnostics.review")).toBe(false);
+  });
+
+  it("appendNotaToInstrucoes preserva texto anterior", () => {
+    const next = appendNotaToInstrucoes("Reco IA", "Nota técnica");
+    expect(next).toContain("Reco IA");
+    expect(next).toContain("Nota técnica");
+    expect(appendNotaToInstrucoes(next, "Nota técnica")).toBe(next);
+  });
+
+  it("descartar marca needs-review e só bloqueia status abertos", () => {
+    const nota = buildNotaRevisaoParaTarefa({
+      acao: "descartar",
+      parecerTecnico: "Falso positivo",
+    });
+    expect(nota).toContain(TAREFA_NEEDS_REVIEW_MARKER);
+    expect(shouldBlockTarefaOnDescartar("planejada")).toBe(true);
+    expect(shouldBlockTarefaOnDescartar("em_execucao")).toBe(true);
+    expect(shouldBlockTarefaOnDescartar("concluida")).toBe(false);
+    expect(shouldBlockTarefaOnDescartar("cancelada")).toBe(false);
   });
 });

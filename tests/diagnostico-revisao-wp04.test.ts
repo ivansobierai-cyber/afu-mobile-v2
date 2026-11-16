@@ -104,6 +104,7 @@ describe.skipIf(!hasDb)("WP-04 — revisão técnica de diagnóstico", () => {
     });
     expect(corrected.statusRevisao).toBe("revisado");
     expect(corrected.recomendacaoCorrigida).toContain("produto Y");
+    expect(corrected.tarefaImpacto).toBeNull();
 
     const tarefa = await a.caller.diagnostico.criarTarefa({ diagnosticoId });
     expect(tarefa.created).toBe(true);
@@ -111,6 +112,52 @@ describe.skipIf(!hasDb)("WP-04 — revisão técnica de diagnóstico", () => {
     expect(linked!.instrucoes ?? "").toContain("produto Y");
     expect(linked!.instrucoes ?? "").toContain("revisão técnica");
     expect(linked!.instrucoes ?? "").toContain("cercospora");
+  });
+
+  it("corrigir após criarTarefa anexa nota sem apagar instruções da IA", async () => {
+    const diagnosticoId = await a.caller.diagnostico.salvar(
+      salvarInput(a, { problema: "Tarefa antes da revisão" }),
+    );
+    const created = await a.caller.diagnostico.criarTarefa({ diagnosticoId });
+    expect(created.created).toBe(true);
+    const before = await a.caller.diagnostico.getTarefaVinculada({ diagnosticoId });
+    expect(before!.instrucoes ?? "").toContain("Aplicar fungicida");
+
+    const reviewed = await a.caller.diagnostico.revisar({
+      diagnosticoId,
+      acao: "corrigir",
+      parecerTecnico: "Ajuste pós-tarefa.",
+      recomendacaoCorrigida: "Produto Z pós-revisão",
+    });
+    expect(reviewed.tarefaImpacto?.tarefaId).toBe(created.tarefaId);
+    expect(reviewed.tarefaImpacto?.updated).toBe(true);
+    expect(reviewed.tarefaImpacto?.flaggedNeedsReview).toBe(false);
+
+    const after = await a.caller.diagnostico.getTarefaVinculada({ diagnosticoId });
+    expect(after!.instrucoes ?? "").toContain("Aplicar fungicida");
+    expect(after!.instrucoes ?? "").toContain("Produto Z pós-revisão");
+    expect(after!.instrucoes ?? "").toContain("Ajuste pós-tarefa");
+  });
+
+  it("descartar com tarefa existente bloqueia e sinaliza needs-review", async () => {
+    const diagnosticoId = await a.caller.diagnostico.salvar(
+      salvarInput(a, { problema: "Descartar com tarefa" }),
+    );
+    const created = await a.caller.diagnostico.criarTarefa({ diagnosticoId });
+    const reviewed = await a.caller.diagnostico.revisar({
+      diagnosticoId,
+      acao: "descartar",
+      parecerTecnico: "Falso positivo após tarefa.",
+    });
+    expect(reviewed.tarefaImpacto?.tarefaId).toBe(created.tarefaId);
+    expect(reviewed.tarefaImpacto?.flaggedNeedsReview).toBe(true);
+    expect(reviewed.tarefaImpacto?.status).toBe("bloqueada");
+    expect(reviewed.tarefaImpacto?.statusChanged).toBe(true);
+
+    const linked = await a.caller.diagnostico.getTarefaVinculada({ diagnosticoId });
+    expect(linked!.status).toBe("bloqueada");
+    expect(linked!.instrucoes ?? "").toContain("PRECISA_REVISAO_TECNICA");
+    expect(linked!.instrucoes ?? "").toContain("Aplicar fungicida");
   });
 
   it("descartar bloqueia criarTarefa", async () => {
@@ -126,6 +173,48 @@ describe.skipIf(!hasDb)("WP-04 — revisão técnica de diagnóstico", () => {
       code: "BAD_REQUEST",
       message: expect.stringContaining("rejeitado"),
     });
+  });
+
+  it("re-review guarda valores anteriores no audit meta", async () => {
+    const diagnosticoId = await a.caller.diagnostico.salvar(
+      salvarInput(a, { problema: "Re-review audit" }),
+    );
+    await a.caller.diagnostico.revisar({
+      diagnosticoId,
+      acao: "corrigir",
+      parecerTecnico: "Parecer v1",
+      recomendacaoCorrigida: "Reco v1",
+    });
+    await a.caller.diagnostico.revisar({
+      diagnosticoId,
+      acao: "corrigir",
+      parecerTecnico: "Parecer v2",
+      recomendacaoCorrigida: "Reco v2",
+    });
+
+    const { getDb } = await import("../server/db");
+    const { auditLogs } = await import("../drizzle/schema");
+    const db = await getDb();
+    const logs = await db!
+      .select()
+      .from(auditLogs)
+      .where(
+        and(
+          eq(auditLogs.organizationId, a.organizationId),
+          eq(auditLogs.action, "diagnostico.revisao.corrigir"),
+          eq(auditLogs.resourceId, String(diagnosticoId)),
+        ),
+      )
+      .orderBy(desc(auditLogs.id))
+      .limit(1);
+    const meta = JSON.parse(logs[0]!.meta ?? "{}") as {
+      previous?: { parecerTecnico?: string; recomendacaoCorrigida?: string };
+      next?: { parecerTecnico?: string; recomendacaoCorrigida?: string };
+    };
+    expect(meta.previous?.parecerTecnico).toBe("Parecer v1");
+    expect(meta.previous?.recomendacaoCorrigida).toBe("Reco v1");
+    expect(meta.next?.parecerTecnico).toBe("Parecer v2");
+    expect(meta.next?.recomendacaoCorrigida).toBe("Reco v2");
   });
 
   it("listarPendentesRevisao só retorna pendentes do tenant", async () => {

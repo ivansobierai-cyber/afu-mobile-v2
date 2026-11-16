@@ -25,6 +25,14 @@ const STATUS_COLORS: Record<DiagnosticoStatusRevisao, string> = {
   descartado: "#DC2626",
 };
 
+export type TarefaImpactoUi = {
+  tarefaId: number;
+  updated: boolean;
+  flaggedNeedsReview: boolean;
+  status: string;
+  statusChanged?: boolean;
+};
+
 export type RevisaoTecnicaCardProps = {
   diagnosticoId: number;
   statusRevisao: DiagnosticoStatusRevisao;
@@ -32,6 +40,8 @@ export type RevisaoTecnicaCardProps = {
   recomendacaoCorrigida?: string | null;
   recomendacaoOriginal?: string | null;
   revisadoEm?: string | null;
+  /** Impacto na tarefa WP-03 já vinculada (após revisão). */
+  tarefaImpacto?: TarefaImpactoUi | null;
   canReview: boolean;
   reviewing?: boolean;
   onRevisar: (input: {
@@ -48,6 +58,7 @@ export function RevisaoTecnicaCard({
   recomendacaoCorrigida,
   recomendacaoOriginal,
   revisadoEm,
+  tarefaImpacto,
   canReview,
   reviewing = false,
   onRevisar,
@@ -108,6 +119,40 @@ export function RevisaoTecnicaCard({
               Original (IA): {recomendacaoOriginal}
             </Text>
           ) : null}
+        </View>
+      ) : null}
+
+      {tarefaImpacto?.updated ? (
+        <View
+          style={{
+            marginTop: 10,
+            padding: 10,
+            borderRadius: 8,
+            backgroundColor: tarefaImpacto.flaggedNeedsReview
+              ? "#DC262618"
+              : colors.primary + "12",
+            borderWidth: 1,
+            borderColor: tarefaImpacto.flaggedNeedsReview
+              ? "#DC262655"
+              : colors.primary + "40",
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 12,
+              fontWeight: "700",
+              color: tarefaImpacto.flaggedNeedsReview ? "#DC2626" : colors.primary,
+            }}
+          >
+            {tarefaImpacto.flaggedNeedsReview
+              ? `Tarefa #${tarefaImpacto.tarefaId} sinalizada para revisão`
+              : `Tarefa #${tarefaImpacto.tarefaId} atualizada com a revisão`}
+          </Text>
+          <Text style={{ fontSize: 11, color: colors.muted, marginTop: 4 }}>
+            Status: {tarefaImpacto.status}
+            {tarefaImpacto.statusChanged ? " (alterado)" : ""}
+            {" · "}instruções preservadas + nota técnica anexada
+          </Text>
         </View>
       ) : null}
 

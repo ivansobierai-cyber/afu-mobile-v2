@@ -87,3 +87,83 @@ export function canCreateTarefaFromRevisaoStatus(
 ): boolean {
   return statusRevisao !== "descartado";
 }
+
+/** Marcador estável appendado às instruções quando o laudo é rejeitado. */
+export const TAREFA_NEEDS_REVIEW_MARKER = "[PRECISA_REVISAO_TECNICA]";
+
+const TAREFA_STATUS_BLOQUEAVEIS = new Set([
+  "planejada",
+  "liberada",
+  "em_execucao",
+  "pausada",
+]);
+
+/**
+ * Monta nota aditiva para instruções da tarefa já vinculada (nunca apaga o texto anterior).
+ */
+export function buildNotaRevisaoParaTarefa(opts: {
+  acao: DiagnosticoAcaoRevisao;
+  parecerTecnico?: string | null;
+  recomendacaoCorrigida?: string | null;
+  revisadoEm?: Date | string | null;
+}): string {
+  const when =
+    opts.revisadoEm != null
+      ? new Date(opts.revisadoEm).toISOString()
+      : new Date().toISOString();
+  const lines: string[] = [`--- Revisão técnica (${when}) ---`];
+
+  switch (opts.acao) {
+    case "confirmar":
+      lines.push("Laudo IA confirmado pelo técnico.");
+      break;
+    case "corrigir":
+      lines.push("Recomendação corrigida pelo técnico (texto anterior preservado acima).");
+      if (opts.recomendacaoCorrigida?.trim()) {
+        lines.push(`Recomendação corrigida: ${opts.recomendacaoCorrigida.trim()}`);
+      }
+      break;
+    case "descartar":
+      lines.push(
+        `${TAREFA_NEEDS_REVIEW_MARKER} Laudo rejeitado — tarefa sinalizada para revisão humana.`,
+      );
+      break;
+    default: {
+      const _exhaustive: never = opts.acao;
+      return _exhaustive;
+    }
+  }
+
+  if (opts.parecerTecnico?.trim()) {
+    lines.push(`Parecer: ${opts.parecerTecnico.trim()}`);
+  }
+  return lines.join("\n");
+}
+
+/** Anexa nota sem duplicar o mesmo bloco idêntico. */
+export function appendNotaToInstrucoes(
+  instrucoes: string | null | undefined,
+  nota: string,
+): string {
+  const base = (instrucoes ?? "").trimEnd();
+  const n = nota.trim();
+  if (!n) return base;
+  if (base.includes(n)) return base;
+  return base ? `${base}\n\n${n}` : n;
+}
+
+/**
+ * Em descartar, tarefas ainda abertas passam a `bloqueada` (precisa revisão).
+ * Status terminais (concluída/aprovada/cancelada/já bloqueada) não mudam.
+ */
+export function shouldBlockTarefaOnDescartar(
+  status: string | null | undefined,
+): boolean {
+  return status != null && TAREFA_STATUS_BLOQUEAVEIS.has(status);
+}
+
+export function tarefaNeedsReviewFromInstrucoes(
+  instrucoes: string | null | undefined,
+): boolean {
+  return (instrucoes ?? "").includes(TAREFA_NEEDS_REVIEW_MARKER);
+}

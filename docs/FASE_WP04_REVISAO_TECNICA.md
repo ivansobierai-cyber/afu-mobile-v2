@@ -45,7 +45,25 @@ Papéis com `diagnostics.review`: proprietario, administrador, gerente, agronomo
 
 ## Auditoria
 
-Cada revisão grava `audit_logs` com action `diagnostico.revisao.<acao>`, `resourceType=diagnostico_ia`, actor e meta (from/to). Push best-effort ao produtor dono do laudo.
+Cada revisão grava `audit_logs` com action `diagnostico.revisao.<acao>`, `resourceType=diagnostico_ia`, actor e meta com:
+- `from` / `to`
+- `previous` (parecerTecnico, recomendacaoCorrigida, revisadoPor*, revisadoEm) — **não perde conteúdo em re-review**
+- `next` (valores novos)
+- `tarefaImpacto` quando houver tarefa vinculada
+
+Push best-effort ao produtor dono do laudo.
+
+## Tarefa já vinculada (WP-03)
+
+Se `legadoDiagnosticoId` já aponta para uma tarefa:
+
+| Ação | Efeito na tarefa (aditivo) |
+|------|----------------------------|
+| `confirmar` | Anexa nota de confirmação às `instrucoes` |
+| `corrigir` | Anexa recomendação corrigida + parecer (texto anterior preservado) |
+| `descartar` | Anexa marcador `[PRECISA_REVISAO_TECNICA]` + bloqueia status aberto → `bloqueada` |
+
+Resposta de `revisar` inclui `tarefaImpacto` (`tarefaId`, `updated`, `flaggedNeedsReview`, `status`).
 
 ## UI
 
