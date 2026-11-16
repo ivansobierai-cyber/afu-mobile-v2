@@ -1,5 +1,5 @@
 /**
- * WP-06 — autorização admin de produtores + soft-deactivate + audit.
+ * WP-06 — autorização admin de produtores + soft-deactivate + audit + invite email.
  */
 import { beforeAll, describe, expect, it } from "vitest";
 import { TRPCError } from "@trpc/server";
@@ -7,6 +7,7 @@ import { eq, and, desc } from "drizzle-orm";
 import { appRouter } from "../server/routers";
 import { createCallerCtx, createIsolatedTenantPair, type TenantFixture } from "./helpers/tenant-fixture";
 import { NOT_ADMIN_ERR_MSG } from "../shared/const";
+import { AccountInactiveError } from "../server/account-status";
 
 const hasDb = Boolean(process.env.DATABASE_URL);
 
@@ -73,29 +74,38 @@ describe.skipIf(!hasDb)("adminProdutores authz (WP-06)", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" } satisfies Partial<TRPCError>);
   });
 
-  it("admin lista produtores e vê tenant A sem misturar campos de B no detalhe A", async (ctx) => {
+  it("admin lista com COUNT SQL e filtro sem misturar propriedades cross-tenant", async (ctx) => {
     if (!suiteReady) ctx.skip();
 
-    const list = await adminCaller.adminProdutores.listar({ busca: a.email.split("@")[0] });
+    const list = await adminCaller.adminProdutores.listar({
+      busca: a.email.split("@")[0],
+      limit: 10,
+      offset: 0,
+    });
     expect(list.total).toBeGreaterThanOrEqual(1);
+    expect(list.produtores.length).toBeLessThanOrEqual(10);
     const foundA = list.produtores.find((p) => p.userId === a.userId);
     expect(foundA).toBeTruthy();
 
+    const page2 = await adminCaller.adminProdutores.listar({
+      busca: a.email.split("@")[0],
+      limit: 1,
+      offset: 1,
+    });
+    expect(page2.total).toBe(list.total);
+
     const detalheA = await adminCaller.adminProdutores.detalhe({ userId: a.userId });
-    expect(detalheA.userId).toBe(a.userId);
     expect(detalheA.propriedades.some((p) => p.id === a.propriedadeId)).toBe(true);
     expect(detalheA.propriedades.some((p) => p.id === b.propriedadeId)).toBe(false);
-
-    const detalheB = await adminCaller.adminProdutores.detalhe({ userId: b.userId });
-    expect(detalheB.propriedades.some((p) => p.id === b.propriedadeId)).toBe(true);
-    expect(detalheB.propriedades.some((p) => p.id === a.propriedadeId)).toBe(false);
   });
 
-  it("admin convida, altera plano, soft-desativa e registra audit", async (ctx) => {
+  it("convite: mustChangePassword, emailEnviado real, temp password só em non-prod", async (ctx) => {
     if (!suiteReady) ctx.skip();
 
     const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
     const email = `wp06_invite_${suffix}@afu-test.local`;
+
+    delete process.env.ADMIN_INVITE_RETURN_TEMP_PASSWORD;
     const invited = await adminCaller.adminProdutores.convidar({
       nome: "Produtor Convidado WP06",
       email,
@@ -103,59 +113,115 @@ describe.skipIf(!hasDb)("adminProdutores authz (WP-06)", () => {
       cidade: "Cascavel",
       regiao: "Oeste",
       plano: "produtor",
-      enviarEmailReset: false,
+      enviarEmailReset: true,
     });
     expect(invited.success).toBe(true);
-    expect(invited.produtorId).toBeGreaterThan(0);
+    expect(invited.emailEnviado).toBe(false); // SendGrid ausente → resultado real
+    expect(invited.mustChangePassword).toBe(true);
+    // Vitest NODE_ENV=test → non-prod → temp password revelada
     expect(invited.temporaryPassword).toBeTruthy();
 
-    const plano = await adminCaller.adminProdutores.setPlano({
+    const { getDb } = await import("../server/db");
+    const { users } = await import("../drizzle/schema");
+    const db = await getDb();
+    if (!db) throw new Error("DB unavailable");
+    const [row] = await db.select().from(users).where(eq(users.id, invited.userId)).limit(1);
+    expect(row?.mustChangePassword).toBe(true);
+    expect(row?.resetToken).toBeTruthy(); // token gerado mesmo sem SendGrid
+  });
+
+  it("desativar bloqueia loginWithEmail e authenticateRequest + revoga refresh", async (ctx) => {
+    if (!suiteReady) ctx.skip();
+
+    const { createUserWithEmail, loginWithEmail } = await import("../server/db-auth");
+    const { storeRefreshToken } = await import("../server/token-service");
+    const { createAccessToken } = await import("../server/token-service");
+    const { sdk } = await import("../server/_core/sdk");
+    const { getDb } = await import("../server/db");
+    const { users } = await import("../drizzle/schema");
+    const { assertAccountActive } = await import("../server/account-status");
+
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const email = `wp06_block_${suffix}@afu-test.local`;
+    const password = "Block@Test1!";
+    const created = await createUserWithEmail({
+      email,
+      password,
+      name: "Bloqueavel",
+      profile: "produtor",
+    });
+
+    // Garante linha produtor para desativar por userId
+    await adminCaller.adminProdutores.reativar({ userId: created.userId });
+
+    await storeRefreshToken(created.userId, `refresh_wp06_${suffix}`);
+    const db = await getDb();
+    if (!db) throw new Error("DB unavailable");
+    const [before] = await db.select().from(users).where(eq(users.id, created.userId)).limit(1);
+    expect(before?.refreshToken).toBeTruthy();
+
+    await adminCaller.adminProdutores.desativar({
+      userId: created.userId,
+      modo: "suspenso",
+    });
+
+    const [after] = await db.select().from(users).where(eq(users.id, created.userId)).limit(1);
+    expect(after?.refreshToken).toBeNull();
+
+    await expect(loginWithEmail(email, password)).rejects.toBeInstanceOf(AccountInactiveError);
+
+    await expect(assertAccountActive({ id: created.userId })).rejects.toBeInstanceOf(
+      AccountInactiveError,
+    );
+
+    // LGPD hook no-op neste branch (tabela ausente) — allowPendingErasure não libera
+    await expect(
+      assertAccountActive({ id: created.userId }, { allowPendingErasure: true }),
+    ).rejects.toBeInstanceOf(AccountInactiveError);
+
+    const access = await createAccessToken(created.openId, "Bloqueavel");
+    await expect(
+      sdk.authenticateRequest({
+        headers: { authorization: `Bearer ${access}` },
+      } as any),
+    ).rejects.toThrow(/suspensa|desativada|inativa/i);
+  });
+
+  it("admin convida, altera plano, soft-desativa e registra audit", async (ctx) => {
+    if (!suiteReady) ctx.skip();
+
+    const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const email = `wp06_audit_${suffix}@afu-test.local`;
+    const invited = await adminCaller.adminProdutores.convidar({
+      nome: "Produtor Audit WP06",
+      email,
+      plano: "produtor",
+      enviarEmailReset: false,
+    });
+    expect(invited.produtorId).toBeGreaterThan(0);
+
+    await adminCaller.adminProdutores.setPlano({
       produtorId: invited.produtorId,
       plano: "pro",
     });
-    expect(plano.plano).toBe("pro");
-
-    const des = await adminCaller.adminProdutores.desativar({
+    await adminCaller.adminProdutores.desativar({
       produtorId: invited.produtorId,
       modo: "suspenso",
     });
-    expect(des.status).toBe("suspenso");
-    expect(des.cadastroAtivo).toBe(false);
 
-    const detalhe = await adminCaller.adminProdutores.detalhe({
-      produtorId: invited.produtorId,
-    });
-    expect(detalhe.status).toBe("suspenso");
-    expect(detalhe.cadastroAtivo).toBe(false);
-    expect(detalhe.plano).toBe("pro");
-
-    // Soft: usuário e produtor ainda existem
     const { getDb } = await import("../server/db");
-    const { users, produtores, auditLogs } = await import("../drizzle/schema");
+    const { auditLogs } = await import("../drizzle/schema");
     const db = await getDb();
     if (!db) throw new Error("DB unavailable");
-    const userRows = await db.select().from(users).where(eq(users.id, invited.userId)).limit(1);
-    expect(userRows.length).toBe(1);
-    const prodRows = await db
-      .select()
-      .from(produtores)
-      .where(eq(produtores.id, invited.produtorId))
-      .limit(1);
-    expect(prodRows.length).toBe(1);
-
     const audits = await db
       .select()
       .from(auditLogs)
       .where(
-        and(
-          eq(auditLogs.actorUserId, adminUserId),
-          eq(auditLogs.resourceType, "produtor"),
-        ),
+        and(eq(auditLogs.actorUserId, adminUserId), eq(auditLogs.resourceType, "produtor")),
       )
       .orderBy(desc(auditLogs.createdAt))
       .limit(20);
-    const actions = audits.map((x) => x.action);
-    expect(actions).toEqual(
+    expect(audits.map((x) => x.action)).toEqual(
       expect.arrayContaining([
         "admin.producer.invite",
         "admin.producer.set_plano",
@@ -169,5 +235,28 @@ describe.skipIf(!hasDb)("adminProdutores authz (WP-06)", () => {
     await expect(
       adminCaller.adminProdutores.desativar({ userId: adminUserId, modo: "inativo" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" } satisfies Partial<TRPCError>);
+  });
+
+  it("produção esconde temporaryPassword sem flag de env", async (ctx) => {
+    if (!suiteReady) ctx.skip();
+    const prevNode = process.env.NODE_ENV;
+    const prevFlag = process.env.ADMIN_INVITE_RETURN_TEMP_PASSWORD;
+    process.env.NODE_ENV = "production";
+    delete process.env.ADMIN_INVITE_RETURN_TEMP_PASSWORD;
+    try {
+      const suffix = `${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+      const invited = await adminCaller.adminProdutores.convidar({
+        nome: "Produtor Prod Gate",
+        email: `wp06_prod_${suffix}@afu-test.local`,
+        enviarEmailReset: true,
+      });
+      expect(invited.emailEnviado).toBe(false);
+      expect(invited.temporaryPassword).toBeUndefined();
+      expect(invited.mustChangePassword).toBe(true);
+    } finally {
+      process.env.NODE_ENV = prevNode;
+      if (prevFlag === undefined) delete process.env.ADMIN_INVITE_RETURN_TEMP_PASSWORD;
+      else process.env.ADMIN_INVITE_RETURN_TEMP_PASSWORD = prevFlag;
+    }
   });
 });

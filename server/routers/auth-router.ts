@@ -33,6 +33,7 @@ import {
   revokeRefreshToken,
   verifyRefreshToken,
 } from "../token-service";
+import { toAccountInactiveTrpc } from "../account-status";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -216,10 +217,20 @@ export const authRouter = router({
           success: true,
           accessToken,
           refreshToken,
-          user: { id: user.id, email: user.email, name: user.name, role: user.role, openId: user.openId },
+          user: {
+            id: user.id,
+            email: user.email,
+            name: user.name,
+            role: user.role,
+            openId: user.openId,
+            mustChangePassword: Boolean(user.mustChangePassword),
+          },
           message: "Login realizado com sucesso",
         };
       } catch (error) {
+        // WP-06 — soft-deactivate deve surfacer FORBIDDEN (não mascarar como credencial inválida)
+        const inactive = toAccountInactiveTrpc(error);
+        if (inactive) throw inactive;
         throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
       }
     }),

@@ -3,7 +3,7 @@
  * Isolado de db-auth / auth-router (PR #61) para reduzir conflito de merge.
  */
 import * as crypto from "node:crypto";
-import { desc, eq, or, sql, count } from "drizzle-orm";
+import { and, desc, eq, like, or, sql, count, type SQL } from "drizzle-orm";
 import { getDb } from "./db";
 import {
   users,
@@ -70,6 +70,53 @@ export type ProdutorAdminDetalhe = ProdutorAdminListItem & {
   };
 };
 
+function buildProdutoresAdminWhere(opts?: {
+  busca?: string;
+  status?: "ativo" | "inativo" | "suspenso";
+  estado?: string;
+  cidade?: string;
+  regiao?: string;
+  plano?: PlanoProdutor;
+  cadastroAtivo?: boolean;
+}): SQL | undefined {
+  const conditions: SQL[] = [
+    or(
+      eq(usuariosAfu.tipoUsuario, "produtor"),
+      sql`${produtores.id} IS NOT NULL`,
+    )!,
+  ];
+
+  if (opts?.busca?.trim()) {
+    const q = `%${opts.busca.trim()}%`;
+    conditions.push(
+      or(
+        like(usuariosAfu.nome, q),
+        like(usuariosAfu.email, q),
+        like(produtores.cidade, q),
+        like(produtores.estado, q),
+        like(produtores.regiao, q),
+        sql`CAST(${produtores.id} AS CHAR) LIKE ${q}`,
+      )!,
+    );
+  }
+  if (opts?.status) conditions.push(eq(usuariosAfu.status, opts.status));
+  if (opts?.estado?.trim()) {
+    conditions.push(sql`LOWER(${produtores.estado}) = ${opts.estado.trim().toLowerCase()}`);
+  }
+  if (opts?.cidade?.trim()) {
+    conditions.push(like(produtores.cidade, `%${opts.cidade.trim()}%`));
+  }
+  if (opts?.regiao?.trim()) {
+    conditions.push(like(produtores.regiao, `%${opts.regiao.trim()}%`));
+  }
+  if (opts?.plano) conditions.push(eq(produtores.plano, opts.plano));
+  if (opts?.cadastroAtivo !== undefined) {
+    conditions.push(eq(produtores.cadastroAtivo, opts.cadastroAtivo));
+  }
+
+  return and(...conditions);
+}
+
 export async function listarProdutoresAdmin(opts?: {
   busca?: string;
   status?: "ativo" | "inativo" | "suspenso";
@@ -86,76 +133,49 @@ export async function listarProdutoresAdmin(opts?: {
 
   const limit = opts?.limit ?? 50;
   const offset = opts?.offset ?? 0;
+  const whereClause = buildProdutoresAdminWhere(opts);
 
-  // Base: perfis tipo produtor (+ quem já tem linha em produtores)
-  const rows = await db
-    .select({
-      usuarioAfuId: usuariosAfu.id,
-      userId: usuariosAfu.userId,
-      nome: usuariosAfu.nome,
-      email: usuariosAfu.email,
-      telefone: usuariosAfu.telefone,
-      status: usuariosAfu.status,
-      tipoUsuario: usuariosAfu.tipoUsuario,
-      perfilCreatedAt: usuariosAfu.createdAt,
-      role: users.role,
-      lastSignedIn: users.lastSignedIn,
-      produtorId: produtores.id,
-      cadastroAtivo: produtores.cadastroAtivo,
-      plano: produtores.plano,
-      cidade: produtores.cidade,
-      estado: produtores.estado,
-      regiao: produtores.regiao,
-      tipoProdutor: produtores.tipoProdutor,
-      organizationId: produtores.organizationId,
-      produtorCreatedAt: produtores.createdAt,
-    })
+  const baseFrom = () =>
+    db
+      .select({
+        usuarioAfuId: usuariosAfu.id,
+        userId: usuariosAfu.userId,
+        nome: usuariosAfu.nome,
+        email: usuariosAfu.email,
+        telefone: usuariosAfu.telefone,
+        status: usuariosAfu.status,
+        tipoUsuario: usuariosAfu.tipoUsuario,
+        perfilCreatedAt: usuariosAfu.createdAt,
+        role: users.role,
+        lastSignedIn: users.lastSignedIn,
+        produtorId: produtores.id,
+        cadastroAtivo: produtores.cadastroAtivo,
+        plano: produtores.plano,
+        cidade: produtores.cidade,
+        estado: produtores.estado,
+        regiao: produtores.regiao,
+        tipoProdutor: produtores.tipoProdutor,
+        organizationId: produtores.organizationId,
+        produtorCreatedAt: produtores.createdAt,
+      })
+      .from(usuariosAfu)
+      .innerJoin(users, eq(users.id, usuariosAfu.userId))
+      .leftJoin(produtores, eq(produtores.usuarioId, usuariosAfu.id));
+
+  const [totalRow] = await db
+    .select({ c: count() })
     .from(usuariosAfu)
     .innerJoin(users, eq(users.id, usuariosAfu.userId))
     .leftJoin(produtores, eq(produtores.usuarioId, usuariosAfu.id))
-    .where(
-      or(
-        eq(usuariosAfu.tipoUsuario, "produtor"),
-        sql`${produtores.id} IS NOT NULL`,
-      ),
-    )
+    .where(whereClause);
+
+  const total = Number(totalRow?.c ?? 0);
+
+  const page = await baseFrom()
+    .where(whereClause)
     .orderBy(desc(usuariosAfu.createdAt))
-    .limit(500);
-
-  let filtered = rows;
-
-  if (opts?.busca) {
-    const q = opts.busca.toLowerCase();
-    filtered = filtered.filter(
-      (r) =>
-        r.nome?.toLowerCase().includes(q) ||
-        r.email?.toLowerCase().includes(q) ||
-        r.cidade?.toLowerCase().includes(q) ||
-        r.estado?.toLowerCase().includes(q) ||
-        r.regiao?.toLowerCase().includes(q) ||
-        String(r.produtorId ?? "").includes(q),
-    );
-  }
-  if (opts?.status) filtered = filtered.filter((r) => r.status === opts.status);
-  if (opts?.estado) {
-    const e = opts.estado.toLowerCase();
-    filtered = filtered.filter((r) => r.estado?.toLowerCase() === e);
-  }
-  if (opts?.cidade) {
-    const c = opts.cidade.toLowerCase();
-    filtered = filtered.filter((r) => r.cidade?.toLowerCase().includes(c));
-  }
-  if (opts?.regiao) {
-    const r0 = opts.regiao.toLowerCase();
-    filtered = filtered.filter((r) => r.regiao?.toLowerCase().includes(r0));
-  }
-  if (opts?.plano) filtered = filtered.filter((r) => r.plano === opts.plano);
-  if (opts?.cadastroAtivo !== undefined) {
-    filtered = filtered.filter((r) => (r.cadastroAtivo ?? true) === opts.cadastroAtivo);
-  }
-
-  const total = filtered.length;
-  const page = filtered.slice(offset, offset + limit);
+    .limit(limit)
+    .offset(offset);
 
   const items: ProdutorAdminListItem[] = [];
   for (const r of page) {
@@ -167,19 +187,12 @@ export async function listarProdutoresAdmin(opts?: {
         .from(propriedades)
         .where(eq(propriedades.produtorId, r.produtorId));
       propriedadesCount = Number(propCount?.c ?? 0);
-
-      const [diagCount] = await db
-        .select({ c: count() })
-        .from(diagnosticosIa)
-        .where(eq(diagnosticosIa.usuarioId, r.usuarioAfuId));
-      diagnosticosCount = Number(diagCount?.c ?? 0);
-    } else {
-      const [diagCount] = await db
-        .select({ c: count() })
-        .from(diagnosticosIa)
-        .where(eq(diagnosticosIa.usuarioId, r.usuarioAfuId));
-      diagnosticosCount = Number(diagCount?.c ?? 0);
     }
+    const [diagCount] = await db
+      .select({ c: count() })
+      .from(diagnosticosIa)
+      .where(eq(diagnosticosIa.usuarioId, r.usuarioAfuId));
+    diagnosticosCount = Number(diagCount?.c ?? 0);
 
     items.push({
       produtorId: r.produtorId ?? null,
@@ -454,7 +467,7 @@ export async function getEstatisticasProdutoresAdmin(): Promise<{
     };
   }
 
-  const { produtores: list } = await listarProdutoresAdmin({ limit: 500, offset: 0 });
+  const { produtores: list } = await listarProdutoresAdmin({ limit: 10_000, offset: 0 });
   const porPlano: Record<string, number> = {};
   const porEstado: Record<string, number> = {};
   for (const p of list) {

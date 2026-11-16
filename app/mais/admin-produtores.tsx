@@ -96,10 +96,10 @@ function AdminProdutoresContent() {
       setInviteNome("");
       setInviteEmail("");
       const extra = res.temporaryPassword
-        ? `\nSenha temporária (dev, sem SendGrid): ${res.temporaryPassword}`
+        ? `\nSenha temporária (só ambiente não-prod / flag): ${res.temporaryPassword}\nTroca obrigatória no próximo login.`
         : res.emailEnviado
-          ? "\nE-mail de definição de senha enviado."
-          : "";
+          ? "\nE-mail de definição de senha enviado. Troca obrigatória no próximo login."
+          : "\nE-mail não enviado. Use 'esqueci a senha' ou configure SendGrid / ADMIN_INVITE_RETURN_TEMP_PASSWORD=1.";
       Alert.alert("Convite criado", `Produtor #${res.produtorId} · user ${res.userId}${extra}`);
     },
     onError: (err) => Alert.alert("Erro", err.message),

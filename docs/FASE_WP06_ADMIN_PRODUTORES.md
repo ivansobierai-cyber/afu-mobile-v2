@@ -14,7 +14,8 @@ Cobrir ETAPA 9 (gestão de produtores) na stack Expo web atual (sem Next.js): li
 | Lista / busca / filtros (status, UF, região, plano) | `adminProdutores.listar` + `app/mais/admin-produtores.tsx` |
 | Detalhe: propriedades + diagnósticos/análises | `adminProdutores.detalhe` + `app/mais/admin-produtor/[id].tsx` |
 | Convite (cria user+perfil+org+linha produtores) | `adminProdutores.convidar` |
-| Soft deactivate / reativar | `desativar` / `reativar` (`usuarios_afu.status` + `produtores.cadastroAtivo`) |
+| Soft deactivate / reativar | `desativar` / `reativar` (`usuarios_afu.status` + `produtores.cadastroAtivo` + `revokeRefreshToken`); login/`authenticateRequest` bloqueiam via `assertAccountActive` |
+| Troca de senha no convite | `users.mustChangePassword`; temp password só em non-prod ou `ADMIN_INVITE_RETURN_TEMP_PASSWORD=1` |
 | Role / tipo / plano | `setRole` / `setTipo` / `setPlano` |
 | Authz server-side | `adminProcedure` (`users.role === "admin"`) |
 | Audit | `admin.producer.*` + auditoria genérica do `adminProcedure` |
@@ -28,7 +29,7 @@ Procedures: `stats`, `listar`, `detalhe`, `convidar`, `desativar`, `reativar`, `
 
 ## Migration
 
-- `drizzle/0044_produtor_plano.sql` — coluna `produtores.plano` (`free` \| `produtor` \| `pro` \| `enterprise`)
+- `drizzle/0044_produtor_plano.sql` — `produtores.plano` + `users.mustChangePassword`
 - Script: `npm run db:produtor-plano:apply` → `scripts/apply-0044-produtor-plano.ts`
 - Registrada em `scripts/lib/schema-prepare-core.ts` (tag `0044_produtor_plano`)
 

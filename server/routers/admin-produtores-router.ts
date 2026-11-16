@@ -20,15 +20,26 @@ import {
 import {
   createUserWithEmail,
   emailExists,
+  setMustChangePassword,
   setStatusPerfilAfu,
   setTipoUsuarioAfu,
   setUserRole,
 } from "../db-auth";
 import { ensurePersonalOrganization } from "../db-organizations";
-import { requestPasswordReset } from "../password-reset";
-import { isSendGridReady } from "../email-service";
-import { usuariosAfu } from "../../drizzle/schema";
+import { generateResetToken } from "../password-reset";
+import { sendPasswordResetEmail, isSendGridReady } from "../email-service";
+import { revokeRefreshToken } from "../token-service";
+import { users, usuariosAfu } from "../../drizzle/schema";
 import { getDb } from "../db";
+
+/** Temp password only outside production, or when explicitly enabled. */
+function mayReturnTemporaryPassword(): boolean {
+  if (process.env.ADMIN_INVITE_RETURN_TEMP_PASSWORD === "1") return true;
+  const nodeEnv = process.env.NODE_ENV ?? "development";
+  const vercelEnv = process.env.VERCEL_ENV;
+  if (nodeEnv === "production" || vercelEnv === "production") return false;
+  return true;
+}
 
 const planoSchema = z.enum(["free", "produtor", "pro", "enterprise"]);
 const statusSchema = z.enum(["ativo", "inativo", "suspenso"]);
@@ -181,22 +192,33 @@ export const adminProdutoresRouter = router({
         plano: input.plano as PlanoProdutor,
       });
 
+      // Convite: sempre exige troca de senha no próximo login
+      await setMustChangePassword(created.userId, true);
+
       let emailEnviado = false;
-      if (input.enviarEmailReset && isSendGridReady()) {
+      if (input.enviarEmailReset) {
         try {
-          const result = await requestPasswordReset(email);
-          emailEnviado = Boolean(result.success);
+          const { token, expiresAt } = generateResetToken();
+          await db
+            .update(users)
+            .set({ resetToken: token, resetTokenExpiry: expiresAt })
+            .where(eq(users.id, created.userId));
+
+          // Usa resultado real do SendGrid — requestPasswordReset mascara falhas com success:true
+          if (isSendGridReady()) {
+            const appUrl = process.env.APP_URL || "https://afumobile.com";
+            const emailResult = await sendPasswordResetEmail(email, token, appUrl);
+            emailEnviado = Boolean(emailResult.success);
+          } else {
+            emailEnviado = false;
+          }
         } catch (e) {
           console.warn("[adminProdutores.convidar] reset email failed:", e);
-        }
-      } else if (input.enviarEmailReset) {
-        // Sem SendGrid: ainda gera token de reset (dev) via requestPasswordReset
-        try {
-          await requestPasswordReset(email);
-        } catch (e) {
-          console.warn("[adminProdutores.convidar] reset token (dev) failed:", e);
+          emailEnviado = false;
         }
       }
+
+      const revealTemp = !emailEnviado && mayReturnTemporaryPassword();
 
       await auditProducerAction({
         actorUserId: ctx.user.id,
@@ -208,6 +230,8 @@ export const adminProdutoresRouter = router({
           email,
           plano: input.plano,
           emailEnviado,
+          mustChangePassword: true,
+          temporaryPasswordReturned: revealTemp,
         },
       });
 
@@ -217,8 +241,13 @@ export const adminProdutoresRouter = router({
         produtorId,
         organizationId,
         emailEnviado,
-        /** Senha temporária só quando e-mail não foi enviado (dev/local). */
-        temporaryPassword: emailEnviado ? undefined : tempPassword,
+        mustChangePassword: true as const,
+        /**
+         * Senha temporária: só se e-mail NÃO foi enviado e
+         * (dev/non-prod OU ADMIN_INVITE_RETURN_TEMP_PASSWORD=1).
+         * Em produção sem flag, use forgot-password / reenvio.
+         */
+        temporaryPassword: revealTemp ? tempPassword : undefined,
       };
     }),
 
@@ -250,13 +279,15 @@ export const adminProdutoresRouter = router({
       if (detalhe.produtorId != null) {
         await setProdutorCadastroAtivo(detalhe.produtorId, false);
       }
+      // Encerra sessões ativas — soft-deactivate passa a bloquear login/auth
+      await revokeRefreshToken(detalhe.userId);
 
       await auditProducerAction({
         actorUserId: ctx.user.id,
         action: "admin.producer.deactivate",
         resourceId: String(detalhe.produtorId ?? detalhe.userId),
         organizationId: detalhe.organizationId,
-        meta: { userId: detalhe.userId, modo: input.modo },
+        meta: { userId: detalhe.userId, modo: input.modo, refreshRevoked: true },
       });
 
       return {

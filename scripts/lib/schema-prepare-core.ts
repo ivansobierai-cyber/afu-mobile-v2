@@ -129,6 +129,9 @@ async function verify0044ProdutorPlano(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, "produtores", "plano"))) {
     throw new Error("0044_produtor_plano: produtores.plano ausente");
   }
+  if (!(await columnExists(conn, "users", "mustChangePassword"))) {
+    throw new Error("0044_produtor_plano: users.mustChangePassword ausente");
+  }
 }
 
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
