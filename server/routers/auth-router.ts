@@ -50,6 +50,22 @@ import {
   requestAccountDeletion,
 } from "../lgpd";
 import { assertAccountActive, getAccountStatus } from "../lgpd-account-active";
+import {
+  adminResetMfa,
+  beginMfaEnrollment,
+  confirmMfaEnrollment,
+  disableMfaSelf,
+  getMfaPublicStatus,
+  isMfaEnabled,
+  regenerateRecoveryCodes,
+  userRequiresMfaEnrollment,
+  verifyMfaLoginCode,
+} from "../mfa";
+import { createMfaChallengeToken, verifyMfaChallengeToken } from "../mfa-challenge";
+import { getDb } from "../db";
+import { eq } from "drizzle-orm";
+import { users } from "../../drizzle/schema";
+import { MFA_CHALLENGE_REQUIRED_CODE } from "../../lib/mfa/constants";
 
 // ─── Schemas ──────────────────────────────────────────────────────────────────
 
@@ -225,6 +241,35 @@ export const authRouter = router({
           await assertAccountActive(user.id, { allowPendingErasure: true });
         }
 
+        // WP-08 — se MFA ativo, não emitir sessão até TOTP/recovery
+        let mfaEnabled = false;
+        try {
+          mfaEnabled = await isMfaEnabled(user.id);
+        } catch (e) {
+          console.warn("[auth.login] MFA status check failed:", e);
+        }
+        if (mfaEnabled) {
+          const mfaToken = await createMfaChallengeToken({
+            userId: user.id,
+            openId: user.openId,
+            email: user.email || input.email,
+          });
+          return {
+            success: false as const,
+            mfaRequired: true as const,
+            mfaToken,
+            code: MFA_CHALLENGE_REQUIRED_CODE,
+            user: {
+              id: user.id,
+              email: user.email,
+              name: user.name,
+              role: user.role,
+              openId: user.openId,
+            },
+            message: "Informe o código do autenticador (ou um código de recuperação)",
+          };
+        }
+
         // Etapa 10 — org pessoal só no login/signup (não em cada resolveSession)
         try {
           const { ensurePersonalOrganization } = await import("../db-organizations");
@@ -243,8 +288,16 @@ export const authRouter = router({
           maxAge: 15 * 60 * 1000,
         });
 
+        let mfaSetupRequired = false;
+        try {
+          mfaSetupRequired = await userRequiresMfaEnrollment(user.id);
+        } catch {
+          mfaSetupRequired = false;
+        }
+
         return {
-          success: true,
+          success: true as const,
+          mfaRequired: false as const,
           accessToken,
           refreshToken,
           user: {
@@ -257,9 +310,12 @@ export const authRouter = router({
           },
           accountStatus: account.status,
           pendingErasure: account.pendingErasure,
+          mfaSetupRequired,
           message: account.pendingErasure
             ? "Login OK. Conta com exclusão LGPD agendada — você pode cancelar em Perfil ou via auth.lgpd.cancelErase."
-            : "Login realizado com sucesso",
+            : mfaSetupRequired
+              ? "Login OK. Configure MFA (TOTP) em Segurança para liberar funções administrativas."
+              : "Login realizado com sucesso",
         };
       } catch (error) {
         // WP-06 — soft-deactivate deve surfacer FORBIDDEN (não mascarar como credencial inválida)
@@ -274,6 +330,74 @@ export const authRouter = router({
         }
         throw new TRPCError({ code: "UNAUTHORIZED", message: "E-mail ou senha invalidos" });
       }
+    }),
+
+  /** WP-08 — completa login após desafio TOTP / recovery */
+  verifyMfa: publicProcedure
+    .input(
+      z.object({
+        mfaToken: z.string().min(10),
+        code: z.string().min(6).max(32),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await verifyMfaChallengeToken(input.mfaToken);
+      if (!challenge) {
+        throw new TRPCError({
+          code: "UNAUTHORIZED",
+          message: "Desafio MFA expirado ou inválido. Faça login novamente.",
+        });
+      }
+      await verifyMfaLoginCode({ userId: challenge.userId, code: input.code });
+
+      const db = await getDb();
+      if (!db) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Servico de autenticacao temporariamente indisponivel",
+        });
+      }
+      const [user] = await db.select().from(users).where(eq(users.id, challenge.userId)).limit(1);
+      if (!user?.openId) {
+        throw new TRPCError({ code: "UNAUTHORIZED", message: "Usuário MFA inválido" });
+      }
+
+      try {
+        const { ensurePersonalOrganization } = await import("../db-organizations");
+        await ensurePersonalOrganization(user.id);
+      } catch (e) {
+        console.warn("[auth.verifyMfa] ensurePersonalOrganization failed:", e);
+      }
+
+      const accessToken = await createAccessToken(user.openId, user.name || "");
+      const refreshToken = await createRefreshToken(user.openId);
+      await storeRefreshToken(user.id, refreshToken);
+
+      const cookieOptions = getSessionCookieOptions(ctx.req);
+      ctx.res.cookie(COOKIE_NAME, accessToken, {
+        ...cookieOptions,
+        maxAge: 15 * 60 * 1000,
+      });
+
+      const account = await getAccountStatus(user.id);
+
+      return {
+        success: true as const,
+        accessToken,
+        refreshToken,
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          openId: user.openId,
+          mustChangePassword: Boolean(user.mustChangePassword),
+        },
+        accountStatus: account.status,
+        pendingErasure: account.pendingErasure,
+        mfaSetupRequired: false,
+        message: "Login MFA realizado com sucesso",
+      };
     }),
 
   signup: publicProcedure
@@ -430,6 +554,7 @@ export const authRouter = router({
         organizations: [] as const,
         activeOrganizationId: null,
         activeRole: null,
+        mfa: null,
       };
     }
     const perfil = await getUsuarioAfuByUserId(user.id);
@@ -452,6 +577,12 @@ export const authRouter = router({
     } catch {
       orgSession = null;
     }
+    let mfa: Awaited<ReturnType<typeof getMfaPublicStatus>> | null = null;
+    try {
+      mfa = await getMfaPublicStatus(user.id);
+    } catch {
+      mfa = null;
+    }
     return {
       user: {
         id: user.id,
@@ -465,10 +596,70 @@ export const authRouter = router({
       organizations: orgSession?.organizations ?? [],
       activeOrganizationId: orgSession?.activeOrganizationId ?? null,
       activeRole: orgSession?.activeRole ?? null,
+      mfa,
     };
   }),
 
   perfil: perfilRouter,
+
+  /** WP-08 — MFA TOTP (enroll / status / recovery / admin reset) */
+  mfa: router({
+    status: protectedProcedure.query(async ({ ctx }) => getMfaPublicStatus(ctx.user.id)),
+
+    setup: protectedProcedure.mutation(async ({ ctx }) => {
+      const accountName = ctx.user.email || ctx.user.name || `user-${ctx.user.id}`;
+      return beginMfaEnrollment({
+        userId: ctx.user.id,
+        accountName,
+      });
+    }),
+
+    confirm: protectedProcedure
+      .input(z.object({ code: z.string().min(6).max(12) }))
+      .mutation(async ({ ctx, input }) => confirmMfaEnrollment({
+        userId: ctx.user.id,
+        code: input.code,
+      })),
+
+    disable: protectedProcedure
+      .input(z.object({ code: z.string().min(6).max(32) }))
+      .mutation(async ({ ctx, input }) => disableMfaSelf({
+        userId: ctx.user.id,
+        code: input.code,
+      })),
+
+    regenerateRecoveryCodes: protectedProcedure
+      .input(z.object({ code: z.string().min(6).max(12) }))
+      .mutation(async ({ ctx, input }) => regenerateRecoveryCodes({
+        userId: ctx.user.id,
+        code: input.code,
+      })),
+
+    adminReset: adminProcedure
+      .input(
+        z.object({
+          userId: z.number().int().positive(),
+          reason: z.string().max(500).optional(),
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        if (ctx.user.id === input.userId) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Use desativar MFA na própria conta; adminReset é para outros usuários",
+          });
+        }
+        return adminResetMfa({
+          targetUserId: input.userId,
+          adminUserId: ctx.user.id,
+          reason: input.reason,
+        });
+      }),
+
+    adminStatus: adminProcedure
+      .input(z.object({ userId: z.number().int().positive() }))
+      .query(async ({ input }) => getMfaPublicStatus(input.userId)),
+  }),
 
   /** WP-07 — LGPD: consentimento, exportação e exclusão agendada (sem hard-delete) */
   lgpd: router({
