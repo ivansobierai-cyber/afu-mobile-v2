@@ -20,6 +20,7 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { CoreOfflineSyncManager } from "@/components/core-offline-sync-manager";
+import { CoreOfflineSyncProvider } from "@/hooks/use-core-offline-sync";
 import { PushNotificationManager } from "@/components/push-notification-manager";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { useColors } from "@/hooks/use-colors";
@@ -216,10 +217,12 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           {/* Auth pública imediata; gate só em rotas protegidas */}
           <AuthGuard />
-          <AuthenticatedRuntime />
-          <ProtectedSessionGate>
-            <ProtectedStack />
-          </ProtectedSessionGate>
+          <CoreOfflineSyncProvider>
+            <AuthenticatedRuntime />
+            <ProtectedSessionGate>
+              <ProtectedStack />
+            </ProtectedSessionGate>
+          </CoreOfflineSyncProvider>
           <StatusBar style="auto" />
           {Platform.OS === "web" ? <SpeedInsights /> : null}
         </QueryClientProvider>

@@ -27,6 +27,7 @@ import {
   CultivoOperacoesTab,
 } from "@/components/cultivos/cultivo-ops-ia-custos";
 import { useColors } from "@/hooks/use-colors";
+import { CoreOfflineBanner } from "@/components/core-offline-banner";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import {
   buildPropertyReturnHref,
@@ -40,7 +41,6 @@ import {
 } from "@/lib/cultivos/cultivo-workspace";
 import { trpc } from "@/lib/trpc";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
-import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 
 export default function CultivoDetailScreen() {
@@ -57,7 +57,6 @@ export default function CultivoDetailScreen() {
   const { width } = useWindowDimensions();
   const isWide = width >= 768;
   const { runMutation } = useRunCoreMutation();
-  const { isOnline, pending: offlinePending } = useCoreOfflineSync();
   const [advancingFase, setAdvancingFase] = useState(false);
   const [tab, setTab] = useState<CultivoWorkspaceTab>(() => resolveCultivoTab(tabParam));
 
@@ -213,29 +212,7 @@ export default function CultivoDetailScreen() {
         onBack={goBack}
       />
 
-      {!isOnline || offlinePending > 0 ? (
-        <View
-          style={{
-            backgroundColor: "#D9770622",
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          }}
-          accessibilityRole="summary"
-          accessibilityLabel={
-            !isOnline
-              ? "Modo offline. Alterações serão sincronizadas ao reconectar."
-              : `${offlinePending} alterações pendentes de sincronização`
-          }
-        >
-          <Text style={{ fontSize: 12, color: colors.foreground }}>
-            {!isOnline
-              ? "Offline — alterações neste cultivo entram na fila de sync."
-              : `Sync pendente: ${offlinePending} alteração(ões) na fila.`}
-          </Text>
-        </View>
-      ) : null}
+      <CoreOfflineBanner offlineHint="alterações neste cultivo" />
 
       <ScrollView
         horizontal

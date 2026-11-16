@@ -10,8 +10,8 @@ import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { AreaValidationAlert } from "@/components/area-validation-alert";
 import { useAreaValidation } from "@/hooks/use-area-validation";
+import { CoreOfflineBanner } from "@/components/core-offline-banner";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
-import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
 import { buildPropertyReturnHref } from "@/lib/propriedades/registrar-flow";
 
@@ -52,7 +52,6 @@ export default function CultivosScreen() {
   const colors = useColors();
   const router = useRouter();
   const { runMutation } = useRunCoreMutation();
-  const { isOnline, pending: offlinePending } = useCoreOfflineSync();
   const {
     propriedadeId: propParam,
     safraId: safraParam,
@@ -289,29 +288,7 @@ export default function CultivosScreen() {
         </TouchableOpacity>
       </View>
 
-      {!isOnline || offlinePending > 0 ? (
-        <View
-          style={{
-            backgroundColor: "#D9770622",
-            paddingHorizontal: 16,
-            paddingVertical: 8,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
-          }}
-          accessibilityRole="summary"
-          accessibilityLabel={
-            !isOnline
-              ? "Modo offline. Alterações serão sincronizadas ao reconectar."
-              : `${offlinePending} alterações pendentes de sincronização`
-          }
-        >
-          <Text style={{ fontSize: 12, color: colors.foreground }}>
-            {!isOnline
-              ? "Offline — edições em cultivos entram na fila de sync."
-              : `Sync pendente: ${offlinePending} alteração(ões) na fila.`}
-          </Text>
-        </View>
-      ) : null}
+      <CoreOfflineBanner offlineHint="edições em cultivos" />
 
       {isLoading ? (
         <View style={styles.emptyBox}>

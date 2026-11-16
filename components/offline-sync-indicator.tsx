@@ -61,24 +61,30 @@ export function OfflineSyncIndicator({
         <Text className="text-sm font-semibold text-foreground">
           {getStatusText()}
         </Text>
-        {!isOnline && itemsPendentes > 0 && (
+        {isOnline && itemsPendentes > 0 && onSyncPress ? (
           <TouchableOpacity
             onPress={onSyncPress}
             disabled={isSyncing}
             className={`px-3 py-1 rounded ${isSyncing ? 'opacity-50' : ''}`}
             style={{ backgroundColor: getStatusColor() }}
+            accessibilityRole="button"
+            accessibilityLabel="Sincronizar fila offline agora"
           >
             <Text className="text-white text-xs font-semibold">
               {isSyncing ? 'Sincronizando...' : 'Sincronizar Agora'}
             </Text>
           </TouchableOpacity>
-        )}
+        ) : null}
       </View>
-      {!isOnline && (
+      {!isOnline ? (
         <Text className="text-xs text-muted mt-1">
           Você está offline. As alterações serão sincronizadas quando conectado.
         </Text>
-      )}
+      ) : itemsPendentes > 0 ? (
+        <Text className="text-xs text-muted mt-1">
+          Há alterações na fila. Toque em sincronizar ou aguarde a reconexão automática.
+        </Text>
+      ) : null}
     </View>
   );
 }
