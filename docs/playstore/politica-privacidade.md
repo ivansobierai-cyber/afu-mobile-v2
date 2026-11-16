@@ -30,7 +30,7 @@ Não vendemos dados pessoais. Processadores de infraestrutura (API, banco, stora
 
 ## 5. Segurança
 
-HTTPS na API de produção (`api.afuagro.tech`). Tokens em SecureStore no mobile. Senhas apenas como hash.
+HTTPS na API de produção (Railway; futuro custom `api.afuagro.tech` → Railway). Tokens em SecureStore no mobile. Senhas apenas como hash.
 
 ## 6. Direitos do titular (LGPD)
 

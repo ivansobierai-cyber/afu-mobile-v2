@@ -45,7 +45,7 @@ Confirme no log:
 
 - `applicationId`: `br.com.afuagro.app`
 - `version` / versionCode auto-incrementado
-- env: `EXPO_PUBLIC_API_BASE_URL=https://api.afuagro.tech`
+- env: `EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app`
 - env: `EXPO_PUBLIC_SHOW_DEMO_LOGIN=0`
 - artefato: **Android App Bundle**
 

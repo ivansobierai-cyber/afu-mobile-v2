@@ -16,6 +16,16 @@
       "has": [{ "type": "host", "value": "app.afuagro.tech" }],
       "destination": "https://afuagro.tech/$1",
       "permanent": true
+    },
+    {
+      "source": "/privacidade",
+      "destination": "/legal/privacidade",
+      "permanent": false
+    },
+    {
+      "source": "/termos",
+      "destination": "/legal/termos",
+      "permanent": false
     }
   ],
   "headers": [

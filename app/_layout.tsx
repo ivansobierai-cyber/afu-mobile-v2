@@ -271,6 +271,9 @@ function ProtectedStack() {
       </Stack.Protected>
       <Stack.Screen name="oauth/callback" />
       <Stack.Screen name="auth" />
+      <Stack.Screen name="legal" />
+      <Stack.Screen name="privacidade" />
+      <Stack.Screen name="termos" />
     </Stack>
   );
 }

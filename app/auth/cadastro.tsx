@@ -6,6 +6,7 @@ import { AuthCard } from '@/components/auth-card';
 import { AuthTextInput } from '@/components/auth-text-input';
 import { AuthButton } from '@/components/auth-button';
 import { useAuthAPI } from '@/hooks/use-auth-api';
+import { LGPD_TERMS_VERSION } from '@/lib/lgpd/constants';
 
 const PROFILE_TYPES = [
   { id: 'produtor', label: 'Produtor Rural', icon: '🚜', description: 'Gerencio propriedades e cultivos' },
@@ -89,6 +90,7 @@ export default function CadastroScreen() {
       password,
       confirmPassword,
       profile: selectedProfile as 'produtor' | 'tecnico',
+      acceptedTerms: true,
     });
 
     if (result.success) {
@@ -280,7 +282,7 @@ export default function CadastroScreen() {
                 {agreeTerms && <RNText className="text-white">✓</RNText>}
               </View>
               <RNText className="text-sm text-muted flex-1">
-                Concordo com os termos de uso e a política de privacidade
+                Concordo com os termos de uso e política de privacidade (versão {LGPD_TERMS_VERSION})
               </RNText>
             </TouchableOpacity>
             <View className="flex-row flex-wrap gap-x-3 gap-y-1 mb-6 px-1">

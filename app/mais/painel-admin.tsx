@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { ScrollView, Text, View, TouchableOpacity } from "react-native";
+import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { AfuStackBanner } from "@/components/afu-stack-banner";
 import { useColors } from "@/hooks/use-colors";
@@ -72,6 +73,7 @@ function Tag({ label, color, bg }: { label: string; color: string; bg: string })
 
 export default function PainelAdminScreen() {
   const colors = useColors();
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
@@ -275,6 +277,13 @@ export default function PainelAdminScreen() {
               expanded={!!expanded.produtores}
               onToggle={toggle}
             >
+              <TouchableOpacity
+                onPress={() => router.push("/mais/admin-produtores" as any)}
+                style={{ backgroundColor: "#1B5E20" }}
+                className="rounded-xl px-4 py-3 mb-3 items-center"
+              >
+                <Text className="text-white text-xs font-bold">Abrir painel WP-06 (lista / convite / soft-deactivate)</Text>
+              </TouchableOpacity>
               <Text className="text-xs font-semibold text-foreground mb-2">Visualização por Produtor:</Text>
               <View className="flex-row flex-wrap mb-3">
                 {["Dados cadastrais", "Propriedades", "Culturas", "Diagnósticos", "Relatórios"].map((v) => (

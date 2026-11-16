@@ -24,7 +24,7 @@
 | scheme deep link | `afuagro` |
 | versionName | `1.0.0` (`app.config.ts` → `version`) |
 | versionCode | EAS remoto (`appVersionSource: remote` + `autoIncrement` no profile `production`) |
-| API produção | `https://api.afuagro.tech` |
+| API produção | `https://afu-mobile-v2-production.up.railway.app` (futuro custom: `https://api.afuagro.tech` → Railway) |
 | Demo login / skip auth | **desligados** no profile `production` |
 | Política de privacidade | https://afuagro.tech/privacidade |
 | Termos | https://afuagro.tech/termos |
@@ -50,4 +50,4 @@ npm run eas:android:prod
 # ou: eas build --platform android --profile production
 ```
 
-O profile `production` gera **app-bundle** (`.aab`), sem `EXPO_PUBLIC_SHOW_DEMO_LOGIN` e apontando para `api.afuagro.tech`.
+O profile `production` gera **app-bundle** (`.aab`), sem `EXPO_PUBLIC_SHOW_DEMO_LOGIN` e apontando para a API Railway (`https://afu-mobile-v2-production.up.railway.app`). Ver `docs/API_ROUTING.md`.

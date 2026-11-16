@@ -38,6 +38,9 @@ export default ({ config: _config }: ConfigContext): ExpoConfig => {
       eas: {
         projectId: "a1dfdf25-6741-4df3-b724-cabb3aab3174",
       },
+      // EAS production/preview (eas.json) → Railway. Local .env → localhost.
+      // Future custom domain (documented, not deleted): https://api.afuagro.tech
+      // Native/web fallbacks when empty: constants/oauth.ts → Railway / host rules.
       apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
       privacyPolicyUrl: "https://afuagro.tech/privacidade",
       termsUrl: "https://afuagro.tech/termos",

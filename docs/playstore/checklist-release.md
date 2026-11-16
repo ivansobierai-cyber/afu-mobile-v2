@@ -5,8 +5,8 @@
 - [ ] Conta Google Play Console ativa (taxa de desenvolvedor paga)
 - [ ] Organização / política de privacidade URL pública no ar (`https://afuagro.tech/privacidade`)
 - [ ] Deploy web com rotas `/privacidade` e `/termos` (após merge deste PR)
-- [ ] API `https://api.afuagro.tech/api/health` → 200
-- [ ] `eas.json` profile `production`: `buildType: app-bundle`, demo login `0`, API `.tech`
+- [ ] API `https://afu-mobile-v2-production.up.railway.app/api/health` → 200 (`ready: true`)
+- [ ] `eas.json` profile `production`: `buildType: app-bundle`, demo login `0`, API Railway
 - [ ] `applicationId` = `br.com.afuagro.app` (primeira publicação — não mudar depois)
 
 ## Assinatura e EAS

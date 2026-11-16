@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 
@@ -9,9 +10,11 @@ type Props = {
   title: string;
   intro: string;
   sections: LegalSection[];
+  /** Aviso LGPD / revisão jurídica (mantido do WP-07). */
+  banner?: ReactNode;
 };
 
-export function LegalDocumentScreen({ title, intro, sections }: Props) {
+export function LegalDocumentScreen({ title, intro, sections, banner }: Props) {
   const router = useRouter();
 
   return (
@@ -35,6 +38,7 @@ export function LegalDocumentScreen({ title, intro, sections }: Props) {
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
+        {banner}
         <Text
           accessibilityRole="header"
           className="text-2xl font-bold text-foreground mb-3"

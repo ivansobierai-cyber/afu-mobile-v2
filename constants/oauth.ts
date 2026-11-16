@@ -1,10 +1,13 @@
 import Constants from "expo-constants";
 import * as Linking from "expo-linking";
 import * as ReactNative from "react-native";
+import { RAILWAY_API_BASE_URL } from "./api-hosts";
 
 /** Deve coincidir com `scheme` / package em `app.config.ts`. */
 const DEEP_LINK_SCHEME = "afuagro";
-const PRODUCTION_API_FALLBACK = "https://api.afuagro.tech";
+// Future custom API domain (DNS → Railway; keep documented, do not delete):
+// https://api.afuagro.tech
+
 
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
@@ -51,7 +54,19 @@ export function getApiBaseUrl(): string {
     if (apiHostname !== hostname) {
       return `${protocol}//${apiHostname}`;
     }
-    // Produção: usar URL relativa (mesmo domínio)
+
+    // afuagro.tech (Hostinger or Vercel): never same-origin — Hostinger Node has no DB.
+    // Future custom API host api.afuagro.tech should also hit Railway until DNS is cut over.
+    if (
+      hostname === "afuagro.tech" ||
+      hostname === "www.afuagro.tech" ||
+      hostname === "app.afuagro.tech" ||
+      hostname === "api.afuagro.tech"
+    ) {
+      return RAILWAY_API_BASE_URL;
+    }
+
+    // Outros hosts web: URL relativa (mesmo domínio) quando a API é servida junto
     return "";
   }
 
@@ -60,9 +75,9 @@ export function getApiBaseUrl(): string {
     return "http://10.0.2.2:3000";
   }
 
-  // Nativo sem EXPO_PUBLIC_API_BASE_URL: API de produção (EAS preview/prod deve definir a env)
+  // Nativo sem EXPO_PUBLIC_API_BASE_URL: API Railway (EAS preview/prod deve definir a env)
   if (ReactNative.Platform.OS === "ios" || ReactNative.Platform.OS === "android") {
-    return PRODUCTION_API_FALLBACK;
+    return RAILWAY_API_BASE_URL;
   }
 
   // Fallback dev: API local
