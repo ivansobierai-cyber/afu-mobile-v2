@@ -349,6 +349,7 @@ export const authRouter = router({
             message: "Servico de autenticacao temporariamente indisponivel",
           });
         }
+        console.error("[auth.signup]", error);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao criar conta" });
       }
     }),
