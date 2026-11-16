@@ -38,6 +38,7 @@ import {
   operacoesListByPropriedadeInvalidateInput,
   resolvePromoteOperacaoUiId,
 } from "@/lib/operacoes";
+import { TAREFA_STATUS_LABELS, type TarefaStatus } from "@/lib/propriedades/tarefa-status";
 import { roleHasPermission, type OrgRole } from "@/lib/security/org-roles";
 
 type Props = {
@@ -100,6 +101,10 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
     roleHasPermission(activeRole, "operations.write") &&
     Boolean(item?.propriedadeId);
   const promoteMut = trpc.coreData.operacoes.promoteFromEvento.useMutation();
+  const { data: tarefaVinculada } = trpc.coreData.tarefas.getByEvento.useQuery(
+    { eventoId: eventoId! },
+    { enabled: visible && !!eventoId && Boolean(item?.propriedadeId) },
+  );
 
   const progress = useMemo(() => checklistProgress(checklist), [checklist]);
   const tipo = getTipoInfo(item?.tipoAtividade);
@@ -588,12 +593,34 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
             </TouchableOpacity>
           </View>
 
+          {item.propriedadeId ? (
+            <View style={{ marginTop: 16, marginBottom: 8 }}>
+              <Text style={[styles.section, { color: colors.foreground }]}>Tarefa vinculada</Text>
+              <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8, lineHeight: 18 }}>
+                Eventos com propriedade mantêm uma tarefa operacional espelhada (status e dados
+                sincronizados). A agenda não é substituída.
+              </Text>
+              {tarefaVinculada ? (
+                <Text style={{ fontSize: 13, color: colors.foreground, lineHeight: 20 }}>
+                  #{tarefaVinculada.id} ·{" "}
+                  {TAREFA_STATUS_LABELS[tarefaVinculada.status as TarefaStatus] ??
+                    tarefaVinculada.status}{" "}
+                  · {tarefaVinculada.titulo}
+                </Text>
+              ) : (
+                <Text style={{ fontSize: 13, color: colors.muted }}>
+                  Tarefa ainda não vinculada — salve o evento novamente ou aguarde a sincronização.
+                </Text>
+              )}
+            </View>
+          ) : null}
+
           {canPromoteOperacao ? (
             <View style={{ marginTop: 16, marginBottom: 8 }}>
               <Text style={[styles.section, { color: colors.foreground }]}>Operação agrícola</Text>
               <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10, lineHeight: 18 }}>
-                Transforma este evento em uma operação planejada. O evento permanece na agenda; a
-                promoção não cria apontamento nem conclui execução.
+                Transforma este evento em uma operação planejada e liga a tarefa vinculada. O evento
+                permanece na agenda; a promoção não cria apontamento nem conclui execução.
               </Text>
               <TouchableOpacity
                 accessibilityRole="button"
@@ -607,6 +634,9 @@ export function EventoDetailModal({ visible, item, onClose, onSaved }: Props) {
                       await utils.coreData.operacoes.listByPropriedade.invalidate(
                         operacoesListByPropriedadeInvalidateInput(item.propriedadeId),
                       );
+                    }
+                    if (eventoId) {
+                      await utils.coreData.tarefas.getByEvento.invalidate({ eventoId });
                     }
                     if (result.alreadyExisted) {
                       Alert.alert(

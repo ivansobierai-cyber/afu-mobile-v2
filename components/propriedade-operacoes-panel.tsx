@@ -25,7 +25,8 @@ type Props = {
 };
 
 /**
- * Aba Operações do painel: separa Operação Agrícola (2E/2F) de Tarefa operacional (Etapa 3).
+ * Aba Operações do painel (WP-02): workspace único com dois segmentos complementares —
+ * Operação agrícola (registro de campo) e Tarefa (trabalho atribuído). Ambos permanecem.
  */
 export function PropriedadeOperacoesPanel({
   propriedadeId,
@@ -81,6 +82,11 @@ export function PropriedadeOperacoesPanel({
 
   return (
     <View>
+      <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 12, lineHeight: 18 }}>
+        Modelo operacional: evento de agenda gera/atualiza tarefa vinculada; operação agrícola é o
+        registro de campo (pode nascer do evento ou da tarefa). Segmentos abaixo são faces do mesmo
+        fluxo — não listas concorrentes.
+      </Text>
       <View style={styles.seg} accessibilityRole="tablist">
         <TouchableOpacity
           accessibilityRole="tab"
@@ -123,24 +129,30 @@ export function PropriedadeOperacoesPanel({
       </View>
 
       {section === "operacoes" ? (
-        <PropriedadeOperacoesAgricolasPanel
-          propriedadeId={propriedadeId}
-          terrenos={terrenos}
-          cultivos={cultivos}
-          safraId={safraId}
-          readOnly={readOnly}
-          canWriteOperations={canWriteOperations}
-          canApproveOperations={canApproveOperations}
-          prefillCulturaId={culturaId}
-          prefillTerrenoId={contextTerrenoId ?? undefined}
-          openCreateNonce={openCreateOperacaoNonce}
-          onCreateOpened={onCreateOperacaoOpened}
-        />
+        <>
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10, lineHeight: 17 }}>
+            Registro de atividade no campo (status, apontamento, insumos). Eventos da agenda podem
+            ser promovidos para cá sem sair do calendário.
+          </Text>
+          <PropriedadeOperacoesAgricolasPanel
+            propriedadeId={propriedadeId}
+            terrenos={terrenos}
+            cultivos={cultivos}
+            safraId={safraId}
+            readOnly={readOnly}
+            canWriteOperations={canWriteOperations}
+            canApproveOperations={canApproveOperations}
+            prefillCulturaId={culturaId}
+            prefillTerrenoId={contextTerrenoId ?? undefined}
+            openCreateNonce={openCreateOperacaoNonce}
+            onCreateOpened={onCreateOperacaoOpened}
+          />
+        </>
       ) : (
         <>
           <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10, lineHeight: 17 }}>
-            Tarefas são trabalhos planejados e atribuídos (iniciar, pausar, concluir). Não substituem
-            operações agrícolas nem apontamentos de execução.
+            Trabalhos atribuídos (iniciar, pausar, concluir). Eventos com propriedade criam/atualizam
+            automaticamente uma tarefa vinculada; status fica espelhado.
           </Text>
           <PropriedadeTarefasPanel
             propriedadeId={propriedadeId}

@@ -25,8 +25,8 @@ import {
   requireOrgPermission,
   requirePropertyInTenant,
   requireTarefaInTenant,
-  requireTerrenoInTenant,
   requireCulturaInTenant,
+  requireEventoInTenant,
   assertRelatedIdsInTenant,
   type TenantContext,
 } from "../tenant-access";
@@ -166,7 +166,7 @@ async function applyReservasAfterCreate(
   tenant: TenantContext,
   tarefaId: number,
   propriedadeId: number,
-  reservas: Array<{ itemId: number; quantidade: number }> | undefined,
+  reservas: { itemId: number; quantidade: number }[] | undefined,
 ) {
   if (!reservas?.length) return;
   try {
@@ -282,6 +282,18 @@ export const tarefasRouter = router({
       const tarefa = await requireTarefaInTenant(tenant, input.id);
       const apontamentos = await getApontamentosByTarefa(tarefa.id);
       return { tarefa, apontamentos };
+    }),
+
+  /** WP-02 — tarefa vinculada a um evento de calendário (legadoEventoId). */
+  getByEvento: organizationProcedure
+    .input(z.object({ eventoId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const tenant = getCtxTenant(ctx);
+      requireOrgPermission(tenant, "operations.read");
+      await requireEventoInTenant(tenant, input.eventoId);
+      const { findTarefaByLegadoEventoId } = await import("../db-evento-tarefa-bridge");
+      const tarefa = await findTarefaByLegadoEventoId(tenant.organizationId, input.eventoId);
+      return tarefa ?? null;
     }),
 
   create: orgPermissionProcedure("operations.write")
@@ -561,6 +573,16 @@ export const tarefasRouter = router({
         } as any,
         tenant.organizationId,
       );
+
+      /** WP-02 — espelha status no evento vinculado (se houver). */
+      const { mirrorEventoStatusFromTarefa } = await import("../db-evento-tarefa-bridge");
+      await mirrorEventoStatusFromTarefa(tenant, {
+        id: tarefa.id,
+        organizationId: tenant.organizationId,
+        legadoEventoId: tarefa.legadoEventoId,
+        status: to,
+      });
+
       return { success: true, id: tarefa.id, status: to };
     }),
 
