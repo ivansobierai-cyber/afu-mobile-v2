@@ -5,18 +5,29 @@
  * - Enviar e-mail com link de reset
  */
 
-import { randomBytes } from 'crypto';
-import { getDb } from './db';
-import { users } from '@/drizzle/schema';
-import { eq } from 'drizzle-orm';
-import { sendPasswordResetEmail, isSendGridReady } from './email-service';
+import { randomBytes } from "crypto";
+import { getDb } from "./db";
+import { users } from "@/drizzle/schema";
+import { eq } from "drizzle-orm";
+import { sendPasswordResetEmail, isSendGridReady, resolveAppUrl } from "./email-service";
+import { normalizeEmail } from "./auth-errors";
+
+/**
+ * Token de reset só pode voltar na resposta em dev explícito.
+ * Em produção (ou sem ALLOW_DEV_RESET_TOKEN=1) nunca expor o token.
+ */
+export function canExposeDevResetToken(): boolean {
+  return (
+    process.env.NODE_ENV !== "production" && process.env.ALLOW_DEV_RESET_TOKEN === "1"
+  );
+}
 
 /**
  * Gerar token de reset de senha
  * Token válido por 1 hora
  */
 export function generateResetToken(): { token: string; expiresAt: Date } {
-  const token = randomBytes(32).toString('hex');
+  const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hora
 
   return { token, expiresAt };
@@ -32,60 +43,64 @@ export async function requestPasswordReset(email: string): Promise<{
   token?: string;
 }> {
   try {
-    // Verificar se usuário existe
+    const normalized = normalizeEmail(email);
     const db = await getDb();
     if (!db) {
       return {
         success: false,
-        message: 'Banco de dados não disponível.',
+        message: "Banco de dados não disponível.",
       };
     }
 
-    const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+    const result = await db.select().from(users).where(eq(users.email, normalized)).limit(1);
     const user = result.length > 0 ? result[0] : null;
 
     if (!user) {
       // Não revelar se e-mail existe ou não (segurança)
       return {
         success: true,
-        message: 'Se o e-mail existe em nossa base de dados, você receberá um link de recuperação.',
+        message:
+          "Se o e-mail existe em nossa base de dados, você receberá um link de recuperação.",
       };
     }
 
-    // Gerar token
     const { token, expiresAt } = generateResetToken();
 
-    // Salvar token no banco
-    await db.update(users).set({
-      resetToken: token,
-      resetTokenExpiry: expiresAt,
-    }).where(eq(users.id, user.id));
+    await db
+      .update(users)
+      .set({
+        resetToken: token,
+        resetTokenExpiry: expiresAt,
+      })
+      .where(eq(users.id, user.id));
 
-    // Enviar e-mail com link de reset
-    const appUrl = process.env.APP_URL || 'https://afumobile.com';
-    const emailResult = await sendPasswordResetEmail(email, token, appUrl);
+    const appUrl = resolveAppUrl();
+    const emailResult = await sendPasswordResetEmail(normalized, token, appUrl);
 
     const { safeLogger } = await import("./_core/safe-logger");
     if (emailResult.success) {
       safeLogger.info("[PasswordReset] E-mail de recuperação enviado", {
-        emailDomain: email.split("@")[1] ?? "unknown",
+        emailDomain: normalized.split("@")[1] ?? "unknown",
       });
     } else {
       safeLogger.warn("[PasswordReset] Falha ao enviar e-mail", {
         error: emailResult.error,
+        sendGridReady: isSendGridReady(),
       });
     }
 
-    // Etapa 9 — nunca logar o token/senha em claro
+    // Nunca logar o token em claro
     safeLogger.info("[PasswordReset] Token gerado", {
       expiresAt: expiresAt.toISOString(),
       sendGridReady: isSendGridReady(),
+      emailSent: emailResult.success,
     });
 
     return {
       success: true,
-      message: 'Se o e-mail existe em nossa base de dados, você receberá um link de recuperação.',
-      token: isSendGridReady() ? undefined : token, // Retornar token apenas em desenvolvimento
+      message:
+        "Se o e-mail existe em nossa base de dados, você receberá um link de recuperação.",
+      ...(canExposeDevResetToken() ? { token } : {}),
     };
   } catch (error) {
     const { safeLogger } = await import("./_core/safe-logger");
@@ -94,7 +109,7 @@ export async function requestPasswordReset(email: string): Promise<{
     });
     return {
       success: false,
-      message: 'Erro ao processar solicitação de recuperação de senha.',
+      message: "Erro ao processar solicitação de recuperação de senha.",
     };
   }
 }

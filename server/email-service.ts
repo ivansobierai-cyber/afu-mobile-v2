@@ -75,7 +75,7 @@ export async function sendEmail(
     };
   }
 
-  const fromEmail = from || process.env.SENDGRID_FROM_EMAIL || 'noreply@afumobile.com';
+  const fromEmail = from || process.env.SENDGRID_FROM_EMAIL || "noreply@afuagro.tech";
 
   // Tentar enviar com retry
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -139,20 +139,27 @@ function stripHtml(html: string): string {
     .trim();
 }
 
+/** URL canônica do app web (links de e-mail / OAuth). */
+export function resolveAppUrl(): string {
+  const configured = process.env.APP_URL?.trim();
+  if (configured) return configured.replace(/\/$/, "");
+  return "https://afuagro.tech";
+}
+
 /**
  * Enviar e-mail de recuperação de senha
  *
  * @param email - E-mail do usuário
  * @param resetToken - Token de reset
- * @param appUrl - URL da aplicação (ex: https://app.example.com)
+ * @param appUrl - URL da aplicação (ex: https://afuagro.tech)
  * @returns Resultado do envio
  */
 export async function sendPasswordResetEmail(
   email: string,
   resetToken: string,
-  appUrl: string = process.env.APP_URL || 'https://afumobile.com'
+  appUrl: string = resolveAppUrl(),
 ): Promise<EmailResult> {
-  const resetLink = `${appUrl}/auth/reset-password?token=${resetToken}`;
+  const resetLink = `${appUrl.replace(/\/$/, "")}/auth/reset-password?token=${resetToken}`;
 
   const html = `
     <!DOCTYPE html>
@@ -347,6 +354,6 @@ export function getEmailServiceStatus() {
     ready: sendGridReady,
     apiKeyConfigured: !!process.env.SENDGRID_API_KEY,
     fromEmailConfigured: !!process.env.SENDGRID_FROM_EMAIL,
-    appUrl: process.env.APP_URL || 'não configurada',
+    appUrl: process.env.APP_URL?.trim() ? resolveAppUrl() : "não configurada (default https://afuagro.tech)",
   };
 }
