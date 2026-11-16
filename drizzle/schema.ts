@@ -117,6 +117,10 @@ export const produtores = mysqlTable("produtores", {
     "empresarial",
   ]).default("comercial"),
   cadastroAtivo: boolean("cadastroAtivo").default(true).notNull(),
+  /** WP-06 — plano comercial mínimo (fundação até WP-14 monetização). */
+  plano: mysqlEnum("plano", ["free", "produtor", "pro", "enterprise"])
+    .default("free")
+    .notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

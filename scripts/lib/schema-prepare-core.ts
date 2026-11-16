@@ -125,6 +125,12 @@ async function verify0039OperacoesApontamentos(conn: mysql.Connection): Promise<
   }
 }
 
+async function verify0044ProdutorPlano(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "produtores", "plano"))) {
+    throw new Error("0044_produtor_plano: produtores.plano ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -317,6 +323,13 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:operacoes-apontamentos:apply",
     required: true,
     verify: verify0039OperacoesApontamentos,
+  },
+  {
+    // WP-06 — 0044 (0042=#68 WP-04, 0043=#69 WP-07). Renumerar se a ordem de merge mudar.
+    tag: "0044_produtor_plano",
+    npmScript: "db:produtor-plano:apply",
+    required: true,
+    verify: verify0044ProdutorPlano,
   },
 ];
 
