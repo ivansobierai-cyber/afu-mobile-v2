@@ -8,10 +8,12 @@
 | **Cultivo** | `culturas` | Cultura/variedade implantada em um talhão (e futuramente em uma safra). |
 | **Cultura (catálogo)** | `culturas_catalogo` | Ficha técnica botânica do banco agronômico (não é o cultivo do produtor). |
 | **Safra / ciclo** | `safras` (Etapa 2+) | Período produtivo que agrupa planejamento e resultados. Dados temporais pertencem à safra. |
-| **Evento** | `calendario_cuidados` | Lembrete/agenda. Não é tarefa operacional completa. |
+| **Evento** | `calendario_cuidados` | Lembrete/agenda. Não é tarefa operacional completa. Com `propriedadeId`, a ponte WP-02 mantém tarefa vinculada via `legadoEventoId`. |
 | **Tarefa** | `tarefas_operacionais` | Trabalho atribuído com prazo, status e vínculo a propriedade/talhão. |
-| **Operação** | tipo em `tarefas_operacionais.tipoOperacao` | Tipo de atividade agrícola (plantio, irrigação, etc.). |
-| **Apontamento** | `apontamentos_operacao` | Registro real de execução (início/fim, área, notas). |
+| **Operação (tipo legado)** | `tarefas_operacionais.tipoOperacao` | Classificação da atividade na tarefa (plantio, irrigação, etc.). Mantido. |
+| **Operação agrícola** | `operacoes_agricolas` | Atividade de campo de registro (FASE 2E+). Distinta de tarefa; pode ligar a evento (`eventoOrigemId`) e/ou tarefa (`tarefaId`). |
+| **Apontamento (legado)** | `apontamentos_operacao` | Execução registrada na tarefa. Mantido. |
+| **Apontamento (canônico)** | `operacoes_agricolas_apontamentos` | Execução real da operação agrícola (FASE 2H). |
 | **Ocorrência** | (Etapa 6) | Observação de campo georreferenciada. |
 | **Diagnóstico** | `diagnosticos_ia` | Avaliação IA/humana/laboratorial ligada à ocorrência/cultivo. |
 

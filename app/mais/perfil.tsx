@@ -27,6 +27,201 @@ const FUNCAO_OPTIONS = [
   { value: "comprador", label: "Comprador", color: "#E53E3E" },
 ];
 
+function LgpdPrivacySection({ disabled }: { disabled?: boolean }) {
+  const colors = useColors();
+  const router = useRouter();
+  const utils = trpc.useUtils();
+  const { data: info } = trpc.auth.lgpd.info.useQuery();
+  const { data: deletion } = trpc.auth.lgpd.deletionStatus.useQuery();
+  const exportMut = trpc.auth.lgpd.export.useMutation();
+  const eraseMut = trpc.auth.lgpd.requestErase.useMutation({
+    onSuccess: () => utils.auth.lgpd.deletionStatus.invalidate(),
+  });
+  const cancelEraseMut = trpc.auth.lgpd.cancelErase.useMutation({
+    onSuccess: () => utils.auth.lgpd.deletionStatus.invalidate(),
+  });
+
+  const handleExport = async () => {
+    try {
+      const result = await exportMut.mutateAsync();
+      const json = JSON.stringify(result.data, null, 2);
+      if (typeof navigator !== "undefined" && "clipboard" in navigator) {
+        await navigator.clipboard.writeText(json);
+        Alert.alert("Exportação LGPD", "JSON copiado para a área de transferência.");
+      } else {
+        Alert.alert(
+          "Exportação LGPD",
+          `Pacote gerado (${json.length} caracteres). Use a API auth.lgpd.export se o clipboard não estiver disponível.`,
+        );
+      }
+      console.log("[lgpd.export]", json.slice(0, 500) + "…");
+    } catch (e: unknown) {
+      Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao exportar dados.");
+    }
+  };
+
+  const handleRequestErase = () => {
+    Alert.alert(
+      "Solicitar exclusão da conta?",
+      `A conta será suspensa e a anonimização agendada (~${info?.deletionGraceDays ?? 30} dias). Não há exclusão imediata. Você pode cancelar durante o período de graça.`,
+      [
+        { text: "Cancelar", style: "cancel" },
+        {
+          text: "Solicitar",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await eraseMut.mutateAsync({ confirm: true, reason: "Solicitação pelo titular no app" });
+              Alert.alert("Solicitação registrada", "Conta suspensa; anonimização agendada.");
+            } catch (e: unknown) {
+              Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao solicitar exclusão.");
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  return (
+    <View
+      style={{
+        marginTop: 20,
+        backgroundColor: colors.surface,
+        borderRadius: 16,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: colors.border,
+        opacity: disabled ? 0.6 : 1,
+      }}
+    >
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
+        <IconSymbol name="lock.fill" size={20} color={colors.primary} />
+        <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>
+          Privacidade (LGPD)
+        </Text>
+      </View>
+      <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 20, marginBottom: 12 }}>
+        Termos {info?.termsVersion ?? "—"} · Privacidade {info?.privacyVersion ?? "—"}. Textos
+        marcados como PLACEHOLDER para revisão jurídica.
+      </Text>
+
+      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+        <TouchableOpacity
+          onPress={() => router.push("/legal/termos" as any)}
+          disabled={disabled}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: colors.foreground, fontSize: 13 }}>Termos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={() => router.push("/legal/privacidade" as any)}
+          disabled={disabled}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: colors.foreground, fontSize: 13 }}>
+            Privacidade
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          onPress={handleExport}
+          disabled={disabled || exportMut.isPending}
+          style={{
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 10,
+            backgroundColor: colors.primary + "18",
+            borderWidth: 1,
+            borderColor: colors.primary + "40",
+          }}
+        >
+          {exportMut.isPending ? (
+            <ActivityIndicator color={colors.primary} />
+          ) : (
+            <Text style={{ fontWeight: "700", color: colors.primary, fontSize: 13 }}>
+              Exportar meus dados (JSON)
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+
+      {deletion?.active ? (
+        <View
+          style={{
+            backgroundColor: colors.error + "12",
+            borderRadius: 10,
+            padding: 12,
+            borderWidth: 1,
+            borderColor: colors.error + "35",
+          }}
+        >
+          <Text style={{ fontWeight: "700", color: colors.error, marginBottom: 4 }}>
+            Exclusão agendada #{deletion.active.id}
+          </Text>
+          <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 10 }}>
+            Anonimização prevista em{" "}
+            {new Date(deletion.active.scheduledAnonymizeAt).toLocaleString("pt-BR")}
+          </Text>
+          <TouchableOpacity
+            disabled={disabled || cancelEraseMut.isPending}
+            onPress={async () => {
+              try {
+                await cancelEraseMut.mutateAsync({ requestId: deletion.active!.id });
+                Alert.alert("Cancelado", "Solicitação cancelada; você pode voltar a usar a conta.");
+              } catch (e: unknown) {
+                Alert.alert("Erro", e instanceof Error ? e.message : "Falha ao cancelar.");
+              }
+            }}
+            style={{
+              paddingVertical: 10,
+              borderRadius: 8,
+              alignItems: "center",
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+            }}
+          >
+            <Text style={{ fontWeight: "700", color: colors.foreground }}>
+              Cancelar solicitação
+            </Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <TouchableOpacity
+          disabled={disabled || eraseMut.isPending}
+          onPress={handleRequestErase}
+          style={{
+            paddingVertical: 12,
+            borderRadius: 10,
+            alignItems: "center",
+            borderWidth: 1,
+            borderColor: colors.error + "50",
+          }}
+        >
+          {eraseMut.isPending ? (
+            <ActivityIndicator color={colors.error} />
+          ) : (
+            <Text style={{ fontWeight: "700", color: colors.error, fontSize: 13 }}>
+              Solicitar exclusão da conta
+            </Text>
+          )}
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
 export default function PerfilScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -473,6 +668,8 @@ export default function PerfilScreen() {
             )}
           </TouchableOpacity>
         </View>
+
+        <LgpdPrivacySection disabled={editing} />
 
         <TouchableOpacity
           style={{

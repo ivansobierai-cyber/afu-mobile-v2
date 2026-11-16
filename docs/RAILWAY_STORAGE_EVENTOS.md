@@ -16,6 +16,8 @@ No Railway → serviço API → **Variables**:
 
 Aliases aceitos: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_ENDPOINT_URL`, `S3_BUCKET`, `R2_*` equivalentes.
 
+O código normaliza o endpoint (trim, `https://` se faltar scheme, remove `/` final). Valor sem scheme (ex.: `xxxx.r2.cloudflarestorage.com`) deixa de gerar `TypeError: Invalid URL`; se ainda for inválido, `/api/health` devolve `storageHint` claro.
+
 **Importante:** variáveis no serviço da **API** (`afu-mobile-v2`), não no Vercel. Após salvar, force **Redeploy**.
 
 Se **S3** estiver configurado, ele tem **prioridade** sobre Forge legado.

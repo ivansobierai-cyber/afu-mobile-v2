@@ -25,21 +25,21 @@ export const ENTIDADE_OPERACIONAL_META: Record<EntidadeOperacional, EntidadeOper
   evento: {
     nome: "Evento",
     definicao:
-      "Algo que acontece ou deve ser lembrado no calendário (agenda, lembrete, status de acompanhamento).",
+      "Agenda/lembrete. Com propriedade vinculada, a ponte WP-02 mantém uma tarefa espelhada (legadoEventoId).",
     tabelaPersistencia: "calendario_cuidados",
     campoTipoLegado: "tipoAtividade",
   },
   tarefa: {
     nome: "Tarefa",
     definicao:
-      "Trabalho planejado ou atribuído na propriedade, com fluxo de status operacional e responsável.",
+      "Trabalho planejado ou atribuído na propriedade, com fluxo de status operacional e responsável. Pode originar-se de evento (origem=calendario_legado).",
     tabelaPersistencia: "tarefas_operacionais",
     campoTipoLegado: "tipoOperacao",
   },
   operacao: {
     nome: "Operação",
     definicao:
-      "Atividade agrícola planejada ou executada no campo, classificada pelo vocabulário canônico.",
+      "Atividade agrícola de registro no campo (FASE 2E+). Distinta de tarefa; pode ligar a evento e/ou tarefa.",
     tabelaPersistencia: "operacoes_agricolas",
     campoTipoLegado: "tipoOperacao",
   },

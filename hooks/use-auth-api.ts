@@ -43,6 +43,8 @@ export interface SignupInput {
   confirmPassword: string;
   name: string;
   profile: 'produtor' | 'tecnico';
+  /** WP-07 — aceite explícito dos documentos legais */
+  acceptedTerms: true;
 }
 
 export function useAuthAPI() {
@@ -76,13 +78,7 @@ export function useAuthAPI() {
           await Auth.setRefreshToken(result.refreshToken);
         }
 
-        // CORREÇÃO P1: Em web/iframe, cookies de domínio cruzado não funcionam.
-        // Chamar /api/auth/session para que o backend sete o cookie no domínio correto.
-        if (Platform.OS === 'web') {
-          console.log('[useAuthAPI] Web: estabelecendo sessão via /api/auth/session...');
-          const ok = await Api.establishSession(result.accessToken);
-          console.log('[useAuthAPI] establishSession resultado:', ok ? 'sucesso' : 'falhou');
-        }
+        // Web: Bearer via Auth storage / tRPC headers (no cross-site session cookie).
 
         // Armazenar informações do usuário
         if (result.user) {
@@ -143,6 +139,7 @@ export function useAuthAPI() {
         confirmPassword: input.confirmPassword,
         name: input.name,
         profile: input.profile,
+        acceptedTerms: true,
       });
 
       if (result.success && result.accessToken) {
@@ -152,13 +149,7 @@ export function useAuthAPI() {
           await Auth.setRefreshToken(result.refreshToken);
         }
 
-        // CORREÇÃO P1: Em web/iframe, cookies de domínio cruzado não funcionam.
-        // Chamar /api/auth/session para que o backend sete o cookie no domínio correto.
-        if (Platform.OS === 'web') {
-          console.log('[useAuthAPI] Web: estabelecendo sessão via /api/auth/session...');
-          const ok = await Api.establishSession(result.accessToken);
-          console.log('[useAuthAPI] establishSession resultado:', ok ? 'sucesso' : 'falhou');
-        }
+        // Web: Bearer via Auth storage / tRPC headers (no cross-site session cookie).
 
         // Armazenar informações do usuário
         if (result.user) {

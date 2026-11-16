@@ -194,11 +194,13 @@ export function useResendEmail(
 
     try {
       // Chamar endpoint de reenvio
-      const result = await apiCall<{ success: boolean; message: string }>
-        ('/api/trpc/auth.resendPasswordReset', {
+      const result = await apiCall<{ success: boolean; message: string }>(
+        '/api/trpc/auth.resendPasswordReset',
+        {
           method: 'POST',
-          body: JSON.stringify({ email }),
-        });
+          body: JSON.stringify({ json: { email: email.trim() } }),
+        },
+      );
 
       if (result?.success) {
         const now = Date.now();

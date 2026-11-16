@@ -20,10 +20,12 @@ export const users = mysqlTable("users", {
   openId: varchar("openId", { length: 64 }).unique(), // Opcional para login com e-mail/senha
   name: text("name"),
   email: varchar("email", { length: 320 }).unique(), // Pode ser usado para login com e-mail/senha
-  passwordHash: varchar("passwordHash", { length: 255 }), // Hash bcrypt para e-mail/senha
+  passwordHash: varchar("passwordHash", { length: 255 }), // Hash PBKDF2-SHA512 (salt:hex) para e-mail/senha
   loginMethod: varchar("loginMethod", { length: 64 }), // 'oauth' | 'email' | 'email_oauth'
   role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
   emailVerified: boolean("emailVerified").default(false).notNull(),
+  /** WP-06 — convite admin / senha temporária: forçar troca no próximo login. */
+  mustChangePassword: boolean("mustChangePassword").default(false).notNull(),
   resetToken: varchar("resetToken", { length: 255 }).unique(), // Token para recuperação de senha
   resetTokenExpiry: timestamp("resetTokenExpiry"), // Expiração do token de reset
   refreshToken: varchar("refreshToken", { length: 512 }), // Refresh token para renovar sessão
@@ -117,6 +119,10 @@ export const produtores = mysqlTable("produtores", {
     "empresarial",
   ]).default("comercial"),
   cadastroAtivo: boolean("cadastroAtivo").default(true).notNull(),
+  /** WP-06 — plano comercial mínimo (fundação até WP-14 monetização). */
+  plano: mysqlEnum("plano", ["free", "produtor", "pro", "enterprise"])
+    .default("free")
+    .notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -329,6 +335,8 @@ export const diagnosticosIa = mysqlTable(
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
+  /** WP-03 — ciclo produtivo opcional (mesmo elo propriedade/safra da tarefa) */
+  safraId: int("safraId"),
   imagemUrl: text("imagemUrl"),
   partePlanta: varchar("partePlanta", { length: 50 }),
   sintomasInformados: text("sintomasInformados"),
@@ -351,11 +359,20 @@ export const diagnosticosIa = mysqlTable(
     "confirmado",
     "descartado",
   ]).default("pendente"),
+  /** WP-04 — auditoria de revisão técnica (não apaga o laudo IA) */
+  revisadoPorUserId: int("revisadoPorUserId"),
+  revisadoPorPerfilId: int("revisadoPorPerfilId"),
+  revisadoEm: timestamp("revisadoEm"),
+  parecerTecnico: text("parecerTecnico"),
+  /** Recomendação corrigida pelo técnico; original permanece em `recomendacao` */
+  recomendacaoCorrigida: text("recomendacaoCorrigida"),
   dataDiagnostico: timestamp("dataDiagnostico").defaultNow().notNull(),
 },
   (t) => [
     index("diagnosticos_organization_idx").on(t.organizationId),
     index("diagnosticos_org_created_idx").on(t.organizationId, t.dataDiagnostico),
+    index("diagnosticos_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("diagnosticos_org_status_revisao_idx").on(t.organizationId, t.statusRevisao),
   ],
 );
 
@@ -673,8 +690,11 @@ export const tarefasOperacionais = mysqlTable(
     "manual",
     "calendario_legado",
     "template",
+    "diagnostico",
   ]).default("manual").notNull(),
   legadoEventoId: int("legadoEventoId"),
+  /** WP-03 — vínculo canônico diagnóstico IA → tarefa (UNIQUE) */
+  legadoDiagnosticoId: int("legadoDiagnosticoId"),
   motivoCancelamento: text("motivoCancelamento"),
   /** Etapa 9 — idempotência offline */
   clientMutationId: varchar("clientMutationId", { length: 64 }),
@@ -686,6 +706,7 @@ export const tarefasOperacionais = mysqlTable(
     index("tarefas_org_prop_idx").on(t.organizationId, t.propriedadeId),
     index("tarefas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
     index("tarefas_responsavel_idx").on(t.responsavelUserId),
+    uniqueIndex("tarefas_operacionais_legadoDiagnosticoId_unique").on(t.legadoDiagnosticoId),
   ],
 );
 
@@ -1997,3 +2018,79 @@ export const syncConflicts = mysqlTable(
 
 export type SyncConflict = typeof syncConflicts.$inferSelect;
 export type InsertSyncConflict = typeof syncConflicts.$inferInsert;
+
+// ─────────────────────────────────────────────
+// WP-07 — LGPD: consentimento e exclusão agendada
+// ─────────────────────────────────────────────
+
+/** Registro auditável de aceite de Termos / Política de Privacidade */
+export const lgpdConsentRecords = mysqlTable(
+  "lgpd_consent_records",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    documentType: mysqlEnum("documentType", ["terms", "privacy"]).notNull(),
+    documentVersion: varchar("documentVersion", { length: 40 }).notNull(),
+    acceptedAt: timestamp("acceptedAt").defaultNow().notNull(),
+    ip: varchar("ip", { length: 64 }),
+    userAgent: varchar("userAgent", { length: 255 }),
+    source: varchar("source", { length: 40 }).default("signup").notNull(),
+    meta: text("meta"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (t) => [
+    index("lgpd_consent_user_idx").on(t.userId),
+    index("lgpd_consent_doc_idx").on(t.documentType, t.documentVersion),
+    index("lgpd_consent_accepted_idx").on(t.acceptedAt),
+  ],
+);
+
+export type LgpdConsentRecord = typeof lgpdConsentRecords.$inferSelect;
+export type InsertLgpdConsentRecord = typeof lgpdConsentRecords.$inferInsert;
+
+/**
+ * Solicitação de exclusão de conta (nunca hard-delete imediato).
+ * Anonimização só após período de graça, com visibilidade admin.
+ */
+export const lgpdDeletionRequests = mysqlTable(
+  "lgpd_deletion_requests",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull(),
+    status: mysqlEnum("status", [
+      "pending",
+      "scheduled",
+      "cancelled",
+      "anonymized",
+      "rejected",
+    ])
+      .default("scheduled")
+      .notNull(),
+    reason: text("reason"),
+    /** Status do perfil AFU antes da suspensão pela solicitação LGPD (restaurado no cancel). */
+    previousStatusPerfil: mysqlEnum("previousStatusPerfil", [
+      "ativo",
+      "inativo",
+      "suspenso",
+    ]),
+    gracePeriodDays: int("gracePeriodDays").default(30).notNull(),
+    requestedAt: timestamp("requestedAt").defaultNow().notNull(),
+    scheduledAnonymizeAt: timestamp("scheduledAnonymizeAt").notNull(),
+    cancelledAt: timestamp("cancelledAt"),
+    processedAt: timestamp("processedAt"),
+    processedByAdminUserId: int("processedByAdminUserId"),
+    adminNotes: text("adminNotes"),
+    ip: varchar("ip", { length: 64 }),
+    userAgent: varchar("userAgent", { length: 255 }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [
+    index("lgpd_deletion_user_idx").on(t.userId),
+    index("lgpd_deletion_status_idx").on(t.status, t.scheduledAnonymizeAt),
+    index("lgpd_deletion_requested_idx").on(t.requestedAt),
+  ],
+);
+
+export type LgpdDeletionRequest = typeof lgpdDeletionRequests.$inferSelect;
+export type InsertLgpdDeletionRequest = typeof lgpdDeletionRequests.$inferInsert;

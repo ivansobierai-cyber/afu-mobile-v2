@@ -39,6 +39,13 @@ export type AuditAction =
   | "admin.access"
   | "admin.mutation"
   | "admin.break_glass"
+  | "admin.producer.invite"
+  | "admin.producer.deactivate"
+  | "admin.producer.reactivate"
+  | "admin.producer.set_plano"
+  | "admin.producer.set_role"
+  | "admin.producer.set_tipo"
+  | "admin.producer.set_cadastro"
   | "access.denied"
   | "access.granted"
   | "safra.close"
@@ -47,7 +54,12 @@ export type AuditAction =
   | "property.archive"
   | "property.restore"
   | "property.delete"
-  | "property.export";
+  | "property.export"
+  | "lgpd.consent"
+  | "lgpd.export"
+  | "lgpd.erase_request"
+  | "lgpd.erase_cancel"
+  | "lgpd.anonymize";
 
 /** Auditoria de tentativa bloqueada (cross-tenant / sem membership / sem permissão). */
 export async function auditAccessDenied(opts: {

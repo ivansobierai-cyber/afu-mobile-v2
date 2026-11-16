@@ -125,12 +125,103 @@ async function verify0039OperacoesApontamentos(conn: mysql.Connection): Promise<
   }
 }
 
+async function verify0043LgpdCompliance(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "lgpd_consent_records"))) {
+    throw new Error("0043_lgpd_compliance: tabela lgpd_consent_records ausente");
+  }
+  if (!(await tableExists(conn, "lgpd_deletion_requests"))) {
+    throw new Error("0043_lgpd_compliance: tabela lgpd_deletion_requests ausente");
+  }
+  if (!(await columnExists(conn, "lgpd_deletion_requests", "previousStatusPerfil"))) {
+    throw new Error("0043_lgpd_compliance: coluna previousStatusPerfil ausente");
+  }
+}
+
+async function verify0044ProdutorPlano(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "produtores", "plano"))) {
+    throw new Error("0044_produtor_plano: produtores.plano ausente");
+  }
+  if (!(await columnExists(conn, "users", "mustChangePassword"))) {
+    throw new Error("0044_produtor_plano: users.mustChangePassword ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
   }
   if (!(await indexExists(conn, "operacoes_evento_origem_unique"))) {
     throw new Error("0037_operacoes_agricolas: índice operacoes_evento_origem_unique ausente");
+  }
+}
+
+async function verify0040EventoTarefaBridge(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "tarefas_operacionais", "legadoEventoId"))) {
+    throw new Error("0040_evento_tarefa_bridge: tarefas_operacionais.legadoEventoId ausente");
+  }
+  // Mesmo critério do apply-0040: só eventos com org (ponte exige organizationId).
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COUNT(*) AS n
+     FROM calendario_cuidados c
+     LEFT JOIN tarefas_operacionais t ON t.legadoEventoId = c.id
+     WHERE c.propriedadeId IS NOT NULL
+       AND c.organizationId IS NOT NULL
+       AND t.id IS NULL`,
+  );
+  const orphans = Number(rows[0]?.n ?? 0);
+  if (orphans > 0) {
+    throw new Error(
+      `0040_evento_tarefa_bridge: ${orphans} evento(s) com propriedade sem tarefa vinculada`,
+    );
+  }
+}
+
+async function verify0041DiagnosticoTarefaBridge(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "diagnosticos_ia", "safraId"))) {
+    throw new Error("0041_diagnostico_tarefa_bridge: diagnosticos_ia.safraId ausente");
+  }
+  if (!(await columnExists(conn, "tarefas_operacionais", "legadoDiagnosticoId"))) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: tarefas_operacionais.legadoDiagnosticoId ausente",
+    );
+  }
+  if (!(await indexExists(conn, "tarefas_operacionais_legadoDiagnosticoId_unique"))) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: índice unique legadoDiagnosticoId ausente",
+    );
+  }
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_TYPE AS ct
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tarefas_operacionais'
+       AND COLUMN_NAME = 'origem'
+     LIMIT 1`,
+  );
+  const ct = String(rows[0]?.ct ?? "");
+  if (!ct.includes("'diagnostico'")) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: ENUM origem sem valor 'diagnostico'",
+    );
+  }
+}
+
+async function verify0042DiagnosticoRevisaoTecnica(conn: mysql.Connection): Promise<void> {
+  for (const col of [
+    "revisadoPorUserId",
+    "revisadoPorPerfilId",
+    "revisadoEm",
+    "parecerTecnico",
+    "recomendacaoCorrigida",
+  ] as const) {
+    if (!(await columnExists(conn, "diagnosticos_ia", col))) {
+      throw new Error(`0042_diagnostico_revisao_tecnica: diagnosticos_ia.${col} ausente`);
+    }
+  }
+  if (!(await indexExists(conn, "diagnosticos_org_status_revisao_idx"))) {
+    throw new Error(
+      "0042_diagnostico_revisao_tecnica: índice diagnosticos_org_status_revisao_idx ausente",
+    );
   }
 }
 
@@ -317,6 +408,36 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:operacoes-apontamentos:apply",
     required: true,
     verify: verify0039OperacoesApontamentos,
+  },
+  {
+    tag: "0040_evento_tarefa_bridge",
+    npmScript: "db:evento-tarefa-bridge:apply",
+    required: true,
+    verify: verify0040EventoTarefaBridge,
+  },
+  {
+    tag: "0041_diagnostico_tarefa_bridge",
+    npmScript: "db:diagnostico-tarefa-bridge:apply",
+    required: true,
+    verify: verify0041DiagnosticoTarefaBridge,
+  },
+  {
+    tag: "0042_diagnostico_revisao_tecnica",
+    npmScript: "db:diagnostico-revisao-tecnica:apply",
+    required: true,
+    verify: verify0042DiagnosticoRevisaoTecnica,
+  },
+  {
+    tag: "0043_lgpd_compliance",
+    npmScript: "db:lgpd:apply",
+    required: true,
+    verify: verify0043LgpdCompliance,
+  },
+  {
+    tag: "0044_produtor_plano",
+    npmScript: "db:produtor-plano:apply",
+    required: true,
+    verify: verify0044ProdutorPlano,
   },
 ];
 
