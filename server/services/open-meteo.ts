@@ -174,7 +174,13 @@ export async function fetchPropertyWeather(
     daily: "weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum",
   });
 
-  const response = await fetch(`${OPEN_METEO_URL}?${params.toString()}`);
+  let response: Response;
+  try {
+    response = await fetch(`${OPEN_METEO_URL}?${params.toString()}`);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new Error(`Serviço de clima indisponível (${detail})`);
+  }
   if (!response.ok) {
     throw new Error(`Falha ao consultar clima (${response.status})`);
   }
