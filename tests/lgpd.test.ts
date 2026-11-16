@@ -46,6 +46,7 @@ function minimalCtx(user?: TrpcContext["user"]): TrpcContext {
     } as unknown as TrpcContext["req"],
     res: {
       setHeader: () => undefined,
+      cookie: () => undefined,
       clearCookie: () => undefined,
     } as unknown as TrpcContext["res"],
   };
