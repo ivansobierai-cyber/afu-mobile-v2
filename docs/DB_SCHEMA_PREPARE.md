@@ -78,6 +78,8 @@ Alternativa legada: `npm run db:push` (generate + migrate) **ainda não** aplica
 | 0037–0039 | **não** | `db:operacoes*:apply` | tags `0037_*` … `0039_*` |
 | 0040–0041 | **não** (PRs WP-02/WP-03) | bridges evento/diagnóstico→tarefa | quando mergeados |
 | **0043** | **não** | `db:lgpd:apply` | `0043_lgpd_compliance` (WP-07; pula 0042 de propósito) |
+| **0044** | **não** | `db:produtor-plano:apply` | `0044_produtor_plano` (WP-06) |
+| **0045** | **não** | `db:mfa:apply` | `0045_mfa_totp` (WP-08 MFA TOTP) |
 
 `0030` (NOT NULL em culturas) é **opcional** no verify (`required: false`) — falha se houver cultivos sem safra/talhão; em banco vazio aplica normalmente.
 

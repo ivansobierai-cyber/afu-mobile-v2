@@ -25,6 +25,6 @@ npm run db:schema:prepare
 
 Detalhes, rollback e inventário completo: **`docs/DB_SCHEMA_PREPARE.md`**.
 
-**Numeração aberta (PRs concorrentes):** `#59` → `0040`, `#63` → `0041`, `#68` WP-04 → `0042`, `#69` WP-07 → `0043`, WP-06 → `0044_produtor_plano`. Se a ordem de merge mudar, renumerar o SQL + script `apply-*` + tag em `schema-prepare-core.ts` (não renomear tags já aplicadas em `__drizzle_migrations` / `afu_supplemental_migrations`).
+**Numeração aberta (PRs concorrentes):** `#59` → `0040`, `#63` → `0041`, `#68` WP-04 → `0042`, `#69` WP-07 → `0043`, WP-06 → `0044_produtor_plano`, WP-08 → `0045_mfa_totp`. Se a ordem de merge mudar, renumerar o SQL + script `apply-*` + tag em `schema-prepare-core.ts` (não renomear tags já aplicadas em `__drizzle_migrations` / `afu_supplemental_migrations`).
 
 Orphan duplicate SQL files (`0005_simple_shadowcat`, `0006_tickets_suporte`) were removed; they were never journaled and duplicated idx 5.

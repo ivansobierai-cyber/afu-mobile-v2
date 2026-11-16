@@ -2079,3 +2079,31 @@ export const lgpdDeletionRequests = mysqlTable(
 
 export type LgpdDeletionRequest = typeof lgpdDeletionRequests.$inferSelect;
 export type InsertLgpdDeletionRequest = typeof lgpdDeletionRequests.$inferInsert;
+
+/**
+ * WP-08 — MFA TOTP por usuário.
+ * `totpSecretEncrypted` / `pendingSecretEncrypted` são AES-GCM (nunca plaintext).
+ * `recoveryCodesHash` é JSON de hashes PBKDF2 (códigos em claro só na resposta de enroll).
+ */
+export const userMfa = mysqlTable(
+  "user_mfa",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    userId: int("userId").notNull().unique(),
+    totpSecretEncrypted: text("totpSecretEncrypted"),
+    totpEnabled: boolean("totpEnabled").default(false).notNull(),
+    pendingSecretEncrypted: text("pendingSecretEncrypted"),
+    recoveryCodesHash: text("recoveryCodesHash"),
+    recoveryCodesRemaining: int("recoveryCodesRemaining").default(0).notNull(),
+    enrolledAt: timestamp("enrolledAt"),
+    lastVerifiedAt: timestamp("lastVerifiedAt"),
+    disabledAt: timestamp("disabledAt"),
+    disabledByAdminUserId: int("disabledByAdminUserId"),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  },
+  (t) => [index("user_mfa_enabled_idx").on(t.totpEnabled)],
+);
+
+export type UserMfa = typeof userMfa.$inferSelect;
+export type InsertUserMfa = typeof userMfa.$inferInsert;
