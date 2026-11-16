@@ -7,12 +7,19 @@ const ANDROID_PACKAGE = "br.com.afuagro.app";
 const IOS_BUNDLE_ID = "br.com.afuagro.app";
 const DEEP_LINK_SCHEME = "afuagro";
 
-/** Cleartext só em perfis locais/dev; produção e preview HTTPS ficam bloqueados. */
+/**
+ * Cleartext HTTP:
+ * - Negado em EAS `production` / `preview*` (API HTTPS).
+ * - Permitido em `development` / `apk`, `ALLOW_CLEARTEXT=1`, ou builds locais
+ *   (`expo run:android` / prebuild sem EAS_BUILD_PROFILE) para localhost/LAN.
+ */
 const easProfile = process.env.EAS_BUILD_PROFILE ?? "";
+const httpsOnlyProfiles = new Set(["production", "preview", "preview-simulator"]);
 const allowCleartext =
+  process.env.ALLOW_CLEARTEXT === "1" ||
   easProfile === "development" ||
   easProfile === "apk" ||
-  process.env.ALLOW_CLEARTEXT === "1";
+  !httpsOnlyProfiles.has(easProfile);
 
 const env = {
   appName: "AFU Agro",
@@ -73,8 +80,9 @@ export default ({ config: _config }: ConfigContext): ExpoConfig => {
        * - CAMERA / READ_MEDIA_IMAGES → expo-image-picker (diagnóstico e anexos)
        * - ACCESS_*_LOCATION → expo-location (marcação de propriedades)
        * - POST_NOTIFICATIONS → expo-notifications (lembretes e push)
-       * Sem microfone: expo-audio não é usado no app.
-       * Sem storage legado WRITE/READ_EXTERNAL_STORAGE (Play rejeita em API 33+).
+       * Sem microfone: app não grava áudio.
+       * READ_EXTERNAL_STORAGE NÃO é bloqueado: expo-image-picker precisa dele
+       *   em API ≤32 (galeria). Em API 33+ o sistema usa READ_MEDIA_IMAGES.
        */
       permissions: [
         "CAMERA",
@@ -89,7 +97,6 @@ export default ({ config: _config }: ConfigContext): ExpoConfig => {
         "android.permission.MODIFY_AUDIO_SETTINGS",
         "android.permission.FOREGROUND_SERVICE_MICROPHONE",
         "android.permission.WRITE_EXTERNAL_STORAGE",
-        "android.permission.READ_EXTERNAL_STORAGE",
         "android.permission.READ_MEDIA_VIDEO",
         "android.permission.READ_MEDIA_AUDIO",
       ],

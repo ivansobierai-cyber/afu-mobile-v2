@@ -39,6 +39,7 @@ Baseado em: `drizzle/schema.ts`, `expo-image-picker` / `expo-location` / `expo-n
 |------|-----------|-------|
 | Fotos | Sim | Diagnóstico IA + anexos de eventos (`expo-image-picker`) |
 | Vídeos | Não no fluxo principal | Upload de vídeo é simulado em UI demo; permissão de vídeo bloqueada no manifesto |
+| Permissão storage legado | `READ_EXTERNAL_STORAGE` mantida para API ≤32 (galeria); `WRITE_EXTERNAL_STORAGE` bloqueada |
 
 ### Dados do app
 

@@ -17,6 +17,11 @@ describe("Play Store Android production config", () => {
     expect(appConfig).toContain("READ_MEDIA_IMAGES");
     expect(appConfig).toContain("blockedPermissions");
     expect(appConfig).toContain("RECORD_AUDIO");
+    // Gallery on API ≤32 needs READ_EXTERNAL_STORAGE — must not be blocked.
+    expect(appConfig).not.toMatch(
+      /blockedPermissions:\s*\[[\s\S]*READ_EXTERNAL_STORAGE/,
+    );
+    expect(appConfig).toContain("httpsOnlyProfiles");
     expect(appConfig).not.toMatch(/plugins:\s*\[[\s\S]*expo-audio/);
   });
 
