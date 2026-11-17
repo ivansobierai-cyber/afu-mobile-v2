@@ -11,6 +11,8 @@ COPY package.json package-lock.json ./
 COPY server ./server
 COPY shared ./shared
 COPY lib ./lib
+# server/cors-origins.ts imports ../constants/api-hosts — required for npm run build
+COPY constants ./constants
 COPY drizzle ./drizzle
 COPY scripts ./scripts
 COPY drizzle.config.ts tsconfig.json ./
