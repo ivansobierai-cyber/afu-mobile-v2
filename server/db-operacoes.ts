@@ -9,6 +9,7 @@ import {
   apontamentosOperacao,
   type InsertOperacaoAgricola,
   type OperacaoAgricolaRow,
+  type TarefaOperacional,
 } from "../drizzle/schema";
 import {
   assertRelatedIdsInTenant,
@@ -16,7 +17,6 @@ import {
   requireTarefaInTenant,
   type TenantContext,
 } from "./tenant-access";
-import type { TarefaOperacional } from "../drizzle/schema";
 import { mapTipoAtividadeToOperacao } from "../lib/operacoes";
 
 export type CreateOperacaoInput = {
@@ -189,10 +189,6 @@ export async function promoteFromEvento(
   eventoId: number,
 ): Promise<{ operacaoId: number; alreadyExisted: boolean }> {
   const evento = await requireEventoInTenant(tenant, eventoId);
-  const existing = await findOperacaoByEventoOrigemId(tenant.organizationId, eventoId);
-  if (existing) {
-    return { operacaoId: existing.id, alreadyExisted: true };
-  }
 
   if (!evento.propriedadeId) {
     throw new TRPCError({
@@ -214,8 +210,32 @@ export async function promoteFromEvento(
   const mapped = mapTipoAtividadeToOperacao(evento.tipoAtividade);
   const tipoOperacao = mapped.operacao;
 
+  /** WP-02 — garante tarefa vinculada e liga operação.tarefaId (também em re-promote). */
+  const { upsertTarefaFromEvento } = await import("./db-evento-tarefa-bridge");
+  const bridge = await upsertTarefaFromEvento(tenant, evento);
+  const tarefaId = bridge?.tarefaId ?? null;
+
   const db = await getDb();
   if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+  async function linkTarefaIfMissing(operacaoId: number, currentTarefaId: number | null | undefined) {
+    if (!tarefaId || currentTarefaId != null) return;
+    await db!
+      .update(operacoesAgricolas)
+      .set({ tarefaId } as any)
+      .where(
+        and(
+          eq(operacoesAgricolas.id, operacaoId),
+          eq(operacoesAgricolas.organizationId, tenant.organizationId),
+        ),
+      );
+  }
+
+  const existing = await findOperacaoByEventoOrigemId(tenant.organizationId, eventoId);
+  if (existing) {
+    await linkTarefaIfMissing(existing.id, existing.tarefaId);
+    return { operacaoId: existing.id, alreadyExisted: true };
+  }
 
   try {
     const result = await db.insert(operacoesAgricolas).values({
@@ -224,6 +244,7 @@ export async function promoteFromEvento(
       safraId: evento.safraId ?? null,
       terrenoId: evento.terrenoId ?? null,
       culturaId: evento.culturaId ?? null,
+      tarefaId,
       eventoOrigemId: evento.id,
       tipoOperacao,
       titulo: evento.titulo,
@@ -239,7 +260,10 @@ export async function promoteFromEvento(
     const err = e as { code?: string };
     if (err.code === "ER_DUP_ENTRY") {
       const raced = await findOperacaoByEventoOrigemId(tenant.organizationId, eventoId);
-      if (raced) return { operacaoId: raced.id, alreadyExisted: true };
+      if (raced) {
+        await linkTarefaIfMissing(raced.id, raced.tarefaId);
+        return { operacaoId: raced.id, alreadyExisted: true };
+      }
     }
     throw e;
   }

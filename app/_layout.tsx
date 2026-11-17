@@ -20,6 +20,7 @@ import type { EdgeInsets, Metrics, Rect } from "react-native-safe-area-context";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { CoreOfflineSyncManager } from "@/components/core-offline-sync-manager";
+import { CoreOfflineSyncProvider } from "@/hooks/use-core-offline-sync";
 import { PushNotificationManager } from "@/components/push-notification-manager";
 import { SpeedInsights } from "@vercel/speed-insights/react";
 import { useColors } from "@/hooks/use-colors";
@@ -27,6 +28,8 @@ import { useColors } from "@/hooks/use-colors";
 const DEFAULT_WEB_INSETS: EdgeInsets = { top: 0, right: 0, bottom: 0, left: 0 };
 const DEFAULT_WEB_FRAME: Rect = { x: 0, y: 0, width: 0, height: 0 };
 const PROTECTED_ROUTE_GROUPS = new Set(["(tabs)", "mais", "propriedades", "cultivos", "admin"]);
+/** Rotas públicas legais (Play Store / LGPD) — fora do grupo auth. */
+const PUBLIC_LEGAL_ROUTES = new Set(["privacidade", "termos"]);
 
 export const unstable_settings = {
   anchor: "(tabs)",
@@ -100,6 +103,7 @@ function AuthGuard() {
     const root = segments[0];
     const inAuthGroup = root === "auth";
     const inOAuthGroup = root === "oauth";
+    const inLegalRoute = PUBLIC_LEGAL_ROUTES.has(root ?? "");
     const isProtectedRoute = PROTECTED_ROUTE_GROUPS.has(root ?? "");
     const authScreen = segments.at(1);
 
@@ -119,6 +123,9 @@ function AuthGuard() {
       }
       return;
     }
+
+    // Conta autenticada pode ler política/termos sem redirecionar ao dashboard.
+    if (inLegalRoute) return;
 
     if (contaSuspensa) {
       if (!inAuthGroup || authScreen !== "login") {
@@ -210,10 +217,12 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           {/* Auth pública imediata; gate só em rotas protegidas */}
           <AuthGuard />
-          <AuthenticatedRuntime />
-          <ProtectedSessionGate>
-            <ProtectedStack />
-          </ProtectedSessionGate>
+          <CoreOfflineSyncProvider>
+            <AuthenticatedRuntime />
+            <ProtectedSessionGate>
+              <ProtectedStack />
+            </ProtectedSessionGate>
+          </CoreOfflineSyncProvider>
           <StatusBar style="auto" />
           {Platform.OS === "web" ? <SpeedInsights /> : null}
         </QueryClientProvider>

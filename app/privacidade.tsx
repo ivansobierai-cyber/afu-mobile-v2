@@ -1,21 +1,6 @@
-import { useEffect } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { useRouter } from "expo-router";
-import { ScreenContainer } from "@/components/screen-container";
-import { useColors } from "@/hooks/use-colors";
+import { Redirect } from "expo-router";
 
-/** Alias Play Store / institucional → `/legal/privacidade` (PR #60 URLs). */
+/** Alias Play Store / institucional → `/legal/privacidade` (URL pública https://afuagro.tech/privacidade). */
 export default function PrivacidadeRedirect() {
-  const router = useRouter();
-  const colors = useColors();
-  useEffect(() => {
-    router.replace("/legal/privacidade" as any);
-  }, [router]);
-  return (
-    <ScreenContainer>
-      <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-        <ActivityIndicator color={colors.primary} />
-      </View>
-    </ScreenContainer>
-  );
+  return <Redirect href={"/legal/privacidade" as any} />;
 }

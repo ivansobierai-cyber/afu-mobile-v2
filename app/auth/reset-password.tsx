@@ -46,8 +46,9 @@ export default function ResetPasswordScreen() {
     if (!token) return;
 
     try {
+      const input = encodeURIComponent(JSON.stringify({ json: { token } }));
       const result = await apiCall<{ valid: boolean; userId?: number; message: string }>(
-        `/api/trpc/auth.validateResetToken?input=${JSON.stringify({ token })}`,
+        `/api/trpc/auth.validateResetToken?input=${input}`,
         { method: 'GET' }
       );
 
@@ -100,9 +101,11 @@ export default function ResetPasswordScreen() {
         {
           method: 'POST',
           body: JSON.stringify({
-            token,
-            newPassword,
-            confirmPassword,
+            json: {
+              token,
+              newPassword,
+              confirmPassword,
+            },
           }),
         }
       );

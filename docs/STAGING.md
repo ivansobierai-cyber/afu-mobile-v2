@@ -6,8 +6,9 @@ Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](
 
 Roteamento completo (Hostinger vs Railway vs `api.afuagro.tech`): **[API_ROUTING.md](./API_ROUTING.md)**.
 
-- **Web:** https://afuagro.tech — build `npm run build:web:preview` (API default **Railway**; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex. DNS atual pode ainda servir Hostinger — nesse caso use `HOSTINGER_API_BASE_URL` → Railway ou configure `DATABASE_URL` no painel.
+- **Web:** https://afuagro.tech — build `npm run build:web:preview` (API default **Railway**; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex. Política: https://afuagro.tech/privacidade. DNS atual pode ainda servir Hostinger — nesse caso use `HOSTINGER_API_BASE_URL` → Railway ou configure `DATABASE_URL` no painel.
 - **APK staging / EAS production:** profiles `preview` e `production` → `https://afu-mobile-v2-production.up.railway.app`
+- **AAB produção (Play):** profile `production` (`buildType: app-bundle`, package `br.com.afuagro.app`) → ver [playstore/README.md](./playstore/README.md)
 - **API canônica:** `GET /api/health` em `https://afu-mobile-v2-production.up.railway.app/api/health` — inclui `database` + `email` + `ready`.
 - **Futuro custom domain (não apagar):** `https://api.afuagro.tech` — DNS deve apontar para Railway (hoje pode ainda bater na Hostinger sem MySQL). `vercel.json` também reescreve esse host → Railway quando o tráfego chega na Vercel.
 
@@ -77,7 +78,7 @@ Contas demo: `demo@afuagro.com.br` e `comprador@afuagro.com.br` — senha `Demo@
 npm run eas:android:preview
 ```
 
-O profile `preview` em `eas.json` usa HTTPS (sem cleartext) e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
+O profile `preview` em `eas.json` usa HTTPS (sem cleartext), API `https://api.afuagro.tech` e `EXPO_PUBLIC_SHOW_DEMO_LOGIN=1`.
 
 ## 3. Testar no celular
 

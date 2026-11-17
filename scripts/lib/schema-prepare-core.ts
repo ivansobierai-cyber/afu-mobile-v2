@@ -167,6 +167,76 @@ async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   }
 }
 
+async function verify0040EventoTarefaBridge(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "tarefas_operacionais", "legadoEventoId"))) {
+    throw new Error("0040_evento_tarefa_bridge: tarefas_operacionais.legadoEventoId ausente");
+  }
+  // Mesmo critério do apply-0040: só eventos com org (ponte exige organizationId).
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COUNT(*) AS n
+     FROM calendario_cuidados c
+     LEFT JOIN tarefas_operacionais t ON t.legadoEventoId = c.id
+     WHERE c.propriedadeId IS NOT NULL
+       AND c.organizationId IS NOT NULL
+       AND t.id IS NULL`,
+  );
+  const orphans = Number(rows[0]?.n ?? 0);
+  if (orphans > 0) {
+    throw new Error(
+      `0040_evento_tarefa_bridge: ${orphans} evento(s) com propriedade sem tarefa vinculada`,
+    );
+  }
+}
+
+async function verify0041DiagnosticoTarefaBridge(conn: mysql.Connection): Promise<void> {
+  if (!(await columnExists(conn, "diagnosticos_ia", "safraId"))) {
+    throw new Error("0041_diagnostico_tarefa_bridge: diagnosticos_ia.safraId ausente");
+  }
+  if (!(await columnExists(conn, "tarefas_operacionais", "legadoDiagnosticoId"))) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: tarefas_operacionais.legadoDiagnosticoId ausente",
+    );
+  }
+  if (!(await indexExists(conn, "tarefas_operacionais_legadoDiagnosticoId_unique"))) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: índice unique legadoDiagnosticoId ausente",
+    );
+  }
+  const [rows] = await conn.query<mysql.RowDataPacket[]>(
+    `SELECT COLUMN_TYPE AS ct
+     FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'tarefas_operacionais'
+       AND COLUMN_NAME = 'origem'
+     LIMIT 1`,
+  );
+  const ct = String(rows[0]?.ct ?? "");
+  if (!ct.includes("'diagnostico'")) {
+    throw new Error(
+      "0041_diagnostico_tarefa_bridge: ENUM origem sem valor 'diagnostico'",
+    );
+  }
+}
+
+async function verify0042DiagnosticoRevisaoTecnica(conn: mysql.Connection): Promise<void> {
+  for (const col of [
+    "revisadoPorUserId",
+    "revisadoPorPerfilId",
+    "revisadoEm",
+    "parecerTecnico",
+    "recomendacaoCorrigida",
+  ] as const) {
+    if (!(await columnExists(conn, "diagnosticos_ia", col))) {
+      throw new Error(`0042_diagnostico_revisao_tecnica: diagnosticos_ia.${col} ausente`);
+    }
+  }
+  if (!(await indexExists(conn, "diagnosticos_org_status_revisao_idx"))) {
+    throw new Error(
+      "0042_diagnostico_revisao_tecnica: índice diagnosticos_org_status_revisao_idx ausente",
+    );
+  }
+}
+
 async function verifyRepair0022(conn: mysql.Connection): Promise<void> {
   if (!(await columnExists(conn, "tarefas_operacionais", "responsavelUserId"))) {
     throw new Error("0022_tarefas_responsavel: responsavelUserId ausente");
@@ -351,7 +421,24 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     required: true,
     verify: verify0039OperacoesApontamentos,
   },
-  // Nota: 0040/0041 em PRs WP-02/WP-03 (abertos); 0042 em #68 WP-04 (stacked). WP-07=0043, WP-06=0044, WP-08=0045.
+  {
+    tag: "0040_evento_tarefa_bridge",
+    npmScript: "db:evento-tarefa-bridge:apply",
+    required: true,
+    verify: verify0040EventoTarefaBridge,
+  },
+  {
+    tag: "0041_diagnostico_tarefa_bridge",
+    npmScript: "db:diagnostico-tarefa-bridge:apply",
+    required: true,
+    verify: verify0041DiagnosticoTarefaBridge,
+  },
+  {
+    tag: "0042_diagnostico_revisao_tecnica",
+    npmScript: "db:diagnostico-revisao-tecnica:apply",
+    required: true,
+    verify: verify0042DiagnosticoRevisaoTecnica,
+  },
   {
     tag: "0043_lgpd_compliance",
     npmScript: "db:lgpd:apply",

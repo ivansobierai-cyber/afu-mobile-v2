@@ -492,6 +492,7 @@ const MENU_SECTIONS: MenuSection[] = [
     requireAdmin: true,
     items: [
       { title: "Dashboard Admin", subtitle: "Contadores em tempo real", icon: "chart.bar.fill", route: "/mais/admin-dashboard", color: "#1E3A5F", badge: "Admin", requireAdmin: true },
+      { title: "Revisão Técnica IA", subtitle: "Aprovar / corrigir / rejeitar laudos", icon: "checkmark.shield.fill", route: "/mais/revisao-diagnosticos", color: "#0F766E", badge: "WP-04", requireAdmin: true },
       { title: "Gerenciar Usuários", subtitle: "Roles, status e tipos de perfil", icon: "person.2.fill", route: "/mais/admin-usuarios", color: "#7C3AED", badge: "Admin", requireAdmin: true },
       { title: "Gestão de Produtores", subtitle: "Lista, convite, plano e histórico", icon: "person.2.fill", route: "/mais/admin-produtores", color: "#2E7D32", badge: "WP-06", requireAdmin: true },
       { title: "LGPD — Exclusões", subtitle: "Solicitações, graça e anonimização", icon: "lock.fill", route: "/mais/admin-lgpd", color: "#B71C1C", badge: "LGPD", requireAdmin: true },

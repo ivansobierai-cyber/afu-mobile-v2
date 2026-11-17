@@ -46,11 +46,12 @@ export default function ForgotPasswordScreen() {
     setError(null);
 
     try {
+      // tRPC HTTP expects `{ json: input }` (superjson wire format).
       const result = await apiCall<{ success: boolean; message: string; token?: string }>(
         '/api/trpc/auth.forgotPassword',
         {
           method: 'POST',
-          body: JSON.stringify({ email }),
+          body: JSON.stringify({ json: { email: email.trim() } }),
         }
       );
 

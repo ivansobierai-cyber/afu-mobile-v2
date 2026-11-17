@@ -335,6 +335,8 @@ export const diagnosticosIa = mysqlTable(
   organizationId: int("organizationId"),
   propriedadeId: int("propriedadeId"), // FK → propriedades.id
   culturaId: int("culturaId"), // FK → culturas.id
+  /** WP-03 — ciclo produtivo opcional (mesmo elo propriedade/safra da tarefa) */
+  safraId: int("safraId"),
   imagemUrl: text("imagemUrl"),
   partePlanta: varchar("partePlanta", { length: 50 }),
   sintomasInformados: text("sintomasInformados"),
@@ -357,11 +359,20 @@ export const diagnosticosIa = mysqlTable(
     "confirmado",
     "descartado",
   ]).default("pendente"),
+  /** WP-04 — auditoria de revisão técnica (não apaga o laudo IA) */
+  revisadoPorUserId: int("revisadoPorUserId"),
+  revisadoPorPerfilId: int("revisadoPorPerfilId"),
+  revisadoEm: timestamp("revisadoEm"),
+  parecerTecnico: text("parecerTecnico"),
+  /** Recomendação corrigida pelo técnico; original permanece em `recomendacao` */
+  recomendacaoCorrigida: text("recomendacaoCorrigida"),
   dataDiagnostico: timestamp("dataDiagnostico").defaultNow().notNull(),
 },
   (t) => [
     index("diagnosticos_organization_idx").on(t.organizationId),
     index("diagnosticos_org_created_idx").on(t.organizationId, t.dataDiagnostico),
+    index("diagnosticos_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
+    index("diagnosticos_org_status_revisao_idx").on(t.organizationId, t.statusRevisao),
   ],
 );
 
@@ -679,8 +690,11 @@ export const tarefasOperacionais = mysqlTable(
     "manual",
     "calendario_legado",
     "template",
+    "diagnostico",
   ]).default("manual").notNull(),
   legadoEventoId: int("legadoEventoId"),
+  /** WP-03 — vínculo canônico diagnóstico IA → tarefa (UNIQUE) */
+  legadoDiagnosticoId: int("legadoDiagnosticoId"),
   motivoCancelamento: text("motivoCancelamento"),
   /** Etapa 9 — idempotência offline */
   clientMutationId: varchar("clientMutationId", { length: 64 }),
@@ -692,6 +706,7 @@ export const tarefasOperacionais = mysqlTable(
     index("tarefas_org_prop_idx").on(t.organizationId, t.propriedadeId),
     index("tarefas_org_prop_safra_idx").on(t.organizationId, t.propriedadeId, t.safraId),
     index("tarefas_responsavel_idx").on(t.responsavelUserId),
+    uniqueIndex("tarefas_operacionais_legadoDiagnosticoId_unique").on(t.legadoDiagnosticoId),
   ],
 );
 

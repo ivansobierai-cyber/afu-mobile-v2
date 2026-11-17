@@ -15,9 +15,9 @@ Linear history used by `drizzle-kit migrate` (see `meta/_journal.json`):
 
 **Do not rename applied tags** — `__drizzle_migrations` already records them.
 
-## Migrations fora do journal (0020, 0021, 0029–0039, 0044+)
+## Migrations fora do journal (0020, 0021, 0029–0045)
 
-Arquivos SQL em `drizzle/0020_safras.sql`, `0021_property_archive.sql`, `0029_*` … `0039_*`, `0044_*` são aplicados por scripts idempotentes e orquestrados por:
+Arquivos SQL em `drizzle/0020_safras.sql`, `0021_property_archive.sql`, `0029_*` … `0045_*` são aplicados por scripts idempotentes e orquestrados por:
 
 ```bash
 npm run db:schema:prepare
@@ -25,6 +25,6 @@ npm run db:schema:prepare
 
 Detalhes, rollback e inventário completo: **`docs/DB_SCHEMA_PREPARE.md`**.
 
-**Numeração aberta (PRs concorrentes):** `#59` → `0040`, `#63` → `0041`, `#68` WP-04 → `0042`, `#69` WP-07 → `0043`, WP-06 → `0044_produtor_plano`, WP-08 → `0045_mfa_totp`. Se a ordem de merge mudar, renumerar o SQL + script `apply-*` + tag em `schema-prepare-core.ts` (não renomear tags já aplicadas em `__drizzle_migrations` / `afu_supplemental_migrations`).
+**Numeração:** WP-02…WP-04 → `0040`…`0042`; WP-07/WP-06 → `0043`/`0044`; WP-08 → `0045_mfa_totp`. Se a ordem de merge mudar, renumerar o SQL + script `apply-*` + tag em `schema-prepare-core.ts` (não renomear tags já aplicadas em `__drizzle_migrations` / `afu_supplemental_migrations`).
 
 Orphan duplicate SQL files (`0005_simple_shadowcat`, `0006_tickets_suporte`) were removed; they were never journaled and duplicated idx 5.

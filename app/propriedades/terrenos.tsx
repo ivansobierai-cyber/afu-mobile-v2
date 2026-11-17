@@ -15,6 +15,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { ScreenState } from "@/components/screen-state";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { CoreOfflineBanner } from "@/components/core-offline-banner";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { buildPropertyReturnHref } from "@/lib/propriedades/registrar-flow";
 import { trpc } from "@/lib/trpc";
@@ -273,6 +274,8 @@ export default function TerrenosScreen() {
           <IconSymbol name="plus" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
+
+      <CoreOfflineBanner offlineHint="edições em terrenos" />
 
       <View
         style={{

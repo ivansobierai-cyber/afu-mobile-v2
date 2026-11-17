@@ -61,6 +61,8 @@ import {
   type RegistrarAction,
 } from "@/lib/propriedades/registrar-flow";
 import { useCoreOfflineSync } from "@/hooks/use-core-offline-sync";
+import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
+import { tenantCacheInput } from "@/lib/trpc-cache-scope";
 import { trpc } from "@/lib/trpc";
 
 const STATUS_COLORS: Record<string, string> = {
@@ -154,10 +156,14 @@ export default function PropriedadeDetailScreen() {
   const [polygonDraw, setPolygonDraw] = useState<PolygonDrawState | null>(null);
   const utils = trpc.useUtils();
   const { isOnline, pending: offlinePending } = useCoreOfflineSync();
+  const { runMutation } = useRunCoreMutation();
+  const [deletingProp, setDeletingProp] = useState(false);
 
-  // Deep link / retorno preserva aba (?tab=)
+  // Deep link / retorno preserva aba (?tab=).
+  // Depende só de tabParam: incluir `tab` faria o efeito reverter selectTab local
+  // enquanto setParams ainda não propagou o novo valor na URL.
   useEffect(() => {
-    if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam) && tabParam !== tab) {
+    if (tabParam && MOBILE_TABS.some((t) => t.id === tabParam)) {
       setTab(tabParam as PanelTab);
     }
   }, [tabParam]);
@@ -240,13 +246,6 @@ export default function PropriedadeDetailScreen() {
     onSuccess: async () => {
       await utils.coreData.propriedades.list.invalidate();
       await utils.coreData.propriedades.listArchived.invalidate();
-      router.replace("/(tabs)/propriedades" as any);
-    },
-  });
-  const deleteProp = trpc.coreData.propriedades.delete.useMutation({
-    onSuccess: async () => {
-      await utils.coreData.propriedades.list.invalidate();
-      setDeleteConfirmOpen(false);
       router.replace("/(tabs)/propriedades" as any);
     },
   });
@@ -650,7 +649,7 @@ export default function PropriedadeDetailScreen() {
 
   const overviewShortcuts = [
     {
-      label: "Operações",
+      label: "Trabalho aberto",
       value: String(tarefasAbertas),
       color: "#EF6C00",
       onPress: () => selectTab("operacoes"),
@@ -903,12 +902,31 @@ export default function PropriedadeDetailScreen() {
       <ConfirmNameModal
         visible={deleteConfirmOpen}
         expectedName={propriedade.nome}
-        loading={deleteProp.isPending}
+        loading={deletingProp}
         onCancel={() => setDeleteConfirmOpen(false)}
         onConfirm={(confirmNome) => {
-          void deleteProp
-            .mutateAsync({ id: propriedade.id, confirmNome })
-            .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"));
+          setDeletingProp(true);
+          const targetId = propriedade.id;
+          const listScope = tenantCacheInput(orgScope);
+          void runMutation("propriedade", "delete", {
+            id: targetId,
+            confirmNome,
+            clientMutationId: `prop_del_${targetId}_${Date.now()}`,
+          })
+            .then(async (result) => {
+              setDeleteConfirmOpen(false);
+              const drop = <T extends { id: number }>(rows: T[] | undefined) =>
+                (rows ?? []).filter((p) => p.id !== targetId);
+              utils.coreData.propriedades.list.setData(listScope, drop);
+              utils.coreData.propriedades.listArchived.setData(listScope, drop);
+              if (!result.queued) {
+                await utils.coreData.propriedades.list.invalidate(listScope);
+                await utils.coreData.propriedades.listArchived.invalidate(listScope);
+              }
+              router.replace("/(tabs)/propriedades" as any);
+            })
+            .catch((e) => Alert.alert("Erro", e?.message ?? "Não foi possível excluir"))
+            .finally(() => setDeletingProp(false));
         }}
       />
 
@@ -1187,7 +1205,7 @@ export default function PropriedadeDetailScreen() {
               </Text>
               <Text style={{ fontSize: 13, color: colors.muted, lineHeight: 20 }}>
                 {resumoHoje
-                  ? `${resumoHoje.hoje} tarefa(s) para hoje · ${resumoHoje.emExecucao} em execução · ${cultivosAtivos} cultivo(s) ativo(s).`
+                  ? `${resumoHoje.hoje} tarefa(s) para hoje · ${resumoHoje.emExecucao} em execução · ${cultivosAtivos} cultivo(s) ativo(s). Eventos da agenda com esta propriedade geram tarefas vinculadas.`
                   : cultivosAtivos > 0
                     ? `${cultivosAtivos} cultivo(s) em andamento · ${terrenos.length} talhão(ões).`
                     : "Nenhum cultivo ativo nesta safra. Cadastre um cultivo para começar."}
@@ -1204,11 +1222,11 @@ export default function PropriedadeDetailScreen() {
               <TouchableOpacity
                 onPress={() => selectTab("operacoes")}
                 accessibilityRole="button"
-                accessibilityLabel="Abrir operações"
+                accessibilityLabel="Abrir workspace de operações e tarefas"
                 style={{ marginTop: 10 }}
               >
                 <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>
-                  Ver operações →
+                  Ver operações e tarefas →
                 </Text>
               </TouchableOpacity>
             </View>

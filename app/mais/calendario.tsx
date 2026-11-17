@@ -21,6 +21,7 @@ import { EventoKanban } from "@/components/eventos/evento-kanban";
 import { EventoSmartTemplates } from "@/components/eventos/evento-smart-templates";
 import { EventoViewTabs } from "@/components/eventos/evento-view-tabs";
 import { EventoWeekView } from "@/components/eventos/evento-week-view";
+import { CoreOfflineBanner } from "@/components/core-offline-banner";
 import { MODULE_COLORS } from "@/constants/module-colors";
 import { useRunCoreMutation } from "@/hooks/use-run-core-mutation";
 import { useTenantQueryScope } from "@/hooks/use-tenant-query-scope";
@@ -350,6 +351,8 @@ export default function CalendarioScreen() {
         subtitle="Centro de planejamento agrícola"
         accentColor={MODULE_COLORS.eventos}
       />
+
+      <CoreOfflineBanner offlineHint="edições no calendário" />
 
       <EventoViewTabs value={view} onChange={setView} />
 

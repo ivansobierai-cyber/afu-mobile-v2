@@ -68,6 +68,69 @@ describe("core mutation queue (Etapa 8 tenant scope)", () => {
     expect(queue[0].clientMutationId).toBeTruthy();
   });
 
+  it("preserva clientMutationId explícito (idempotência WP-05)", async () => {
+    const mid = "tarefa_stable_mutation_001";
+    await enqueueCoreMutation(scopeA, {
+      entity: "tarefa",
+      action: "create",
+      payload: { titulo: "Pulverizar", clientMutationId: mid },
+      clientMutationId: mid,
+    });
+    await enqueueCoreMutation(scopeA, {
+      entity: "evento",
+      action: "update",
+      payload: { id: 9, data: { status: "concluido" } },
+      clientMutationId: "evt_meta_9_stable01",
+    });
+
+    const queue = await loadCoreQueue(scopeA);
+    expect(queue).toHaveLength(2);
+    expect(queue[0].clientMutationId).toBe(mid);
+    expect(queue[1].clientMutationId).toBe("evt_meta_9_stable01");
+  });
+
+  it("re-enqueue com mesmo clientMutationId substitui o pendente", async () => {
+    const mid = "evt_colheita_42";
+    await enqueueCoreMutation(scopeA, {
+      entity: "evento",
+      action: "update",
+      payload: { id: 42, data: { producaoColheitaKg: 10 } },
+      clientMutationId: mid,
+    });
+    await enqueueCoreMutation(scopeA, {
+      entity: "evento",
+      action: "update",
+      payload: { id: 42, data: { producaoColheitaKg: 99 } },
+      clientMutationId: mid,
+    });
+
+    const queue = await loadCoreQueue(scopeA);
+    expect(queue).toHaveLength(1);
+    expect(queue[0].clientMutationId).toBe(mid);
+    expect(queue[0].payload).toEqual({ id: 42, data: { producaoColheitaKg: 99 } });
+  });
+
+  it("enfileira entidades core cobertas pelo aceite WP-05", async () => {
+    const entities = [
+      "propriedade",
+      "cultivo",
+      "terreno",
+      "evento",
+      "tarefa",
+    ] as const;
+    for (const entity of entities) {
+      await enqueueCoreMutation(scopeA, {
+        entity,
+        action: "create",
+        payload: { label: entity },
+        clientMutationId: `wp05_${entity}_create_ok1`,
+      });
+    }
+    expect(await pendingCoreMutationsCount(scopeA)).toBe(5);
+    const queue = await loadCoreQueue(scopeA);
+    expect(queue.map((q) => q.entity).sort()).toEqual([...entities].sort());
+  });
+
   it("nunca entrega fila de um cliente a outro escopo", async () => {
     await enqueueCoreMutation(scopeA, {
       entity: "evento",
