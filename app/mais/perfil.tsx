@@ -322,6 +322,7 @@ export default function PerfilScreen() {
       organizations: [],
       activeOrganizationId: null,
       activeRole: null,
+      mfa: null,
     });
     router.replace("/auth/login" as never);
   };
@@ -670,6 +671,34 @@ export default function PerfilScreen() {
         </View>
 
         <LgpdPrivacySection disabled={editing} />
+
+        <TouchableOpacity
+          style={{
+            marginTop: 16,
+            backgroundColor: colors.surface,
+            borderRadius: 16,
+            padding: 16,
+            borderWidth: 1,
+            borderColor: colors.border,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 10,
+            opacity: editing ? 0.6 : 1,
+          }}
+          disabled={editing}
+          onPress={() => router.push("/mais/seguranca-mfa" as any)}
+        >
+          <IconSymbol name="lock.fill" size={20} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>
+              Segurança — MFA
+            </Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
+              Autenticador TOTP e códigos de recuperação
+            </Text>
+          </View>
+          <IconSymbol name="chevron.right" size={16} color={colors.muted} />
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={{

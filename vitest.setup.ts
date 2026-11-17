@@ -6,6 +6,15 @@ if (!process.env.JWT_SECRET) {
   process.env.JWT_SECRET = "vitest_jwt_secret_afu_mobile";
 }
 
+/**
+ * WP-08 — adminProcedure TOTP gate off for suites that create ephemeral admins
+ * without enrollment. Production leaves MFA_ADMIN_ENFORCE unset (enforced).
+ * MFA login challenge when totpEnabled remains always on.
+ */
+if (process.env.MFA_ADMIN_ENFORCE === undefined) {
+  process.env.MFA_ADMIN_ENFORCE = "0";
+}
+
 (globalThis as typeof globalThis & { __DEV__?: boolean }).__DEV__ = false;
 
 const localStorageMock = (() => {

@@ -49,6 +49,11 @@ export const adminProcedure = t.procedure.use(
       throw new TRPCError({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
     }
 
+    // WP-08 — admins must enroll TOTP before elevated admin APIs
+    // (MFA setup itself uses protectedProcedure, not adminProcedure).
+    const { assertAdminMfaSatisfied } = await import("../mfa");
+    await assertAdminMfaSatisfied({ userId: ctx.user.id, path });
+
     const result = await next({
       ctx: {
         ...ctx,

@@ -146,6 +146,18 @@ async function verify0044ProdutorPlano(conn: mysql.Connection): Promise<void> {
   }
 }
 
+async function verify0045MfaTotp(conn: mysql.Connection): Promise<void> {
+  if (!(await tableExists(conn, "user_mfa"))) {
+    throw new Error("0045_mfa_totp: tabela user_mfa ausente");
+  }
+  if (!(await columnExists(conn, "user_mfa", "totpSecretEncrypted"))) {
+    throw new Error("0045_mfa_totp: coluna totpSecretEncrypted ausente");
+  }
+  if (!(await columnExists(conn, "user_mfa", "totpEnabled"))) {
+    throw new Error("0045_mfa_totp: coluna totpEnabled ausente");
+  }
+}
+
 async function verify0037Operacoes(conn: mysql.Connection): Promise<void> {
   if (!(await tableExists(conn, "operacoes_agricolas"))) {
     throw new Error("0037_operacoes_agricolas: tabela operacoes_agricolas ausente");
@@ -438,6 +450,12 @@ export const SCHEMA_PREPARE_STEPS: SchemaPrepareStep[] = [
     npmScript: "db:produtor-plano:apply",
     required: true,
     verify: verify0044ProdutorPlano,
+  },
+  {
+    tag: "0045_mfa_totp",
+    npmScript: "db:mfa:apply",
+    required: true,
+    verify: verify0045MfaTotp,
   },
 ];
 

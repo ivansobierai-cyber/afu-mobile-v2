@@ -37,6 +37,16 @@ export interface LoginInput {
   password: string;
 }
 
+export interface LoginResult {
+  success: boolean;
+  user?: AuthUser;
+  error?: AuthError;
+  /** WP-08 — password OK; client must call verifyMfa */
+  mfaRequired?: boolean;
+  mfaToken?: string;
+  mfaSetupRequired?: boolean;
+}
+
 export interface SignupInput {
   email: string;
   password: string;
@@ -55,13 +65,43 @@ export function useAuthAPI() {
 
   // Usar mutations do tRPC
   const loginMutation = trpc.auth.login.useMutation();
+  const verifyMfaMutation = trpc.auth.verifyMfa.useMutation();
   const signupMutation = trpc.auth.signup.useMutation();
   const logoutMutation = trpc.auth.logout.useMutation();
+
+  const persistSession = async (result: {
+    accessToken: string;
+    refreshToken?: string | null;
+    user?: {
+      id: number;
+      email?: string | null;
+      name?: string | null;
+      openId?: string | null;
+      role?: string | null;
+    } | null;
+  }) => {
+    await Auth.setSessionToken(result.accessToken);
+    if (result.refreshToken) {
+      await Auth.setRefreshToken(result.refreshToken);
+    }
+    if (result.user) {
+      await Auth.setUserInfo({
+        id: result.user.id,
+        openId: result.user.openId || "",
+        name: result.user.name || "",
+        email: result.user.email || "",
+        loginMethod: "email",
+        lastSignedIn: new Date(),
+      });
+    }
+    await queryClient.invalidateQueries({ queryKey: [["auth", "session"]] });
+    await queryClient.refetchQueries({ queryKey: [["auth", "session"]] });
+  };
 
   /**
    * Fazer login com e-mail e senha
    */
-  const login = async (input: LoginInput): Promise<{ success: boolean; user?: AuthUser; error?: AuthError }> => {
+  const login = async (input: LoginInput): Promise<LoginResult> => {
     setIsLoading(true);
     setError(null);
 
@@ -71,48 +111,47 @@ export function useAuthAPI() {
         password: input.password,
       });
 
-      if (result.success && result.accessToken) {
-        // Armazenar tokens para autenticação em mobile
-        await Auth.setSessionToken(result.accessToken);
-        if (result.refreshToken) {
-          await Auth.setRefreshToken(result.refreshToken);
-        }
-
-        // Web: Bearer via Auth storage / tRPC headers (no cross-site session cookie).
-
-        // Armazenar informações do usuário
-        if (result.user) {
-          await Auth.setUserInfo({
-            id: result.user.id,
-            openId: result.user.openId || '',
-            name: result.user.name || '',
-            email: result.user.email || '',
-            loginMethod: 'email',
-            lastSignedIn: new Date(),
-          });
-        }
-
-        // CORREÇÃO P3: Invalidar cache tRPC para forçar re-fetch de auth.session
-        await queryClient.invalidateQueries({ queryKey: [['auth', 'session']] });
-        await queryClient.refetchQueries({ queryKey: [['auth', 'session']] });
-        console.log('[useAuthAPI] Cache tRPC invalidado após login');
-
+      if ("mfaRequired" in result && result.mfaRequired && result.mfaToken) {
         return {
-          success: true,
-          user: result.user ? {
-            id: result.user.id,
-            email: result.user.email || '',
-            name: result.user.name || '',
-            role: result.user.role || 'user',
-          } : undefined,
+          success: false,
+          mfaRequired: true,
+          mfaToken: result.mfaToken,
+          user: result.user
+            ? {
+                id: result.user.id,
+                email: result.user.email || "",
+                name: result.user.name || "",
+                role: result.user.role || "user",
+              }
+            : undefined,
         };
       }
 
-      throw new Error(result.message || 'Login falhou');
+      if (result.success && result.accessToken) {
+        await persistSession(result);
+        console.log("[useAuthAPI] Cache tRPC invalidado após login");
+
+        return {
+          success: true,
+          mfaSetupRequired: Boolean(
+            "mfaSetupRequired" in result && result.mfaSetupRequired,
+          ),
+          user: result.user
+            ? {
+                id: result.user.id,
+                email: result.user.email || "",
+                name: result.user.name || "",
+                role: result.user.role || "user",
+              }
+            : undefined,
+        };
+      }
+
+      throw new Error(result.message || "Login falhou");
     } catch (err: any) {
       const authError: AuthError = {
-        code: err?.data?.code || err?.code || 'UNKNOWN_ERROR',
-        message: err?.message || 'Erro ao fazer login',
+        code: err?.data?.code || err?.code || "UNKNOWN_ERROR",
+        message: err?.message || "Erro ao fazer login",
       };
 
       setError(authError);
@@ -120,6 +159,44 @@ export function useAuthAPI() {
         success: false,
         error: authError,
       };
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /**
+   * WP-08 — completar login com TOTP ou código de recuperação
+   */
+  const verifyMfa = async (input: {
+    mfaToken: string;
+    code: string;
+  }): Promise<LoginResult> => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const result = await verifyMfaMutation.mutateAsync(input);
+      if (result.success && result.accessToken) {
+        await persistSession(result);
+        return {
+          success: true,
+          user: result.user
+            ? {
+                id: result.user.id,
+                email: result.user.email || "",
+                name: result.user.name || "",
+                role: result.user.role || "user",
+              }
+            : undefined,
+        };
+      }
+      throw new Error(result.message || "Verificação MFA falhou");
+    } catch (err: any) {
+      const authError: AuthError = {
+        code: err?.data?.code || err?.code || "UNKNOWN_ERROR",
+        message: err?.message || "Código MFA inválido",
+      };
+      setError(authError);
+      return { success: false, error: authError };
     } finally {
       setIsLoading(false);
     }
@@ -295,6 +372,7 @@ export function useAuthAPI() {
         organizations: [],
         activeOrganizationId: null,
         activeRole: null,
+        mfa: null,
       });
     }
     setIsLoading(false);
@@ -310,6 +388,7 @@ export function useAuthAPI() {
 
   return {
     login,
+    verifyMfa,
     signup,
     logout,
     isLoading,
