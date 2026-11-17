@@ -44,9 +44,15 @@ jobs:
       - name: Typecheck
         run: npm run check
 
+      # Same entrypoint Railway Dockerfile uses (`npm run build` → esbuild API bundle).
+      # Catches missing COPY paths (e.g. constants/) that typecheck alone does not.
+      - name: Build API (Railway)
+        run: npm run build
+        env:
+          NODE_ENV: production
+
       - name: Apply schema (MySQL)
         run: npm run db:schema:prepare
-
       - name: Verify schema (migrations obrigatórias)
         run: npm run db:schema:verify
 
