@@ -1,7 +1,9 @@
 # API routing — who serves what
 
 **Owner:** Ivan (AFU Agro)  
-**Verified:** 2026-11-16
+**Verified:** 2026-11-16  
+
+**Deploy runbook (Hostinger site):** [SITE_AFUAGRO_DEPLOY.md](./SITE_AFUAGRO_DEPLOY.md)
 
 ## Canonical hosts
 
@@ -75,6 +77,7 @@ Until then, leave builds on `https://afu-mobile-v2-production.up.railway.app`.
 
 ## Related
 
+- [SITE_AFUAGRO_DEPLOY.md](./SITE_AFUAGRO_DEPLOY.md) — Hostinger build/env/`API_UPSTREAM_URL`  
 - [STAGING.md](./STAGING.md)  
 - [RAILWAY_STORAGE_EVENTOS.md](./RAILWAY_STORAGE_EVENTOS.md)  
 - `constants/api-hosts.ts`  

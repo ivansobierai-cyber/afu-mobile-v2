@@ -277,6 +277,7 @@ function ProtectedStack() {
       <Stack.Screen name="legal" />
       <Stack.Screen name="privacidade" />
       <Stack.Screen name="termos" />
+      <Stack.Screen name="login" />
     </Stack>
   );
 }

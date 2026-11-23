@@ -15,7 +15,7 @@
  * Futuro domínio custom da API: https://api.afuagro.tech (DNS → Railway).
  */
 import { execSync } from "node:child_process";
-import { cpSync, rmSync } from "node:fs";
+import { cpSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -68,4 +68,19 @@ execSync("npx expo export --platform web --output-dir web-export", {
 const publicDir = join(root, "dist", "public");
 rmSync(publicDir, { recursive: true, force: true });
 cpSync(webOut, publicDir, { recursive: true });
-console.log("[build-hostinger] dist/index.js e dist/public prontos");
+
+// Apache SPA fallback if document root is served as static (Node Express also
+// falls back to index.html). Do not rewrite real files or /api.
+const htaccess = `# AFU Agro — SPA fallback (Expo Router web)
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  RewriteRule ^index\\.html$ - [L]
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteCond %{REQUEST_URI} !^/api/
+  RewriteRule . /index.html [L]
+</IfModule>
+`;
+writeFileSync(join(publicDir, ".htaccess"), htaccess);
+console.log("[build-hostinger] dist/index.js e dist/public (+ .htaccess) prontos");

@@ -1,5 +1,7 @@
 # Owner checklist — DB / login / e-mail (produção)
 
+**Deploy canônico do site:** [SITE_AFUAGRO_DEPLOY.md](./SITE_AFUAGRO_DEPLOY.md) (Hostinger SPA + Railway API; `API_UPSTREAM_URL` opcional).
+
 Evidência da auditoria (2026-11-16):
 
 | Host | `/api/health` | Login demo | Signup | Forgot password |
@@ -32,19 +34,23 @@ Depois: redeploy / restart do app Node → `GET https://afuagro.tech/api/health`
 
 Se o DB for novo: aplicar schema (`db:push` / migrate) e `npm run seed` (contas demo).
 
-### Opção B — Web Hostinger → API Railway (mais rápido)
+### Opção B — Web Hostinger → API Railway (recomendado / padrão)
+
+Ver procedimento completo em [SITE_AFUAGRO_DEPLOY.md](./SITE_AFUAGRO_DEPLOY.md).
 
 No build Hostinger:
 
 ```bash
-HOSTINGER_SITE_URL=https://afuagro.tech \
 HOSTINGER_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app \
+EXPO_PUBLIC_SHOW_DEMO_LOGIN=0 \
 npm run build:hostinger
 ```
 
-Ou defina `EXPO_PUBLIC_API_BASE_URL=https://afu-mobile-v2-production.up.railway.app` no ambiente de build.
+(`HOSTINGER_SITE_URL` é ignorado para API base — ver `scripts/build-hostinger.mjs`.)
 
-CORS na API Railway já reflete `Origin`. Confirme login demo no browser após o deploy.
+Opcional no painel Node Hostinger: `API_UPSTREAM_URL=https://afu-mobile-v2-production.up.railway.app` para proxy de `/api` → Railway.
+
+CORS na API Railway allowlist `afuagro.tech`. Confirme login demo no browser após o deploy.
 
 ### Opção C — Devolver DNS ao Vercel
 
