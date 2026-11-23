@@ -1,0 +1,76 @@
+name: AGI Mobile APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/agi-mobile/**"
+      - ".github/workflows/agi-mobile-apk.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "apps/agi-mobile/**"
+      - ".github/workflows/agi-mobile-apk.yml"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/agi-mobile
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      - name: Install Android SDK packages
+        run: |
+          set -euo pipefail
+          export PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/cmdline-tools/20.0/bin:$ANDROID_HOME/platform-tools:$PATH"
+          SDKMANAGER="$(command -v sdkmanager || true)"
+          if [ -z "$SDKMANAGER" ]; then
+            for candidate in \
+              "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" \
+              "$ANDROID_HOME/cmdline-tools/20.0/bin/sdkmanager" \
+              "$ANDROID_HOME/cmdline-tools/"*/bin/sdkmanager; do
+              if [ -x "$candidate" ]; then
+                SDKMANAGER="$candidate"
+                break
+              fi
+            done
+          fi
+          if [ -z "${SDKMANAGER:-}" ] || [ ! -x "$SDKMANAGER" ]; then
+            echo "sdkmanager not found under $ANDROID_HOME" >&2
+            ls -la "$ANDROID_HOME/cmdline-tools" || true
+            exit 1
+          fi
+          echo "Using sdkmanager: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses >/tmp/android-sdk-licenses.log 2>&1 || true
+          tail -n 20 /tmp/android-sdk-licenses.log || true
+          "$SDKMANAGER" "platforms;android-36" "build-tools;36.0.0" "platform-tools"
+
+      - name: Prepare local.properties and debug keystore
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          # Sideload signing for CI when KEYSTORE_PATH is unset (never commit this keystore)
+          keytool -genkeypair -keystore debug.keystore -alias androiddebugkey \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass android -keypass android \
+            -dname "CN=AFU AGI CI,O=AFU Agro,C=BR"
+
+      - name: Assemble release APK
+        run: ./gradlew :app:assembleRelease --stacktrace
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: agi-mobile-apk
+          path: apps/agi-mobile/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error

@@ -71,11 +71,4 @@ jobs:
       - name: Unit tests
         run: ./gradlew :app:testDebugUnitTest --stacktrace
 
-      - name: Assemble debug APK
-        run: ./gradlew :app:assembleDebug --stacktrace
-
-      - name: Upload debug APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: afu-agi-debug-apk
-          path: apps/agi-mobile/app/build/outputs/apk/debug/app-debug.apk
+      # Release/sideload APK is built by .github/workflows/agi-mobile-apk.yml
