@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import tech.afuagro.agi.BuildConfig
 import tech.afuagro.agi.core.model.IntelligenceMode
 import tech.afuagro.agi.core.model.RoutingStrategy
 import tech.afuagro.agi.core.model.SyncConflictStrategy
@@ -134,7 +135,9 @@ class AgiPreferencesRepository(
             plantAnalyzePath = prefs[Keys.PLANT_ANALYZE_PATH] ?: "/api/plant_healthy/analyze_image",
             plantTelemetryPath = prefs[Keys.PLANT_TELEMETRY_PATH] ?: "/api/plant_healthy/telemetry",
             plantAlertsPath = prefs[Keys.PLANT_ALERTS_PATH] ?: "/api/plant_healthy/alerts",
-            afuApiBaseUrl = prefs[Keys.AFU_API_BASE_URL] ?: "",
+            afuApiBaseUrl = prefs[Keys.AFU_API_BASE_URL]
+                ?.takeIf { it.isNotBlank() }
+                ?: BuildConfig.AFU_API_BASE_URL.orEmpty(),
             afuLoggedIn = !prefs[Keys.AFU_ENCRYPTED_ACCESS].isNullOrBlank(),
             afuUserEmail = prefs[Keys.AFU_USER_EMAIL] ?: "",
             afuUserName = prefs[Keys.AFU_USER_NAME] ?: "",

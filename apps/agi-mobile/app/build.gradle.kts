@@ -50,8 +50,11 @@ android {
       isCrunchPngs = false
       isMinifyEnabled = false
       proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-      if (System.getenv("KEYSTORE_PATH") != null) {
-        signingConfig = signingConfigs.getByName("release")
+      // Sideload-ready: use owner keystore when KEYSTORE_PATH is set; otherwise debug key.
+      signingConfig = if (!System.getenv("KEYSTORE_PATH").isNullOrBlank()) {
+        signingConfigs.getByName("release")
+      } else {
+        signingConfigs.getByName("debugConfig")
       }
     }
     debug {
