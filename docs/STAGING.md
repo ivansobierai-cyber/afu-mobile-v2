@@ -4,9 +4,10 @@ Checklist de merge + smoke da expansão 31–46: **[MERGE_STAGING_CHECKLIST.md](
 
 ## Status atual
 
-Roteamento completo (Hostinger vs Railway vs `api.afuagro.tech`): **[API_ROUTING.md](./API_ROUTING.md)**.
+Roteamento completo (Hostinger vs Railway vs `api.afuagro.tech`): **[API_ROUTING.md](./API_ROUTING.md)**.  
+Deploy do site em produção: **[SITE_AFUAGRO_DEPLOY.md](./SITE_AFUAGRO_DEPLOY.md)**.
 
-- **Web:** https://afuagro.tech — build `npm run build:web:preview` (API default **Railway**; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex. Política: https://afuagro.tech/privacidade. DNS atual pode ainda servir Hostinger — nesse caso use `HOSTINGER_API_BASE_URL` → Railway ou configure `DATABASE_URL` no painel.
+- **Web:** https://afuagro.tech — Hostinger Node `build:hostinger` (API default **Railway**; login só e-mail/senha, sem botões demo). `www` e `app` redirecionam para o apex. Política: https://afuagro.tech/privacidade. Preferir `API_UPSTREAM_URL` → Railway no painel Hostinger em vez de MySQL local quebrado.
 - **APK staging / EAS production:** profiles `preview` e `production` → `https://afu-mobile-v2-production.up.railway.app`
 - **AAB produção (Play):** profile `production` (`buildType: app-bundle`, package `br.com.afuagro.app`) → ver [playstore/README.md](./playstore/README.md)
 - **API canônica:** `GET /api/health` em `https://afu-mobile-v2-production.up.railway.app/api/health` — inclui `database` + `email` + `ready`.

@@ -45,6 +45,7 @@ describe("build-hostinger API base precedence", () => {
     expect(src).toMatch(/api\.afuagro\.tech/);
     expect(src).toMatch(/HOSTINGER_SITE_URL/);
     expect(src).toMatch(/is ignored for API base/);
+    expect(src).toMatch(/\.htaccess/);
   });
 });
 

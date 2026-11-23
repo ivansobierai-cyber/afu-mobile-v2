@@ -39,6 +39,17 @@ export async function probeDatabaseHealth(opts?: {
     return result;
   }
 
+  const formatHint = diagnoseDatabaseUrlFormat(url);
+  if (formatHint) {
+    const result: DatabaseHealth = {
+      configured: true,
+      reachable: false,
+      detail: formatHint,
+    };
+    lastProbe = { at: now, result };
+    return result;
+  }
+
   const timeoutMs = opts?.timeoutMs ?? 2_500;
   let conn: mysql.Connection | null = null;
   let connectPromise: Promise<mysql.Connection> | null = null;
@@ -60,11 +71,14 @@ export async function probeDatabaseHealth(opts?: {
         .then((late) => late.end())
         .catch(() => undefined);
     }
-    const detail = error instanceof Error ? error.message : String(error);
+    const raw = error instanceof Error ? error.message : String(error);
+    const detail = /invalid url/i.test(raw)
+      ? `${raw.slice(0, 80)} — use mysql://USER:PASSWORD@HOST:PORT/DB sem aspas (ver docs/SITE_AFUAGRO_DEPLOY.md)`
+      : raw.slice(0, 180);
     const result: DatabaseHealth = {
       configured: true,
       reachable: false,
-      detail: detail.slice(0, 180),
+      detail,
     };
     lastProbe = { at: now, result };
     return result;
@@ -87,6 +101,34 @@ export async function getAuthDepsHealth(): Promise<AuthDepsHealth> {
     email: { ...emailStatus, provider: "sendgrid" },
     ready: database.reachable,
   };
+}
+
+/**
+ * Catch common Hostinger/panel mistakes before mysql2 throws opaque "Invalid URL".
+ * Format: mysql://USER:PASSWORD@HOST:PORT/DATABASE (no wrapping quotes).
+ */
+export function diagnoseDatabaseUrlFormat(url: string): string | null {
+  if (
+    (url.startsWith('"') && url.endsWith('"')) ||
+    (url.startsWith("'") && url.endsWith("'"))
+  ) {
+    return "DATABASE_URL entre aspas — remova as aspas no painel (formato mysql://USER:PASSWORD@HOST:PORT/DB)";
+  }
+  if (/[\r\n]/.test(url)) {
+    return "DATABASE_URL contém quebra de linha — cole em uma única linha sem aspas";
+  }
+  if (!/^mysql(s)?:\/\//i.test(url)) {
+    return "DATABASE_URL deve começar com mysql:// ou mysqls:// (sem aspas)";
+  }
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname) {
+      return "DATABASE_URL sem hostname — mysql://USER:PASSWORD@HOST:PORT/DB sem aspas";
+    }
+  } catch {
+    return "DATABASE_URL malformada (Invalid URL) — mysql://USER:PASSWORD@HOST:PORT/DB sem aspas";
+  }
+  return null;
 }
 
 /** Exposto para testes. */
